@@ -1,0 +1,187 @@
+/* ================== */
+/* Resetting           */
+/* ================== */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Arial', sans-serif;
+  background-color: #00061b;
+  color: #ffffff;
+  scroll-behavior: smooth;
+  overflow-x: hidden;
+}
+
+/* ================== */
+/* NavBar Styles       */
+/* ================== */
+.navbar {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 1rem 0;
+  background-color: #00061b;
+  transition: background-color 0.3s ease, box-shadow 0.3s ease;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  width: 100%;
+  box-sizing: border-box;
+  z-index: 1000;
+}
+
+.navbar-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  max-width: 1200px;
+  padding: 0 1rem;
+  margin: 0 auto;
+}
+
+.navbar-logo {
+  margin-left: 1.5rem;
+  margin-right: auto; /* Aggiunto margine destro */
+
+}
+
+.navbar-logo a {
+  text-decoration: none;
+  color: #b4ff00;
+  font-size: 1.8rem;
+  font-weight: bold;
+  transition: color 0.3s ease;
+}
+
+.navbar-logo a:hover {
+  color: #ffffff;
+}
+
+.nav-links {
+  display: flex;
+  gap: 1.5rem;
+  margin-right: 1.5rem; /* Aggiunto margine destro */
+}
+
+.nav-links li {
+  list-style: none;
+}
+
+.nav-links a {
+  text-decoration: none;
+  color: #ffffff;
+  font-size: 1rem;
+  position: relative;
+  transition: color 0.3s ease;
+}
+
+.nav-links a:hover {
+  color: #b4ff00;
+}
+
+.nav-links a::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: -5px;
+  width: 0%;
+  height: 2px;
+  background-color: #794ee6;
+  transition: width 0.3s ease;
+}
+
+.nav-links a:hover::after {
+  width: 100%;
+}
+
+.hamburger {
+  display: none;
+  flex-direction: column;
+  justify-content: space-around;
+  width: 2rem;
+  height: 2rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.hamburger .bar {
+  width: 100%;
+  height: 0.2rem;
+  background-color: #f0f0f0;
+  transition: background-color 0.3s ease;
+}
+
+.hamburger:hover .bar {
+  background-color: #6340bc;
+}
+
+.navbar.sticky {
+  background-color: #20153c;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+@media (max-width: 768px) {
+  .nav-links {
+    display: none;
+    flex-direction: column;
+    gap: 1rem;
+    position: absolute;
+    top: 70px;
+    right: 1rem;
+    left: 1rem;
+    background-color: #090612;
+    width: 100%;
+    padding: 1rem;
+    box-sizing: border-box;
+    width: calc(100% - 2rem); /* Larghezza ridotta */
+  }
+
+  .navbar-container {
+    padding: 0 1.5rem; /* Padding ridotto per mobile */
+  }
+
+  .nav-links.open {
+    display: flex;
+  }
+
+  .hamburger {
+    display: flex;
+    margin-right: 1.5rem;
+  }
+
+  .navbar.sticky .nav-links {
+    background-color: #20153c;
+    color: #000;
+  }
+}
+
+.App {
+  padding: 1.5rem;
+  max-width: 1000px;
+  margin: 2rem auto 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+@media (max-width: 768px) {
+  .App {
+    padding: 1rem;
+  }
+
+  .controls-top {
+    padding: 1rem;
+    gap: 1rem;
+  }
+
+  .toolbar button {
+    min-width: 60px;
+    padding: 0.4rem;
+  }
+}
