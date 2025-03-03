@@ -1,0 +1,88 @@
+/* Contenitore principale per le informazioni della Squadra 1 */
+.logo-section {
+    margin-bottom: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+  }
+  
+  /* Stile per le etichette all'interno della Squadra 1 */
+  .logo-section label {
+    font-size: 1.1rem;
+    font-weight: bold;
+    color: #b4ff00;
+  }
+  
+  /* Stile per i gruppi di input (es. risultato o marcatori) */
+  .result-group {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  /* Etichette dei gruppi di input */
+  .result-group label {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #b4ff00;
+    margin-bottom: 0.5rem;
+    text-align: center;
+  }
+  
+  /* Input numerici (ad esempio, per inserire il risultato) */
+  .result-group input[type="number"] {
+    width: 60px;
+    background-color: #1e1e2d;
+    color: #b4ff00;
+    border: 2px solid #b4ff00;
+    border-radius: 8px;
+    padding: 0.5rem;
+    font-size: 1rem;
+    text-align: center;
+  }
+
+  .text-marcatori{
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    text-align: left;
+    text-align: center;
+    margin-top: 1rem;
+  }
+
+  .scorer-section {
+    align-items: center;
+    gap: 0.2rem;
+  }
+  
+  .logo-text {
+    display: block;
+    font-size: 1.17em;
+    margin-block-start: 1em;
+    margin-block-end: 1em;
+    margin-inline-start: 0px;
+    margin-inline-end: 0px;
+    font-weight: bold;
+    unicode-bidi: isolate;
+    margin-top: 1.5rem;
+  }
+
+
+  .upload-logo{
+    padding: 5px 10px;
+    border: 1px solid #b4ff00;
+    border-radius: 25px;
+    background-color: #1e1e2d;
+    color: #b4ff00;
+    height: 40px;
+  }
+
+  @media (max-width: 768px) {
+    .scorer-section {
+      display: flex;
+      justify-content: center; /* Centra orizzontalmente */
+      align-items: center;    /* Centra verticalmente (opzionale) */
+      flex-direction: column;  /* Disporre gli elementi in colonna */
+    }
+  }

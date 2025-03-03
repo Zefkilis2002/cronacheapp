@@ -1,38 +1,21 @@
+html, body {
+    min-height: 100vh;
+    height: auto;
+    overflow-x: hidden;
+}
+
+
 .App {
-  text-align: center;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    padding-bottom: 200px; /* Spazio extra per la toolbar */
 }
 
-.App-logo {
-  height: 40vmin;
-  pointer-events: none;
+
+
+.main-content {
+    flex-grow: 1;
+    padding-bottom: 200px; /* Assicurati che questo spazio sia maggiore o uguale all'altezza della toolbar */
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  .App-logo {
-    animation: App-logo-spin infinite 20s linear;
-  }
-}
-
-.App-header {
-  background-color: #282c34;
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  font-size: calc(10px + 2vmin);
-  color: white;
-}
-
-.App-link {
-  color: #61dafb;
-}
-
-@keyframes App-logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
