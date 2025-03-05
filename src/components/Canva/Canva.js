@@ -35,6 +35,15 @@ const Canva = ({
   const [logo1] = useImage(uploadedLogo1 ? uploadedLogo1 : `${window.location.origin}${selectedLogo1}`);
   const [logo2] = useImage(uploadedLogo2 ? uploadedLogo2 : `${window.location.origin}${selectedLogo2}`);
 
+  const proxyUrl = instagramImage && instagramImage !== 'null' 
+    ? `http://localhost:5000/proxy-image?url=${encodeURIComponent(instagramImage)}` 
+    : null;
+  const [instaImg, status] = useImage(proxyUrl, 'anonymous');
+
+
+
+  
+
 
   // Funzione helper per calcolare le dimensioni scalate di un'immagine
   const getScaledDimensions = (image, maxWidth, maxHeight) => {
@@ -84,18 +93,18 @@ const Canva = ({
               onTransformEnd={handleTransform}
             />
           )}
-          {instagramImage && (
-            <KonvaImage
-              image={instagramImage}
-              x={imagePosition.x}
-              y={imagePosition.y}
-              scaleX={imageScale.scaleX}
-              scaleY={imageScale.scaleY}
-              draggable
-              onDragEnd={handleDragEnd}
-              onTransformEnd={handleTransform}
-            />
-          )}
+         {proxyUrl && status === 'loaded' && instaImg && (
+          <KonvaImage
+            image={instaImg}
+            x={imagePosition.x}
+            y={imagePosition.y}
+            scaleX={imageScale.scaleX}
+            scaleY={imageScale.scaleY}
+            draggable
+            onDragEnd={handleDragEnd}
+            onTransformEnd={handleTransform}
+          />
+        )}
         </Layer>
         {/* Secondo layer: background, loghi e testi */}
         <Layer>

@@ -4,8 +4,6 @@ import TabellinoControls from '../components/TabellinoControls/TabellinoControls
 import SetTeamOne from '../components/SetTeam/SetTeamOne';
 import SetTeamTwo from '../components/SetTeam/SeatTeamTwo';  
 import Toolbar from '../components/ToolBar/ToolBar';
-import FullTimePostGenerator from '../components/FullTimePostGenerator/FullTimePostGenerator';
-import MatchSelector from '../components/MatchSelector/MatchSelector';
 import Canva from '../components/Canva/Canva';
 import './FullTimeEditor.css';
 
@@ -15,6 +13,7 @@ const FullTimeEditor = () => {
   const [selectedTabellino, setSelectedTabellino] = useState('superleague.png');
   const [userImage, setUserImage] = useState(null);
   const [instagramImage, setInstagramImage] = useState(null);
+  const [instagramLink, setInstagramLink] = useState('');
   const [score1, setScore1] = useState(0);
   const [score2, setScore2] = useState(0);
   const [scorersTeam1, setScorersTeam1] = useState(Array(5).fill(''));
@@ -37,8 +36,7 @@ const FullTimeEditor = () => {
   const [imagePosition, setImagePosition] = useState({ x: 100, y: 100 });
   const [imageScale, setImageScale] = useState({ scaleX: 1, scaleY: 1 });
 
-  const [selectedMatch, setSelectedMatch] = useState(null);
-
+  
 
   // Funzioni condivise
   const handleDragEnd = (e) => {
@@ -119,6 +117,8 @@ const FullTimeEditor = () => {
         selectedTabellino={selectedTabellino}
         setSelectedTabellino={setSelectedTabellino}
         setUserImage={setUserImage}
+        instagramLink={instagramLink}
+        setInstagramLink={setInstagramLink}
         setInstagramImage={setInstagramImage}
         score1={score1}
         setScore1={setScore1}
@@ -127,9 +127,7 @@ const FullTimeEditor = () => {
         downloadImage={downloadImage}
         stageRef={stageRef}
       />
-      <MatchSelector onMatchSelect={setSelectedMatch} />
-      {selectedMatch && <FullTimePostGenerator matchId={selectedMatch} />}      
-      
+
       <SetTeamOne
         selectedLogo1={selectedLogo1}
         setSelectedLogo1={setSelectedLogo1}
