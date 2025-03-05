@@ -3,7 +3,6 @@ import React from 'react';
 import axios from 'axios';
 import './TabellinoControls.css';
 
-const apiKey = '0492423a86msh6a8d77856db490ep134881jsn7586b721b29f';
 
 function TabellinoControls({ 
   stageRef, // Riferimento allo stage (canvas) per il download dell'immagine
@@ -11,6 +10,7 @@ function TabellinoControls({
   setSelectedTabellino, // Funzione per impostare il tabellino selezionato
   instagramLink, // Link Instagram
   setInstagramLink, // Funzione per impostare il link Instagram
+  setInstagramImage, // Funzione per impostare l'immagine da Instagram
   score1, // Risultato Squadra 1
   setScore1, // Funzione per impostare il risultato Squadra 1
   score2, // Risultato Squadra 2
@@ -27,47 +27,7 @@ function TabellinoControls({
     reader.readAsDataURL(file);
   };
 
-  // Funzione per estrarre il codice del post da un URL di Instagram
-  const extractPostCode = (url) => {
-    const match = url.match(/\/p\/([a-zA-Z0-9_-]+)/);
-    return match ? match[1] : null;
-  };
-
-  // Funzione per caricare l'immagine da Instagram
-  const fetchInstagramImage = async () => {
-    try {
-      const postCode = extractPostCode(instagramLink);
-      if (!postCode) {
-        return alert('Per favore inserisci un link Instagram valido.');
-      }
-
-      const url = `https://instagram-scraper-api3.p.rapidapi.com/media_info?code_or_id_or_url=${postCode}`;
-      const response = await axios.get(url, {
-        headers: {
-          'X-RapidAPI-Key': apiKey,
-          'X-RapidAPI-Host': 'instagram-scraper-api3.p.rapidapi.com',
-        },
-      });
-
-      if (
-        response.data &&
-        response.data.data &&
-        response.data.data.items[0].image_versions2
-      ) {
-        const imageUrl = response.data.data.items[0].image_versions2.candidates[0].url;
-        console.log('Fetched image URL:', imageUrl);
-        setUserImage(imageUrl);
-      } else {
-        alert('Il post è privato, non valido o non accessibile.');
-      }
-    } catch (error) {
-      if (error.response && error.response.status === 404) {
-        alert('Il post non è stato trovato o il link è invalido.');
-      } else {
-        alert(`Errore durante il fetch: ${error.message}`);
-      }
-    }
-  };
+  
 
   // Funzione per il download dell'immagine dal canvas (usando lo stageRef passato)
   const downloadImage = () => {
@@ -83,6 +43,73 @@ function TabellinoControls({
     link.click();
     document.body.removeChild(link);
   };
+
+
+  // Se l'utente inserisce un link completo o solo il codice, restituisce l'URL completo
+  const getInstagramUrl = (instaLink) => {
+    if (!instaLink) return null;
+    
+    try {
+      // Se il link contiene "/p/", assumiamo che sia un URL completo.
+      if (instaLink.includes('/p/')) {
+        // Se manca il protocollo, lo aggiungiamo.
+        if (!instaLink.startsWith('http')) {
+          return 'https://' + instaLink;
+        }
+        return instaLink;
+      } else {
+        // Se l'utente incolla solo il codice, costruiamo l'URL
+        const directCode = instaLink.trim();
+        if (directCode.length >= 6 && !directCode.includes('/')) {
+          return `https://www.instagram.com/p/${directCode}/`;
+        }
+      }
+      return null;
+    } catch (error) {
+      console.error("Errore nell'analisi dell'URL Instagram:", error);
+      return null;
+    }
+  };
+  
+  const fetchInstagramPost = async () => {
+    try {
+      const instagramUrl = getInstagramUrl(instagramLink);
+      console.log("Instagram URL:", instagramUrl);
+  
+      if (!instagramUrl) {
+        alert("Link Instagram non valido.\nFormati accettati:\n- URL completo (es: https://www.instagram.com/p/ABC123)\n- Solo codice (es: ABC123)");
+        return;
+      }
+  
+      const options = {
+        method: 'GET',
+        url: 'https://instagram-post-reels-stories-downloader-api.p.rapidapi.com/instagram/',
+        params: { url: instagramUrl },
+        headers: {
+          'x-rapidapi-key': '0492423a86msh6a8d77856db490ep134881jsn7586b721b29f',
+          'x-rapidapi-host': 'instagram-post-reels-stories-downloader-api.p.rapidapi.com'
+        }
+      };
+  
+      const response = await axios.request(options);
+      
+      if (!response.data?.result?.[0]?.url) {
+        throw new Error("URL dell'immagine non trovato nella risposta");
+      }
+  
+      const imageUrl = response.data.result[0].url;
+      console.log("URL immagine trovato:", imageUrl);
+  
+      // Salva direttamente l'URL invece di convertirlo in base64
+      setInstagramImage(imageUrl);
+  
+    } catch (error) {
+      console.error("Errore:", error);
+      alert(`Errore nel caricamento: ${error.message}`);
+      setInstagramImage(null);
+    }
+  };
+  
 
   // Renderizzazione del componente
   return (
@@ -114,9 +141,9 @@ function TabellinoControls({
 
       {/* 3) Pulsanti per caricare immagine da Instagram o da dispositivo */}
       <div className="upload-button">
-        <button className="instagramButton" onClick={fetchInstagramImage}>
-          Load Instagram Image
-        </button>
+      <button className="instagramButton" onClick={fetchInstagramPost}>
+        Load Instagram Post
+      </button>
         
         <button 
           className="customFileUpload" 

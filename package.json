@@ -8,10 +8,7 @@
     "@testing-library/react": "^16.2.0",
     "@testing-library/user-event": "^13.5.0",
     "axios": "^1.8.1",
-    "concurrently": "^9.1.2",
     "cors": "^2.8.5",
-    "dotenv": "^16.4.7",
-    "express": "^4.21.2",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-konva": "^19.0.2",
@@ -23,7 +20,7 @@
   "scripts": {
     "start": "concurrently \"npm run server\" \"npm run client\"",
     "server": "node server.js",
-    "client": "cross-env PORT=3001 react-scripts start"
+    "client": "react-scripts start"
   },
   "eslintConfig": {
     "extends": [
@@ -44,6 +41,7 @@
     ]
   },
   "devDependencies": {
+    "concurrently": "^9.1.2",
     "cross-env": "^7.0.3"
   }
 }

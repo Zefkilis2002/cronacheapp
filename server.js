@@ -1,97 +1,29 @@
-import express from "express";
-import cors from "cors";
-import { 
-  getGreekSuperLeagueMatches, 
-  getGreekSuperLeagueFutureMatches,
-  getMatchDetails,
-  getGreekSuperLeagueTeams,
-  getTeamLastEvents
-} from "./src/api/apiService.js";
-
+const express = require('express');
+const axios = require('axios');
+const cors = require('cors');
 const app = express();
-const PORT = process.env.PORT || 5000;
 
-app.use(cors());
-app.use(express.json());
+// Configura CORS per consentire richieste da 'http://localhost:3000'
+app.use(cors({
+  origin: 'http://localhost:3000', // Specifica il tuo frontend
+  methods: ['GET', 'POST'], // Metodi consentiti
+  allowedHeaders: ['Content-Type'], // Headers consentiti
+}));
 
-// Endpoint per ottenere partite recenti della Super League Greca
-app.get("/api/matches", async (req, res) => {
+app.get('/proxy-image', async (req, res) => {
   try {
-    console.log("Richiesta partite recenti Super League");
-    const matches = await getGreekSuperLeagueMatches();
-    
-    if (!matches || matches.length === 0) {
-      console.log("Nessuna partita recente trovata, provando con partite future...");
-      const futureMatches = await getGreekSuperLeagueFutureMatches();
-      
-      if (!futureMatches || futureMatches.length === 0) {
-        console.log("Nessuna partita futura trovata, provando ad ottenere le squadre...");
-        
-        // Se non ci sono partite recenti o future, prova a ottenere le squadre
-        // e poi le partite recenti della prima squadra trovata
-        const teams = await getGreekSuperLeagueTeams();
-        
-        if (teams && teams.length > 0) {
-          console.log(`Trovate ${teams.length} squadre, ottenendo gli eventi per la prima squadra...`);
-          const teamEvents = await getTeamLastEvents(teams[0].idTeam);
-          res.json(teamEvents);
-        } else {
-          console.log("Nessuna squadra o partita trovata");
-          res.json([]);
-        }
-      } else {
-        res.json(futureMatches);
-      }
-    } else {
-      res.json(matches);
+    const imageUrl = req.query.url;
+    console.log('Tentativo di scaricare immagine da:', imageUrl); // Log per debug
+    if (!imageUrl || imageUrl === 'null') {
+      return res.status(400).send('URL dell\'immagine non valido');
     }
+    const response = await axios.get(imageUrl, { responseType: 'stream' });
+    res.set('Content-Type', response.headers['content-type']);
+    response.data.pipe(res);
   } catch (error) {
-    console.error("Errore nel recupero delle partite:", error);
-    res.status(500).json({ 
-      error: "Errore nel recupero delle partite", 
-      details: error.message
-    });
+    console.error('Errore nel proxy:', error.message);
+    res.status(500).send('Errore nel caricamento dell\'immagine');
   }
 });
 
-// Endpoint per ottenere i dettagli di una partita specifica
-app.get("/api/match/:id", async (req, res) => {
-  try {
-    const matchDetails = await getMatchDetails(req.params.id);
-    
-    if (!matchDetails) {
-      return res.status(404).json({ error: "Dettagli partita non trovati" });
-    }
-    
-    res.json(matchDetails);
-  } catch (error) {
-    console.error("Errore nel recupero dei dettagli della partita:", error);
-    res.status(500).json({ error: "Errore nel recupero dei dettagli della partita" });
-  }
-});
-
-// Endpoint per ottenere tutte le squadre della Super League Greca
-app.get("/api/teams", async (req, res) => {
-  try {
-    const teams = await getGreekSuperLeagueTeams();
-    res.json(teams);
-  } catch (error) {
-    console.error("Errore nel recupero delle squadre:", error);
-    res.status(500).json({ error: "Errore nel recupero delle squadre" });
-  }
-});
-
-// Endpoint per ottenere gli ultimi eventi di una squadra specifica
-app.get("/api/team/:id/events", async (req, res) => {
-  try {
-    const events = await getTeamLastEvents(req.params.id);
-    res.json(events);
-  } catch (error) {
-    console.error(`Errore nel recupero degli eventi della squadra ${req.params.id}:`, error);
-    res.status(500).json({ error: `Errore nel recupero degli eventi della squadra ${req.params.id}` });
-  }
-});
-
-app.listen(PORT, () => {
-  console.log(`Server in esecuzione su http://localhost:${PORT}`);
-});
+app.listen(5000, () => console.log('Server in ascolto sulla porta 5000'));
