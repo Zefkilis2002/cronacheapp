@@ -25,13 +25,13 @@ const NavBar = () => {
   return (
     <nav className={`navbar ${sticky ? 'sticky' : ''}`}>
       <div className="navbar-logo">
-        <a href="#home">CronacheApp</a>
+        <Link to="/">CronacheApp</Link>
       </div>
       <ul className={`nav-links ${isOpen ? 'open' : ''}`}>
         <li><Link to="/" onClick={() => setIsOpen(false)}>FullTime</Link></li>
         <li><Link to="/news" onClick={() => setIsOpen(false)}>News</Link></li>
-        <li><a href="#services" onClick={() => setIsOpen(false)}>Coming Soon</a></li>
-        <li><a href="#contact" onClick={() => setIsOpen(false)}>About Us</a></li>
+        <li><Link to="/coming-soon" onClick={() => setIsOpen(false)}>Coming Soon</Link></li>
+        <li><Link to="/about" onClick={() => setIsOpen(false)}>About Us</Link></li>
       </ul>
       <button className="hamburger" aria-label="Toggle menu" onClick={toggleMenu}>
         <span className="bar"></span>

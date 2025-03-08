@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import TabellinoControls from '../components/TabellinoControls/TabellinoControls';
 import SetTeamOne from '../components/SetTeam/SetTeamOne';
-import SetTeamTwo from '../components/SetTeam/SeatTeamTwo';  
+import SetTeamTwo from '../components/SetTeam/SetTeamTwo';  
 import Toolbar from '../components/ToolBar/ToolBar';
 import Canva from '../components/Canva/Canva';
 import './FullTimeEditor.css';
@@ -35,7 +35,7 @@ const FullTimeEditor = () => {
   // Stato e funzioni per gestire l'immagine principale (da file o Instagram)
   const [imagePosition, setImagePosition] = useState({ x: 100, y: 100 });
   const [imageScale, setImageScale] = useState({ scaleX: 1, scaleY: 1 });
-
+  
   
 
   // Funzioni condivise
