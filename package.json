@@ -8,7 +8,9 @@
     "@testing-library/react": "^16.2.0",
     "@testing-library/user-event": "^13.5.0",
     "axios": "^1.8.1",
+    "cheerio": "^1.0.0",
     "cors": "^2.8.5",
+    "express": "^4.21.2",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-konva": "^19.0.2",
@@ -18,10 +20,11 @@
     "web-vitals": "^2.1.4"
   },
   "scripts": {
-    "start": "concurrently \"npm run server\" \"npm run client\"",
-    "server": "node server.js",
-    "client": "react-scripts start"
-  },
+  "server": "node instagram-proxy.js",
+  "client": "react-scripts start",
+  "start": "concurrently \"npm run server\" \"npm:client\"",
+  "dev": "concurrently \"npm run server\" \"npm:client\" --kill-others-on-fail"
+},
   "eslintConfig": {
     "extends": [
       "react-app",

@@ -47,31 +47,66 @@ function TabellinoControls({
 
   // Se l'utente inserisce un link completo o solo il codice, restituisce l'URL completo
   const getInstagramUrl = (instaLink) => {
-    if (!instaLink) return null;
-    
-    try {
-      // Se il link contiene "/p/", assumiamo che sia un URL completo.
-      if (instaLink.includes('/p/')) {
-        // Se manca il protocollo, lo aggiungiamo.
-        if (!instaLink.startsWith('http')) {
-          return 'https://' + instaLink;
-        }
-        return instaLink;
-      } else {
-        // Se l'utente incolla solo il codice, costruiamo l'URL
-        const directCode = instaLink.trim();
-        if (directCode.length >= 6 && !directCode.includes('/')) {
-          return `https://www.instagram.com/p/${directCode}/`;
-        }
-      }
+    if (!instaLink || typeof instaLink !== 'string') {
       return null;
+    }
+  
+    try {
+      const trimmedLink = instaLink.trim();
+      
+      // Estrai solo il codice del post
+      let postCode;
+      if (trimmedLink.includes('/p/')) {
+        const match = trimmedLink.match(/\/p\/([^\/]+)/);
+        postCode = match ? match[1] : null;
+      } else if (!trimmedLink.includes('/')) {
+        postCode = trimmedLink;
+      }
+      
+      if (!postCode) {
+        console.log("Nessun codice post valido trovato");
+        return null;
+      }
+      
+      // Prova diverse varianti di URL
+      const urlVariants = [
+        `https://www.instagram.com/p/${postCode}`,
+        `https://www.instagram.com/p/${postCode}/`,
+        `https://instagram.com/p/${postCode}/`,
+        `https://instagram.com/p/${postCode}`
+      ];
+      
+      console.log("Varianti URL da provare:", urlVariants);
+      return urlVariants[0]; // Inizia con la prima variante
     } catch (error) {
       console.error("Errore nell'analisi dell'URL Instagram:", error);
       return null;
     }
   };
   
+
+  const checkServerConnection = async () => {
+    try {
+      // Imposta un timeout di 5 secondi
+      const response = await axios.get('http://localhost:5000/api/health-check', {
+        timeout: 5000
+      });
+      console.log("Risposta health-check:", response.data);
+      return true;
+    } catch (error) {
+      console.error("Errore di connessione al server:", error.message);
+      alert("Impossibile connettersi al server proxy. Verifica che il server sia attivo e in ascolto sulla porta 5000.");
+      return false;
+    }
+  };
+
+
   const fetchInstagramPost = async () => {
+
+    if (!(await checkServerConnection())) {
+      return;
+    }
+
     try {
       const instagramUrl = getInstagramUrl(instagramLink);
       console.log("Instagram URL:", instagramUrl);
@@ -81,30 +116,28 @@ function TabellinoControls({
         return;
       }
   
-      const options = {
-        method: 'GET',
-        url: 'https://instagram-post-reels-stories-downloader-api.p.rapidapi.com/instagram/',
-        params: { url: instagramUrl },
-        headers: {
-          'x-rapidapi-key': '0492423a86msh6a8d77856db490ep134881jsn7586b721b29f',
-          'x-rapidapi-host': 'instagram-post-reels-stories-downloader-api.p.rapidapi.com'
-        }
-      };
-  
-      const response = await axios.request(options);
+      // Assicurati che l'URL del server sia completo e corretto
+      const serverUrl = 'http://localhost:5000/api/instagram-image';
+      console.log("Chiamata al server:", serverUrl);
       
-      if (!response.data?.result?.[0]?.url) {
-        throw new Error("URL dell'immagine non trovato nella risposta");
-      }
+      const response = await axios.get('http://localhost:5000/api/instagram-image', {
+        params: { url: instagramUrl }
+      });
+      
+      console.log("Risposta API completa:", JSON.stringify(response.data, null, 2));
   
-      const imageUrl = response.data.result[0].url;
-      console.log("URL immagine trovato:", imageUrl);
-  
-      // Salva direttamente l'URL invece di convertirlo in base64
-      setInstagramImage(imageUrl);
-  
+      // Resto del codice...
     } catch (error) {
-      console.error("Errore:", error);
+      // Log più dettagliato per diagnosticare il problema
+      console.error("Errore dettagliato:", error);
+      if (error.response) {
+        console.error("Dati risposta:", error.response.data);
+        console.error("Status:", error.response.status);
+      } else if (error.request) {
+        console.error("Nessuna risposta ricevuta. Richiesta:", error.request);
+      } else {
+        console.error("Errore di configurazione:", error.message);
+      }
       alert(`Errore nel caricamento: ${error.message}`);
       setInstagramImage(null);
     }
