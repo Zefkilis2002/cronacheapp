@@ -59,23 +59,24 @@ const Canva = ({
   };
 
   // Funzione per scalare il canvas in base alle dimensioni della finestra
-  const scaleCanvas = () => {
-    const stage = stageRef.current;
-    if (stage) {
-      const containerWidth = window.innerWidth * 0.8;
-      const containerHeight = window.innerHeight * 0.8;
-      const scale = Math.min(containerWidth / 1440, containerHeight / 1800);
-      stage.width(1440 * scale);
-      stage.height(1800 * scale);
-      stage.scale({ x: scale, y: scale });
-    }
-  };
-
   useEffect(() => {
+    // Move scaleCanvas function inside useEffect
+    const scaleCanvas = () => {
+      const stage = stageRef.current;
+      if (stage) {
+        const containerWidth = window.innerWidth * 0.8;
+        const containerHeight = window.innerHeight * 0.8;
+        const scale = Math.min(containerWidth / 1440, containerHeight / 1800);
+        stage.width(1440 * scale);
+        stage.height(1800 * scale);
+        stage.scale({ x: scale, y: scale });
+      }
+    };
+
     scaleCanvas();
     window.addEventListener('resize', scaleCanvas);
     return () => window.removeEventListener('resize', scaleCanvas);
-  }, [stageRef]);
+  }, [stageRef]); // Now stageRef is the only dependency
 
   return (
     <div className="canvas-container">

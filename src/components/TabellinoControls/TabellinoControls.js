@@ -61,7 +61,7 @@ function TabellinoControls({
       
       // Caso 2: URL completo o parziale con "/p/"
       if (trimmedLink.includes('/p/')) {
-        const match = trimmedLink.match(/\/p\/([^\/\?]+)/);
+        const match = trimmedLink.match(/\/p\/([^/]+)/);  // Remove unnecessary escapes
         if (match && match[1]) {
           return `https://www.instagram.com/p/${match[1]}/`;
         }

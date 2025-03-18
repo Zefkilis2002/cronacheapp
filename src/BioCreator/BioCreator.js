@@ -1,7 +1,6 @@
 import React, { useState, useRef } from 'react';
 import OpenAI from 'openai';
 import './BioCreator.css';
-import clipIcon from './clip.png';
 import sendIcon from './send.png'; 
 
 const BioCreator = () => {
