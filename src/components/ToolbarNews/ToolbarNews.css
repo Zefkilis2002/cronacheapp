@@ -1,0 +1,78 @@
+/* Contenitore principale: fisso in basso */
+.toolnews {
+    position: fixed;
+    bottom: 0;
+    width: 100%;
+    z-index: 1000;
+    left: 0;
+    right: 0;
+    /* Layout a colonna */
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  
+    padding: 1rem;
+    background-color: #1e1e2d;
+    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.5);
+  }
+  
+  /* Interno della toolbar, anche a colonna */
+  .toolnews-inner {
+    display: flex;
+    flex-direction: column; /* IMPORTANTE: mette le righe una sotto l'altra */
+    gap: 0.6rem;
+  }
+  
+  /* Ogni riga: flessore orizzontale per i pulsanti */
+  .toolnews-row {
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    gap: 0.5rem;
+  }
+  
+  /* Stile per i pulsanti */
+  .toolnews-row button {
+    padding: 0.5rem 1rem;
+    font-size: 0.9rem;
+    min-width: 80px;
+    width: 200px; /* Se non vuoi una larghezza fissa, rimuovi questa proprietà */
+  
+    background-color: #00061b;
+    color: #b4ff00;
+    border: 2px solid #b4ff00;
+    font-weight: bold;
+    border-radius: 25px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.3);
+    text-align: center;
+  }
+  
+  .toolnews-row button:hover {
+    background-color: #b4ff00;
+    color: #00061b;
+    box-shadow: 0px 6px 12px rgba(180, 255, 0, 0.4);
+  }
+  
+  /* Responsive */
+  @media (max-width: 768px) {
+    /* Riduci pulsanti in versione mobile */
+    .toolnews-row button {
+      min-width: 55px;
+      padding: 0.4rem;
+      font-size: 0.75rem;
+      width: auto; /* Evita larghezza fissa */
+    }
+    
+    .toolnews {
+      padding: 0.8rem;
+    }
+    
+    .toolnews-inner {
+      gap: 0.4rem;
+    }
+  }
+  
+
+  

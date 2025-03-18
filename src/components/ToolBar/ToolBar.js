@@ -40,16 +40,16 @@ const Toolbar = ({
         <button onClick={increaseImageSize}>Sfond+</button>
         <button onClick={decreaseImageSize}>Sfond−</button>
         <button onClick={() => {
-          setScore1Y(prev => prev - 10);
-          setScore2Y(prev => prev - 10);
+          setScore1Y(prev => prev - 2);
+          setScore2Y(prev => prev - 2);
         }}>
-          ↑ Punti
+          ↑ Posizione Y
         </button>
         <button onClick={() => {
-          setScore1Y(prev => prev + 10);
-          setScore2Y(prev => prev + 10);
+          setScore1Y(prev => prev + 2);
+          setScore2Y(prev => prev + 2);
         }}>
-          ↓ Punti
+          ↓ Posizione Y
         </button>
       </div>
     </div>

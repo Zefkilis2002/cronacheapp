@@ -7,6 +7,7 @@ import useImage from 'use-image';
 import '../fonts.css';
 import './News.css';
 
+
 function NewsEditor() {
   const stageRef = useRef(null);
   const textContainerRef = useRef(null);
@@ -14,28 +15,29 @@ function NewsEditor() {
   // States for text content
   const [title, setTitle] = useState('');
   const [text, setText] = useState('');
-  const [titleColor, setTitleColor] = useState('#000000');
-  const [textColor, setTextColor] = useState('#000000');
+  const [titleColor, setTitleColor] = useState('#FFFFFF');
+  const [textColor, setTextColor] = useState('#FFFFFF');
   const [titleFont, setTitleFont] = useState('Kenyan Coffee Bold');
   const [textFont, setTextFont] = useState('Kenyan Coffee Regular');
   const [titleFontSize, setTitleFontSize] = useState(180);
   const [textFontSize, setTextFontSize] = useState(100);
   
-  // States for images
-  const [userImage, setUserImage] = useState(null);
-  const [imagePosition, setImagePosition] = useState({ x: 0, y: 0 });
-  const [imageScale, setImageScale] = useState({ scaleX: 1, scaleY: 1 });
-  const [backgroundImage, setBackgroundImage] = useState('sfumatura.png');
+  // States for background images
+  const [backgroundImages, setBackgroundImages] = useState([]);
+  const [backgroundImage, setBackgroundImage] = useState('/sfondoNotizie/sfumatura.png');  
   const [background] = useImage(backgroundImage);
-  const [logo, setLogo] = useState(null);
-  const [logoPosition, setLogoPosition] = useState({ x: 65, y: 1260 });
-  const [logoScale, setLogoScale] = useState({ scaleX: 1, scaleY: 1 });
-  const [uploadedImage] = useImage(userImage);
-  const [uploadedLogo] = useImage(logo);
+  
+  // States for logos
+  const [logos, setLogos] = useState([]);
   
   // States for positioning
   const [titlePosition, setTitlePosition] = useState({ x: 0, y: 1200 });
   const [textPosition, setTextPosition] = useState({ x: 0, y: 1385 });
+  
+  // States for selection
+  const [selectedBackground, setSelectedBackground] = useState(null);
+  const [selectedLogo, setSelectedLogo] = useState(null);
+
 
   const scaleCanvas = () => {
     const stage = stageRef.current;
@@ -57,7 +59,7 @@ function NewsEditor() {
   }, []);
 
   const handleBackgroundChange = (e) => {
-    setBackgroundImage(e.target.value);
+    setBackgroundImage(e.target.value);  // Remove path manipulation
   };
 
   const handleTextChange = () => {
@@ -67,40 +69,182 @@ function NewsEditor() {
 
   const handleBackgroundUpload = (e) => {
     const file = e.target.files[0];
+    if (!file) return;
+    
+    if (backgroundImages.length >= 5) {
+      alert("Puoi caricare al massimo 5 immagini di sfondo");
+      return;
+    }
+    
     const reader = new FileReader();
-    reader.onload = (ev) => setUserImage(ev.target.result);
+    reader.onload = (ev) => {
+      const newImage = {
+        id: `bg-${Date.now()}`,
+        src: ev.target.result,
+        position: { x: 0, y: 0 },
+        scale: { scaleX: 1, scaleY: 1 }
+      };
+      const updatedImages = [newImage, ...backgroundImages];
+      setBackgroundImages(updatedImages);
+      // Auto-select the newly uploaded image
+      setSelectedBackground(newImage.id);
+      setSelectedLogo(null);
+    };
     reader.readAsDataURL(file);
+    // Reset file input
+    e.target.value = null;
   };
 
   const handleLogoUpload = (e) => {
     const file = e.target.files[0];
+    if (!file) return;
+    
+    if (logos.length >= 8) {
+      alert("Puoi caricare al massimo 8 loghi");
+      return;
+    }
+    
     const reader = new FileReader();
-    reader.onload = (ev) => setLogo(ev.target.result);
+    reader.onload = (ev) => {
+      const newLogo = {
+        id: `logo-${Date.now()}`,
+        src: ev.target.result,
+        position: { x: 65, y: 1260 },
+        scale: { scaleX: 1, scaleY: 1 }
+      };
+      const updatedLogos = [newLogo, ...logos];
+      setLogos(updatedLogos);
+      // Auto-select the newly uploaded logo
+      setSelectedLogo(newLogo.id);
+      setSelectedBackground(null);
+    };
     reader.readAsDataURL(file);
+    // Reset file input
+    e.target.value = null;
   };
 
-  const moveElement = (setter, direction) => {
+  const removeBackgroundImage = (id) => {
+    setBackgroundImages(backgroundImages.filter(image => image.id !== id));
+    if (selectedBackground === id) {
+      setSelectedBackground(null);
+    }
+  };
+
+  const removeLogo = (id) => {
+    setLogos(logos.filter(logo => logo.id !== id));
+    if (selectedLogo === id) {
+      setSelectedLogo(null);
+    }
+  };
+
+  const moveElement = (item, setter, items, direction) => {
+    const itemIndex = items.findIndex(i => i.id === item.id);
+    if (itemIndex === -1) return;
+    
     const delta = 10;
-    setter((prevPosition) => ({
-      x: direction === 'left' ? prevPosition.x - delta 
-         : direction === 'right' ? prevPosition.x + delta 
-         : prevPosition.x,
-      y: direction === 'up' ? prevPosition.y - delta 
-         : direction === 'down' ? prevPosition.y + delta 
-         : prevPosition.y,
-    }));
+    const updatedItems = [...items];
+    const updatedItem = { ...updatedItems[itemIndex] };
+    
+    if (direction === 'left') {
+      updatedItem.position.x -= delta;
+    } else if (direction === 'right') {
+      updatedItem.position.x += delta;
+    } else if (direction === 'up') {
+      updatedItem.position.y -= delta;
+    } else if (direction === 'down') {
+      updatedItem.position.y += delta;
+    }
+    
+    updatedItems[itemIndex] = updatedItem;
+    setter(updatedItems);
   };
 
-  const resizeElement = (setter, type) => {
+  const resizeElement = (item, setter, items, type) => {
+    const itemIndex = items.findIndex(i => i.id === item.id);
+    if (itemIndex === -1) return;
+    
     const scaleChange = 0.1;
-    setter((prevScale) => ({
-      scaleX: type === 'increase' ? prevScale.scaleX + scaleChange : Math.max(0.1, prevScale.scaleX - scaleChange),
-      scaleY: type === 'increase' ? prevScale.scaleY + scaleChange : Math.max(0.1, prevScale.scaleY - scaleChange),
-    }));
+    const updatedItems = [...items];
+    const updatedItem = { ...updatedItems[itemIndex] };
+    
+    if (type === 'increase') {
+      updatedItem.scale.scaleX += scaleChange;
+      updatedItem.scale.scaleY += scaleChange;
+    } else {
+      updatedItem.scale.scaleX = Math.max(0.1, updatedItem.scale.scaleX - scaleChange);
+      updatedItem.scale.scaleY = Math.max(0.1, updatedItem.scale.scaleY - scaleChange);
+    }
+    
+    updatedItems[itemIndex] = updatedItem;
+    setter(updatedItems);
   };
 
+  const updateItemPosition = (id, newPosition, items, setter) => {
+    const itemIndex = items.findIndex(item => item.id === id);
+    if (itemIndex === -1) return;
+    
+    const updatedItems = [...items];
+    updatedItems[itemIndex] = {
+      ...updatedItems[itemIndex],
+      position: newPosition
+    };
+    
+    setter(updatedItems);
+  };
+
+  const handleDragEnd = (id, newPos, itemType) => {
+    if (itemType === 'background') {
+      updateItemPosition(id, newPos, backgroundImages, setBackgroundImages);
+    } else if (itemType === 'logo') {
+      updateItemPosition(id, newPos, logos, setLogos);
+    }
+  };
+
+  const reorderItems = (dragIndex, hoverIndex, items, setter) => {
+    const draggedItem = items[dragIndex];
+    const updatedItems = [...items];
+    
+    // Remove the dragged item
+    updatedItems.splice(dragIndex, 1);
+    // Insert it at the new position
+    updatedItems.splice(hoverIndex, 0, draggedItem);
+    
+    setter(updatedItems);
+  };
+
+  const enlargeTextSize = (setter) => setter((prevSize) => prevSize + 10);
+  const shrinkTextSize = (setter) => setter((prevSize) => Math.max(20, prevSize - 10));
+
+    // ... existing code ...
+  
   const downloadImage = () => {
-    const uri = stageRef.current.toDataURL({ pixelRatio: 3 });
+    const stage = stageRef.current;
+      
+    // Salva le dimensioni e la scala originali
+    const originalWidth = stage.width();
+    const originalHeight = stage.height();
+    const originalScale = stage.scale();
+      
+    // Imposta temporaneamente la scala a 1 per l'esportazione
+    stage.scale({ x: 1, y: 1 });
+    stage.width(1440);
+    stage.height(1800);
+      
+    // Crea l'immagine con alta qualità
+    const uri = stage.toDataURL({ 
+      pixelRatio: 3,
+      mimeType: 'image/png',
+      quality: 1,
+      width: 1440,
+      height: 1800
+    });
+      
+    // Ripristina le dimensioni e la scala originali
+    stage.scale(originalScale);
+    stage.width(originalWidth);
+    stage.height(originalHeight);
+      
+    // Scarica l'immagine
     const link = document.createElement('a');
     link.download = 'final_image.png';
     link.href = uri;
@@ -108,14 +252,11 @@ function NewsEditor() {
     link.click();
     document.body.removeChild(link);
   };
-
-  const enlargeTextSize = (setter) => setter((prevSize) => prevSize + 10);
-  const shrinkTextSize = (setter) => setter((prevSize) => Math.max(20, prevSize - 10));
+    
 
   return (
     <div className="App">
-      <h1>CE NEWS</h1>
-      
+      <h1>CRONACHE ELLENICHE NEWS</h1>
       <div className="editor-container">
         <div className="controls-container">
           <NewsCreator 
@@ -139,30 +280,43 @@ function NewsEditor() {
           <ImagesSelector 
             handleBackgroundUpload={handleBackgroundUpload}
             handleLogoUpload={handleLogoUpload}
+            backgroundImages={backgroundImages}
+            logos={logos}
+            removeBackgroundImage={removeBackgroundImage}
+            removeLogo={removeLogo}
+            reorderItems={reorderItems}
+            setBackgroundImages={setBackgroundImages}
+            setLogos={setLogos}
+            selectedBackground={selectedBackground}
+            selectedLogo={selectedLogo}
+            setSelectedBackground={setSelectedBackground}
+            setSelectedLogo={setSelectedLogo}
           />
         </div>
         
         <CanvasNews 
-          stageRef={stageRef}
-          uploadedImage={uploadedImage}
-          imagePosition={imagePosition}
-          imageScale={imageScale}
-          background={background}
-          uploadedLogo={uploadedLogo}
-          logoPosition={logoPosition}
-          logoScale={logoScale}
-          setLogoPosition={setLogoPosition}
-          title={title}
-          titleFontSize={titleFontSize}
-          titleColor={titleColor}
-          titlePosition={titlePosition}
-          titleFont={titleFont}
-          text={text}
-          textFontSize={textFontSize}
-          textColor={textColor}
-          textPosition={textPosition}
-          textFont={textFont}
-        />
+  stageRef={stageRef}
+  backgroundImages={backgroundImages}
+  setBackgroundImages={setBackgroundImages}
+  background={background}
+  logos={logos}
+  setLogos={setLogos}
+  updateItemPosition={updateItemPosition}
+  title={title}
+  titleFontSize={titleFontSize}
+  titleColor={titleColor}
+  titlePosition={titlePosition}
+  titleFont={titleFont}
+  text={text}
+  textFontSize={textFontSize}
+  textColor={textColor}
+  textPosition={textPosition}
+  textFont={textFont}
+  setTitlePosition={setTitlePosition}
+  setTextPosition={setTextPosition}
+  textAboveImages={true}  // o false, in base a cosa desideri
+/>
+
         
         <ToolbarNews 
           moveElement={moveElement}
@@ -171,11 +325,14 @@ function NewsEditor() {
           shrinkTextSize={shrinkTextSize}
           setTitlePosition={setTitlePosition}
           setTextPosition={setTextPosition}
-          setImagePosition={setImagePosition}
-          setImageScale={setImageScale}
-          setLogoScale={setLogoScale}
           setTitleFontSize={setTitleFontSize}
           setTextFontSize={setTextFontSize}
+          backgroundImages={backgroundImages}
+          logos={logos}
+          setBackgroundImages={setBackgroundImages}
+          setLogos={setLogos}
+          selectedBackground={selectedBackground}
+          selectedLogo={selectedLogo}
         />
       </div>
     </div>

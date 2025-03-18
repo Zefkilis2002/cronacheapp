@@ -1,7 +1,8 @@
 html, body {
-    min-height: 100vh;
+    min-height: 100%;
     height: auto;
     overflow-x: hidden;
+    position: relative;
 }
 
 
@@ -9,7 +10,9 @@ html, body {
     display: flex;
     flex-direction: column;
     min-height: 100vh;
+    padding: 0.5rem;
     padding-bottom: 200px; /* Spazio extra per la toolbar */
+    box-sizing: border-box;
 }
 
 
@@ -17,5 +20,18 @@ html, body {
 .main-content {
     flex-grow: 1;
     padding-bottom: 200px; /* Assicurati che questo spazio sia maggiore o uguale all'altezza della toolbar */
+    width: 100%;
+    overflow-x: hidden;
+}
+
+/* Mobile styles */
+@media (max-width: 768px) {
+    .App {
+        padding-bottom: 250px; /* Increased padding for mobile toolbar */
+    }
+    
+    .main-content {
+        padding-bottom: 250px;
+    }
 }
 

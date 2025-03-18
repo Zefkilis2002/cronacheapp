@@ -1,8 +1,7 @@
 // TabellinoControls.js
-import React from 'react';
+import React, { useState } from 'react';
 import axios from 'axios';
 import './TabellinoControls.css';
-
 
 function TabellinoControls({ 
   stageRef, // Riferimento allo stage (canvas) per il download dell'immagine
@@ -17,7 +16,11 @@ function TabellinoControls({
   setScore2, // Funzione per impostare il risultato Squadra 2
   setUserImage // Funzione per impostare l'immagine dell'utente
 }) {
-  
+  const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [carouselImages, setCarouselImages] = useState([]);
+  const [showCarouselSelector, setShowCarouselSelector] = useState(false);
+  const [selectedCarouselIndex, setSelectedCarouselIndex] = useState(0);
   // Funzione per gestire il caricamento del file (immagine da device)
   const handleImageUpload = (e) => {
     const file = e.target.files[0];
@@ -26,8 +29,6 @@ function TabellinoControls({
     reader.onload = (ev) => setUserImage(ev.target.result);
     reader.readAsDataURL(file);
   };
-
-  
 
   // Funzione per il download dell'immagine dal canvas (usando lo stageRef passato)
   const downloadImage = () => {
@@ -44,8 +45,7 @@ function TabellinoControls({
     document.body.removeChild(link);
   };
 
-
-  // Se l'utente inserisce un link completo o solo il codice, restituisce l'URL completo
+  // Funzione migliorata per estrarre l'URL del post Instagram
   const getInstagramUrl = (instaLink) => {
     if (!instaLink || typeof instaLink !== 'string') {
       return null;
@@ -54,56 +54,73 @@ function TabellinoControls({
     try {
       const trimmedLink = instaLink.trim();
       
-      // Estrai solo il codice del post
-      let postCode;
+      // Caso 1: Solo codice del post (es. "ABC123")
+      if (!trimmedLink.includes('/') && !trimmedLink.includes('.')) {
+        return `https://www.instagram.com/p/${trimmedLink}/`;
+      }
+      
+      // Caso 2: URL completo o parziale con "/p/"
       if (trimmedLink.includes('/p/')) {
-        const match = trimmedLink.match(/\/p\/([^\/]+)/);
-        postCode = match ? match[1] : null;
-      } else if (!trimmedLink.includes('/')) {
-        postCode = trimmedLink;
+        const match = trimmedLink.match(/\/p\/([^\/\?]+)/);
+        if (match && match[1]) {
+          return `https://www.instagram.com/p/${match[1]}/`;
+        }
       }
       
-      if (!postCode) {
-        console.log("Nessun codice post valido trovato");
-        return null;
+      // Caso 3: Tentativi alternativi
+      const possibleCode = trimmedLink.split('/').pop().split('?')[0];
+      if (possibleCode && possibleCode.length > 5) { // Codici Instagram sono solitamente lunghi
+        return `https://www.instagram.com/p/${possibleCode}/`;
       }
       
-      // Prova diverse varianti di URL
-      const urlVariants = [
-        `https://www.instagram.com/p/${postCode}`,
-        `https://www.instagram.com/p/${postCode}/`,
-        `https://instagram.com/p/${postCode}/`,
-        `https://instagram.com/p/${postCode}`
-      ];
-      
-      console.log("Varianti URL da provare:", urlVariants);
-      return urlVariants[0]; // Inizia con la prima variante
+      console.log("Nessun codice post valido trovato");
+      return null;
     } catch (error) {
       console.error("Errore nell'analisi dell'URL Instagram:", error);
       return null;
     }
   };
-  
 
+  // Funzione migliorata per verificare la connessione al server
   const checkServerConnection = async () => {
+    setErrorMessage('');
     try {
-      // Imposta un timeout di 5 secondi
+      console.log("Tentativo di connessione al server...");
       const response = await axios.get('http://localhost:5000/api/health-check', {
         timeout: 5000
       });
       console.log("Risposta health-check:", response.data);
       return true;
     } catch (error) {
-      console.error("Errore di connessione al server:", error.message);
-      alert("Impossibile connettersi al server proxy. Verifica che il server sia attivo e in ascolto sulla porta 5000.");
+      console.error("Errore di connessione al server:", error);
+      if (error.code === 'ECONNREFUSED') {
+        const errorMsg = "Impossibile connettersi al server proxy. Il server non è attivo sulla porta 5000. Prova ad avviarlo manualmente con 'npm run server'.";
+        setErrorMessage(errorMsg);
+        alert(errorMsg);
+      } else {
+        const errorMsg = `Impossibile connettersi al server proxy. Errore: ${error.message}`;
+        setErrorMessage(errorMsg);
+        alert(errorMsg);
+      }
       return false;
     }
   };
 
+  // Funzione per gestire la selezione di un'immagine dal carosello
+  const selectCarouselImage = (imageUrl) => {
+    setInstagramImage(imageUrl);
+    setShowCarouselSelector(false);
+  };
 
+  // Funzione migliorata per caricare l'immagine da Instagram
   const fetchInstagramPost = async () => {
-
+    setIsLoading(true);
+    setErrorMessage('');
+    setCarouselImages([]);
+    setShowCarouselSelector(false);
+    
     if (!(await checkServerConnection())) {
+      setIsLoading(false);
       return;
     }
 
@@ -112,38 +129,89 @@ function TabellinoControls({
       console.log("Instagram URL:", instagramUrl);
   
       if (!instagramUrl) {
-        alert("Link Instagram non valido.\nFormati accettati:\n- URL completo (es: https://www.instagram.com/p/ABC123)\n- Solo codice (es: ABC123)");
+        const errorMsg = "Link Instagram non valido.\nFormati accettati:\n- URL completo (es: https://www.instagram.com/p/ABC123)\n- Solo codice (es: ABC123)";
+        setErrorMessage(errorMsg);
+        alert(errorMsg);
+        setIsLoading(false);
         return;
       }
   
-      // Assicurati che l'URL del server sia completo e corretto
+      // Richiesta al server proxy con timeout aumentato
       const serverUrl = 'http://localhost:5000/api/instagram-image';
       console.log("Chiamata al server:", serverUrl);
       
-      const response = await axios.get('http://localhost:5000/api/instagram-image', {
-        params: { url: instagramUrl }
+      const response = await axios.get(serverUrl, {
+        params: { 
+          url: encodeURIComponent(instagramUrl),
+          getCarouselImages: true  // Parametro per richiedere tutte le immagini del carosello
+        },
+        timeout: 30000  // Timeout aumentato a 30 secondi
       });
       
       console.log("Risposta API completa:", JSON.stringify(response.data, null, 2));
   
-      // Resto del codice...
+      // Gestione delle immagini del carosello
+      if (response.data && response.data.carouselImages && response.data.carouselImages.length > 1) {
+        // Abbiamo più immagini nel carosello
+        setCarouselImages(response.data.carouselImages);
+        setShowCarouselSelector(true);
+        
+        // Mostra l'anteprima della prima immagine
+        setInstagramImage(response.data.carouselImages[0]);
+        console.log("Trovate immagini multiple in un carosello:", response.data.carouselImages.length);
+        
+        // Notifica all'utente che ci sono più immagini disponibili
+        alert(`Questo post contiene ${response.data.carouselImages.length} immagini. Puoi selezionare quella che preferisci dal selettore qui sotto.`);
+      }
+      // Gestione per immagine singola
+      else if (response.data && response.data.imageUrl) {
+        setInstagramImage(response.data.imageUrl);
+        console.log("Immagine singola caricata:", response.data.imageUrl);
+      } 
+      else if (response.data && response.data.result && response.data.result.length > 0) {
+        // Supporta anche il formato originale della risposta
+        setInstagramImage(response.data.result[0].url);
+        console.log("Immagine caricata da formato risposta precedente:", response.data.result[0].url);
+      } 
+      else {
+        const errorMsg = "Nessuna immagine trovata nel post Instagram";
+        setErrorMessage(errorMsg);
+        alert(errorMsg);
+        setInstagramImage(null);
+      }
     } catch (error) {
       // Log più dettagliato per diagnosticare il problema
       console.error("Errore dettagliato:", error);
+      let errorMsg = `Errore nel caricamento: ${error.message}`;
+      
       if (error.response) {
         console.error("Dati risposta:", error.response.data);
         console.error("Status:", error.response.status);
+        
+        // Messaggi di errore più specifici in base al codice di stato
+        if (error.response.status === 404) {
+          errorMsg = "Immagine non trovata su Instagram. Verifica che il link sia corretto e che l'immagine sia pubblica.";
+        } else if (error.response.status === 403) {
+          errorMsg = "Instagram ha bloccato la richiesta. Prova a utilizzare l'opzione 'Carica immagine da file' invece.";
+        } else if (error.response.status >= 500) {
+          errorMsg = "Errore del server Instagram. Riprova più tardi o utilizza l'opzione 'Carica immagine da file'.";
+        }
       } else if (error.request) {
         console.error("Nessuna risposta ricevuta. Richiesta:", error.request);
+        errorMsg = "Nessuna risposta dal server. Verifica la connessione internet e che il server proxy sia attivo.";
       } else {
         console.error("Errore di configurazione:", error.message);
+        errorMsg = `Errore di configurazione: ${error.message}`;
       }
-      alert(`Errore nel caricamento: ${error.message}`);
+      
+      setErrorMessage(errorMsg);
+      alert(errorMsg);
       setInstagramImage(null);
+    } finally {
+      setIsLoading(false);
     }
   };
   
-
   // Renderizzazione del componente
   return (
     <div className="controls-top">
@@ -170,17 +238,23 @@ function TabellinoControls({
         placeholder="Enter Instagram Post Link"
         value={instagramLink}
         onChange={(e) => setInstagramLink(e.target.value)}
+        disabled={isLoading}
       />
 
       {/* 3) Pulsanti per caricare immagine da Instagram o da dispositivo */}
       <div className="upload-button">
-      <button className="instagramButton" onClick={fetchInstagramPost}>
-        Load Instagram Post
-      </button>
+        <button 
+          className="instagramButton" 
+          onClick={fetchInstagramPost}
+          disabled={isLoading}
+        >
+          {isLoading ? 'Caricamento...' : 'Load Instagram Post'}
+        </button>
         
         <button 
           className="customFileUpload" 
           onClick={() => document.getElementById('fileUpload').click()}
+          disabled={isLoading}
         >
           Scegli il file
         </button>
@@ -194,6 +268,39 @@ function TabellinoControls({
         />
       </div>
 
+      {/* Messaggio di errore */}
+      {errorMessage && (
+        <div className="error-message" style={{ color: 'red', margin: '10px 0' }}>
+          {errorMessage}
+        </div>
+      )}
+
+      {/* Selettore immagini carosello */}
+      {showCarouselSelector && carouselImages.length > 0 && (
+        <div className="carousel-selector">
+          <h4>Seleziona un'immagine dal carosello:</h4>
+          <div className="carousel-images">
+            {carouselImages.map((imageUrl, index) => (
+              <div 
+                key={`carousel-${index}`} 
+                onClick={() => {
+                  setSelectedCarouselIndex(index);
+                  selectCarouselImage(imageUrl);
+                }}
+                className={`carousel-image-item ${index === selectedCarouselIndex ? 'selected' : ''}`}
+              >
+                <img 
+                  src={imageUrl} 
+                  alt={`Carosello immagine ${index + 1}`}
+                /> 
+                <div style={{ textAlign: 'center', marginTop: '2px', fontSize: '12px', color: '#b4ff00' }}>
+                  {index + 1}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* 4) Risultato Squadra 1 e Risultato Squadra 2 */}
       <div className="result-inputs">
