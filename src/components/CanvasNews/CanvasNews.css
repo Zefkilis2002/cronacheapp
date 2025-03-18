@@ -1,0 +1,168 @@
+.canvas-container {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 20px 0;
+  padding: 0 20px;
+  box-sizing: border-box;
+}
+
+.canvas-wrapper {
+  position: relative;
+  border: 2px solid rgb(255, 255, 255);
+  overflow: hidden;
+  box-sizing: content-box;
+}
+
+.canvas-stage {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  transform-origin: top left;
+}
+
+/* Rimuovi eventuali margini o padding dai container Konva */
+.konvajs-content {
+  margin: 0;
+  padding: 0;
+  display: block;
+}
+
+/* Styling per i controlli sotto il canvas */
+.controls-container {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 20px;
+  margin: 20px auto;
+  width: 100%;
+  max-width: 1500px;
+}
+
+.editor-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 1500px;
+  margin: 0 auto;
+}
+
+.canvas-container {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 20px 0;
+  padding: 0 20px;
+  box-sizing: border-box;
+}
+
+.canvas-wrapper {
+  position: relative;
+  border: 2px solid rgb(255, 255, 255);
+  overflow: hidden;
+  box-sizing: border-box;
+  max-width: 100%;
+}
+
+.canvas-stage {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  transform-origin: top left;
+}
+
+/* Rimuovi eventuali margini o padding dai container Konva */
+.konvajs-content {
+  margin: 0;
+  padding: 0;
+  display: block;
+  max-width: 100%;
+}
+
+/* Styling per i controlli sotto il canvas */
+.controls-container {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 20px;
+  margin: 20px auto;
+  width: 100%;
+  max-width: 1500px;
+}
+
+.editor-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 1500px;
+  margin: 0 auto;
+}
+
+/* Tablet styles */
+@media (max-width: 1024px) {
+  .canvas-container {
+    padding: 0 15px;
+    margin: 15px 0;
+  }
+  
+  .controls-container {
+    gap: 15px;
+    padding: 0 10px;
+  }
+  
+  .editor-container {
+    max-width: 95%;
+  }
+}
+
+/* Mobile styles */
+@media (max-width: 768px) {
+  .canvas-container {
+    padding: 0 10px;
+    margin: 10px 0;
+  }
+  
+  .controls-container {
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    padding: 0 5px;
+  }
+  
+  .canvas-wrapper {
+    border-width: 1px;
+    max-width: 95%;
+  }
+  
+  .editor-container {
+    max-width: 100%;
+  }
+}
+
+/* Small mobile styles */
+@media (max-width: 480px) {
+  .canvas-container {
+    padding: 0 5px;
+    margin: 5px 0;
+    width: 100%;
+    overflow-x: hidden;
+  }
+  
+  .canvas-wrapper {
+    max-width: 95%;
+    margin: 0 auto;
+  }
+  
+  .konvajs-content {
+    max-width: 100%;
+    width: 100% !important;
+  }
+}

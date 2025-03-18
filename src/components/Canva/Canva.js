@@ -47,6 +47,7 @@ const Canva = ({
 
   // Funzione helper per calcolare le dimensioni scalate di un'immagine
   const getScaledDimensions = (image, maxWidth, maxHeight) => {
+    if (!image) return { width: 0, height: 0 };
     const { width, height } = image;
     const aspectRatio = width / height;
     if (width > maxWidth || height > maxHeight) {
@@ -100,6 +101,8 @@ const Canva = ({
             y={imagePosition.y}
             scaleX={imageScale.scaleX}
             scaleY={imageScale.scaleY}
+            width={instaImg.width}
+            height={instaImg.height}
             draggable
             onDragEnd={handleDragEnd}
             onTransformEnd={handleTransform}
@@ -164,19 +167,29 @@ const Canva = ({
               y={1510 + index * 60}
             />
           ))}
-          {scorersTeam2.map((scorer, index) => (
-            <Text
-              key={index}
-              text={scorer}
-              fontSize={50}
-              fontFamily="Kenyan Coffee Regular"
-              fill="white"
-              align="right"
-              width={300}
-              x={1094}
-              y={1510 + index * 60}
-            />
-          ))}
+          {scorersTeam2.map((scorer, index) => {
+            // Aumentiamo la lunghezza massima
+            const maxLength = 30; // Aumentato da 20 a 30
+            const displayText = scorer.length > maxLength 
+              ? scorer.substring(0, maxLength) + '...' 
+              : scorer;
+            
+            return (
+              <Text
+                key={index}
+                text={displayText}
+                fontSize={50}
+                fontFamily="Kenyan Coffee Regular"
+                fill="white"
+                align="right"
+                width={400} // Aumentato da 300 a 400 per dare più spazio
+                x={994} // Modificato da 1094 a 994 per compensare la larghezza maggiore
+                y={1510 + index * 60}
+                wrap="none"
+                listening={false}
+              />
+            );
+          })}
         </Layer>
       </Stage>
     </div>

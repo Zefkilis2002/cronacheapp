@@ -29,6 +29,9 @@ const FullTimeEditor = () => {
   const [logo1Scale, setLogo1Scale] = useState({ scaleX: 1, scaleY: 1 });
   const [logo2Scale, setLogo2Scale] = useState({ scaleX: 1, scaleY: 1 });
 
+  const [score1Y, setScore1Y] = useState(1255);  // Initial Y position for score 1
+  const [score2Y, setScore2Y] = useState(1255);  // Initial Y position for score 2
+
   // Riferimento al canvas (Stage)
   const stageRef = useRef(null);
 
@@ -155,10 +158,11 @@ const FullTimeEditor = () => {
         logo2Scale={logo2Scale}
         score1={score1}
         score2={score2}
-        score1Y={1255}  // oppure uno stato se vuoi modificarlo dinamicamente
-        score2Y={1255}
+        score1Y={score1Y}  // oppure uno stato se vuoi modificarlo dinamicamente
+        score2Y={score2Y}
         scorersTeam1={scorersTeam1}
         scorersTeam2={scorersTeam2}
+        
       />
       <SetTeamTwo
         selectedLogo2={selectedLogo2}
@@ -173,8 +177,8 @@ const FullTimeEditor = () => {
         resizeLogo={resizeLogo}
         increaseImageSize={increaseImageSize}
         decreaseImageSize={decreaseImageSize}
-        setScore1Y={setScore1} // oppure crea funzioni separate per spostare i testi
-        setScore2Y={setScore2}
+        setScore1Y={setScore1Y} // oppure crea funzioni separate per spostare i testi
+        setScore2Y={setScore2Y}
       />
     </div>
   );
