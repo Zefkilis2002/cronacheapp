@@ -192,13 +192,7 @@ function NewsEditor() {
     setter(updatedItems);
   };
 
-  const handleDragEnd = (id, newPos, itemType) => {
-    if (itemType === 'background') {
-      updateItemPosition(id, newPos, backgroundImages, setBackgroundImages);
-    } else if (itemType === 'logo') {
-      updateItemPosition(id, newPos, logos, setLogos);
-    }
-  };
+  // Remove handleDragEnd function as it's not being used
 
   const reorderItems = (dragIndex, hoverIndex, items, setter) => {
     const draggedItem = items[dragIndex];
