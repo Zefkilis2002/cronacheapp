@@ -36,15 +36,18 @@ h1 {
 
     @font-face {
       font-family: 'Kenyan Coffee Bold Italic';
-      src: url('../../public/fonts/kenyan coffee bd it.otf') format('opentype');
+      src: url('../fonts/kenyan coffee bd it.otf') format('opentype');
       font-display: swap;
     }
     
     @font-face {
       font-family: 'Kenyan Coffee Regular';
-      src: url('../../public/fonts/kenyan coffee rg.otf') format('opentype');
+      src: url('../fonts/kenyan coffee rg.otf') format('opentype');
       font-display: swap;
     }
+    
+    
+    
 
     
     
