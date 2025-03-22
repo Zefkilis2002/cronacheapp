@@ -1,0 +1,14 @@
+
+.canvas-container {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow-x: hidden; /* Prevent horizontal scrolling */
+  }
+  
+  /* Make sure the Stage is responsive */
+  .konvajs-content {
+    max-width: 100%;
+    margin: 0 auto;
+  }
