@@ -5,20 +5,27 @@
   width: 100%;
   height: auto;
   margin: 0 auto;
-  padding: 10px 0;
+  padding: 10px; /* puoi aumentare il padding se vuoi creare uno spazio interno */
   box-sizing: border-box;
   position: relative;
-  overflow: visible;
+  overflow: visible; /* Assicurati che il bordo esterno non venga clipptato */
 }
 
+
+/* Ensure Konva content is centered */
 /* Ensure Konva content is centered */
 .konvajs-content {
   position: relative !important;
-  margin: 0 auto !important;
+  margin: 0 auto !important;  /* Mantiene il contenuto centrato */
   display: block !important;
   transform-origin: top center;
-  -webkit-transform-origin: top center; /* For Safari */
+  -webkit-transform-origin: top center;
+  box-sizing: border-box;
+
+
 }
+
+
 
 /* Fix for Safari iOS canvas rendering */
 .konvajs-content canvas {
@@ -48,4 +55,9 @@
     /* Prevent content jumping in Safari iOS */
     will-change: transform;
   }
+}
+
+/* Rimuove scrollbar su tutti i browser */
+body {
+  overflow-y: hidden; /* Impedisce lo scrolling verticale */
 }

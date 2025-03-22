@@ -34,6 +34,8 @@ const FullTimeEditor = () => {
 
   // Riferimento al canvas (Stage)
   const stageRef = useRef(null);
+  const borderRef = useRef(null);
+
 
   // Stato e funzioni per gestire l'immagine principale (da file o Instagram)
   const [imagePosition, setImagePosition] = useState({ x: 100, y: 100 });
@@ -129,6 +131,7 @@ const FullTimeEditor = () => {
         setScore2={setScore2}
         downloadImage={downloadImage}
         stageRef={stageRef}
+        borderRef={borderRef}
       />
 
       <SetTeamOne
@@ -141,6 +144,7 @@ const FullTimeEditor = () => {
       />
       <Canva
         stageRef={stageRef}
+        borderRef={borderRef}
         selectedTabellino={selectedTabellino}
         userImage={userImage}
         instagramImage={instagramImage}
