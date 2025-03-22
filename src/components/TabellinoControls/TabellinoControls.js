@@ -5,6 +5,7 @@ import './TabellinoControls.css';
 
 function TabellinoControls({ 
   stageRef, // Riferimento allo stage (canvas) per il download dell'immagine
+  borderRef,
   selectedTabellino, // Tabellino selezionato 
   setSelectedTabellino, // Funzione per impostare il tabellino selezionato
   instagramLink, // Link Instagram
@@ -30,20 +31,61 @@ function TabellinoControls({
     reader.readAsDataURL(file);
   };
 
-  // Funzione per il download dell'immagine dal canvas (usando lo stageRef passato)
   const downloadImage = () => {
-    if (!stageRef?.current) {
+    const stage = stageRef.current;
+    if (!stage) {
       alert('Stage non disponibile o non passato come prop.');
       return;
     }
-    const uri = stageRef.current.toDataURL({ pixelRatio: 3 });
+    
+    // Nascondi il bordo
+    if (borderRef?.current) {
+      borderRef.current.visible(false);
+      stage.batchDraw();
+    }
+    
+    // Salva la scala attuale dello stage
+    const oldScale = stage.scale();
+    
+    // Ripristina temporaneamente la scala a 1 e le dimensioni originali per l'export
+    stage.scale({ x: 1, y: 1 });
+    stage.width(1440);
+    stage.height(1800);
+    stage.batchDraw();
+    
+    // Esporta l'immagine come JPEG con qualità 0.8 (puoi regolare questo valore)
+    const uri = stage.toDataURL({
+      x: 0,
+      y: 0,
+      width: 1440,
+      height: 1800,
+      pixelRatio: 3,
+      mimeType: 'image/jpeg',
+      quality: 0.8, // Regola la qualità per bilanciare dimensione e fedeltà
+    });
+    
+    // Ripristina la scala originale
+    stage.scale(oldScale);
+    stage.batchDraw();
+    
+    // Ripristina il bordo
+    if (borderRef?.current) {
+      borderRef.current.visible(true);
+      stage.batchDraw();
+    }
+    
+    // Scarica l'immagine
     const link = document.createElement('a');
-    link.download = 'full_time_result.png';
+    link.download = 'full_time_result.jpg';
     link.href = uri;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
+  
+  
+  
+  
 
   // Funzione migliorata per estrarre l'URL del post Instagram
   const getInstagramUrl = (instaLink) => {

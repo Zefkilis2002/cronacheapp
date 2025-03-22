@@ -1,11 +1,12 @@
 // Canva.js
 import React, { useEffect } from 'react';
-import { Stage, Layer, Image as KonvaImage, Text } from 'react-konva';
+import { Stage, Layer, Image as KonvaImage, Text, Rect } from 'react-konva';
 import useImage from 'use-image';
 import './Canva.css';
 
 const Canva = ({
   stageRef,
+  borderRef, // Aggiungi qui la borderRef
   selectedTabellino,
   userImage,
   instagramImage,
@@ -26,7 +27,8 @@ const Canva = ({
   score1Y,
   score2Y,
   scorersTeam1,
-  scorersTeam2
+  scorersTeam2,
+
 }) => {
   // Carica il background in base al tabellino selezionato (passato via props)
   const [background] = useImage(`/tabellini/${selectedTabellino}`);
@@ -46,97 +48,102 @@ const Canva = ({
     const scaleCanvas = () => {
       const stage = stageRef.current;
       if (!stage) return;
-      
-      // Get the parent container dimensions
+
+      // Ottieni le dimensioni del contenitore (finestra)
       const containerWidth = window.innerWidth;
       const containerHeight = window.innerHeight * 0.8;
-      
-      // Original canvas dimensions
+
+      // Dimensioni originali del canvas
       const originalWidth = 1440;
       const originalHeight = 1800;
-      
-      // Calculate the scale factor while preserving aspect ratio
+
+      // Calcola lo scale preservando il rapporto d'aspetto e lascia un margine
       const scale = Math.min(
         containerWidth / originalWidth,
         containerHeight / originalHeight
-      ) * 0.85; // 85% to leave some margin
-      
-      // Apply scale to the stage
+      ) * 0.85;
+
+      // Applica le dimensioni originali e lo scaling allo stage
       stage.width(originalWidth);
       stage.height(originalHeight);
       stage.scale({ x: scale, y: scale });
-      
-      // Get the container element
+
+      // Imposta lo stile del container dello stage
       const container = stage.container();
       if (container) {
-        // Apply styles directly to container for consistent behavior across browsers
+        // Imposta le dimensioni del container includendo il bordo (box-sizing: border-box)
+        container.style.boxSizing = 'border-box';
         container.style.width = `${originalWidth * scale}px`;
         container.style.height = `${originalHeight * scale}px`;
         container.style.position = 'relative';
         container.style.margin = '0 auto';
-        
-        // Safari iOS specific fix: ensure the konvajs-content element has the right dimensions
+
+        // Gestione del contenitore di Konva (con classe .konvajs-content)
         const konvaContent = container.querySelector('.konvajs-content');
         if (konvaContent) {
-          konvaContent.style.width = `${originalWidth * scale}px`;
-          konvaContent.style.height = `${originalHeight * scale}px`;
+          // Utilizza le dimensioni interne reali del container (clientWidth/Height escludono i bordi)
+          const innerWidth = container.clientWidth;
+          const innerHeight = container.clientHeight;
+
+          konvaContent.style.width = `${innerWidth}px`;
+          konvaContent.style.height = `${innerHeight}px`;
           konvaContent.style.position = 'relative';
-          konvaContent.style.transform = 'translateZ(0)'; // Force hardware acceleration
+          konvaContent.style.transform = 'translateZ(0)'; // Forza l'accelerazione hardware
           konvaContent.style.left = '0';
           konvaContent.style.top = '0';
-          
-          // Fix for Safari iOS canvas scaling
+
+          // Imposta il canvas interno in base alle dimensioni effettive del contenitore
           const canvas = konvaContent.querySelector('canvas');
           if (canvas) {
-            canvas.style.width = `${originalWidth * scale}px`;
-            canvas.style.height = `${originalHeight * scale}px`;
-            // Ensure width and height attributes match the scaled dimensions
-            canvas.width = originalWidth * scale * window.devicePixelRatio;
-            canvas.height = originalHeight * scale * window.devicePixelRatio;
+            canvas.style.width = `${innerWidth}px`;
+            canvas.style.height = `${innerHeight}px`;
+            // Imposta gli attributi width/height in base al devicePixelRatio per una resa nitida
+            canvas.width = innerWidth * window.devicePixelRatio;
+            canvas.height = innerHeight * window.devicePixelRatio;
             canvas.style.display = 'block';
           }
         }
       }
-      
-      // Redraw everything
+
+      // Ridisegna tutto lo stage
       stage.batchDraw();
     };
 
-    // Load fonts and then scale the canvas
+    // Funzione per caricare i font e scalare il canvas
     const loadFontsAndScale = async () => {
       try {
         const fonts = [
           new FontFace('Kenyan Coffee Bold Italic', 'url(/fonts/kenyan coffee bd it.otf)'),
           new FontFace('Kenyan Coffee Regular', 'url(/fonts/kenyan coffee rg.otf)')
         ];
-        
+
         const loadedFonts = await Promise.all(fonts.map(font => font.load()));
         loadedFonts.forEach(font => document.fonts.add(font));
       } catch (error) {
         console.error('Font loading failed:', error);
       } finally {
-        // Scale canvas regardless of font loading success
+        // Scala il canvas indipendentemente dal successo del caricamento dei font
         scaleCanvas();
-        
-        // iOS Safari often needs a slight delay to render correctly
+
+        // iOS Safari spesso necessita di un piccolo ritardo per il rendering corretto
         setTimeout(() => {
           scaleCanvas();
         }, 100);
       }
     };
-    
+
     loadFontsAndScale();
-    
-    // Add resize listener with debounce for better performance
+
+    // Aggiungi un listener per il resize con debounce per migliori prestazioni
     let resizeTimeout;
     const handleResize = () => {
       clearTimeout(resizeTimeout);
       resizeTimeout = setTimeout(scaleCanvas, 100);
     };
-    
+
     window.addEventListener('resize', handleResize);
     window.addEventListener('orientationchange', handleResize);
-    
+
     // Cleanup
     return () => {
       clearTimeout(resizeTimeout);
@@ -144,6 +151,7 @@ const Canva = ({
       window.removeEventListener('orientationchange', handleResize);
     };
   }, [stageRef]);
+
 
   // Helper function to calculate scaled dimensions of an image
   const getScaledDimensions = (image, maxWidth, maxHeight) => {
@@ -164,7 +172,6 @@ const Canva = ({
         ref={stageRef} 
         width={1440} 
         height={1800} 
-        style={{ border: '2px solid white' }}
       >
         {/* First layer: main image (from file or Instagram) */}
         <Layer>
@@ -200,6 +207,20 @@ const Canva = ({
           {background && (
             <KonvaImage image={background} width={1440} height={1800} listening={false} />
           )}
+          
+          {/* Questa aggiunta garantisce che la cornice in basso sia visibile */}
+          {/* Layer superiore: disegna il bordo sopra tutto */}
+          <Rect
+            ref={borderRef}
+            x={0}
+            y={0}
+            width={1440}
+            height={1800}
+            stroke="white"
+            strokeWidth={5}
+            listening={false}
+          />
+
           {logo1 && (
             <KonvaImage
               image={logo1}

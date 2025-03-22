@@ -211,41 +211,42 @@ function NewsEditor() {
 
     // ... existing code ...
   
-  const downloadImage = () => {
-    const stage = stageRef.current;
+    const downloadImage = () => {
+      const stage = stageRef.current;
       
-    // Salva le dimensioni e la scala originali
-    const originalWidth = stage.width();
-    const originalHeight = stage.height();
-    const originalScale = stage.scale();
+      // Salva le dimensioni e la scala originali
+      const originalWidth = stage.width();
+      const originalHeight = stage.height();
+      const originalScale = stage.scale();
       
-    // Imposta temporaneamente la scala a 1 per l'esportazione
-    stage.scale({ x: 1, y: 1 });
-    stage.width(1440);
-    stage.height(1800);
+      // Imposta temporaneamente la scala a 1 per l'esportazione e le dimensioni desiderate
+      stage.scale({ x: 1, y: 1 });
+      stage.width(1440);
+      stage.height(1800);
       
-    // Crea l'immagine con alta qualità
-    const uri = stage.toDataURL({ 
-      pixelRatio: 3,
-      mimeType: 'image/png',
-      quality: 1,
-      width: 1440,
-      height: 1800
-    });
+      // Crea l'immagine in alta risoluzione con formato JPEG
+      const uri = stage.toDataURL({ 
+        pixelRatio: 3,
+        mimeType: 'image/jpeg',
+        quality: 0.8, // Regola questo valore per bilanciare qualità e peso
+        width: 1440,
+        height: 1800
+      });
       
-    // Ripristina le dimensioni e la scala originali
-    stage.scale(originalScale);
-    stage.width(originalWidth);
-    stage.height(originalHeight);
+      // Ripristina le dimensioni e la scala originali
+      stage.scale(originalScale);
+      stage.width(originalWidth);
+      stage.height(originalHeight);
       
-    // Scarica l'immagine
-    const link = document.createElement('a');
-    link.download = 'final_image.png';
-    link.href = uri;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
+      // Scarica l'immagine
+      const link = document.createElement('a');
+      link.download = 'final_image.jpg';
+      link.href = uri;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    };
+    
     
 
   return (
