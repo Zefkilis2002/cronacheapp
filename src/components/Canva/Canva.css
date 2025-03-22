@@ -5,11 +5,13 @@
   width: 100%;
   height: auto;
   margin: 0 auto;
-  padding: 10px; /* puoi aumentare il padding se vuoi creare uno spazio interno */
+  padding: 10px;
   box-sizing: border-box;
   position: relative;
-  overflow: visible; /* Assicurati che il bordo esterno non venga clipptato */
+  overflow: hidden; /* Cambiato da "visible" a "hidden" */
+  z-index: 1;
 }
+
 
 
 /* Ensure Konva content is centered */
@@ -60,4 +62,12 @@
 /* Rimuove scrollbar su tutti i browser */
 body {
   overflow-y: hidden; /* Impedisce lo scrolling verticale */
+}
+
+@media (max-width: 768px) {
+  .canvas-container {
+    overflow: hidden;
+    touch-action: none;
+    padding: 5px;
+  }
 }
