@@ -3,30 +3,49 @@
   justify-content: center;
   align-items: center;
   width: 100%;
-  height: 100%;
+  height: auto;
   margin: 0 auto;
-  padding: 0;
+  padding: 10px 0;
   box-sizing: border-box;
   position: relative;
-  overflow: hidden;
+  overflow: visible;
 }
 
-/* Assicura che il contenuto Konva sia centrato */
+/* Ensure Konva content is centered */
 .konvajs-content {
   position: relative !important;
   margin: 0 auto !important;
+  display: block !important;
   transform-origin: top center;
+  -webkit-transform-origin: top center; /* For Safari */
 }
 
-/* Regolazioni responsive */
+/* Fix for Safari iOS canvas rendering */
+.konvajs-content canvas {
+  display: block !important;
+  margin: 0 auto !important;
+  transform: translateZ(0); /* Force hardware acceleration */
+  -webkit-transform: translateZ(0); /* For Safari */
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden; /* For Safari */
+}
+
+/* Responsive adjustments */
 @media (max-width: 768px) {
   .canvas-container {
     width: 100%;
-    padding: 0;
+    padding: 5px;
+  }
+}
+
+/* iOS Safari specific fixes */
+@supports (-webkit-touch-callout: none) {
+  .canvas-container {
+    -webkit-overflow-scrolling: touch;
   }
   
-  /* Assicura che il contenuto non fuoriesca */
   .konvajs-content {
-    max-width: 100vw;
+    /* Prevent content jumping in Safari iOS */
+    will-change: transform;
   }
 }
