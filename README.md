@@ -68,3 +68,112 @@ This section has moved here: [https://facebook.github.io/create-react-app/docs/d
 ### `npm run build` fails to minify
 
 This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+
+```
+cronacheapp
+├─ .env
+├─ .firebaserc
+├─ firebase.json
+├─ instagram-proxy.js
+├─ package-lock.json
+├─ package.json
+├─ public
+│  ├─ favicon.ico
+│  ├─ fonts
+│  │  ├─ desktop.ini
+│  │  ├─ kenyan coffee bd it.otf
+│  │  ├─ kenyan coffee bd.otf
+│  │  ├─ kenyan coffee rg it.otf
+│  │  └─ kenyan coffee rg.otf
+│  ├─ index.html
+│  ├─ loghi
+│  │  ├─ aek.png
+│  │  ├─ aris.png
+│  │  ├─ asteras.png
+│  │  ├─ atromitos.png
+│  │  ├─ desktop.ini
+│  │  ├─ grecia.png
+│  │  ├─ kallithea.png
+│  │  ├─ lamia.png
+│  │  ├─ levadiakos.png
+│  │  ├─ ofi.png
+│  │  ├─ olympiakos.png
+│  │  ├─ panathinaikos.png
+│  │  ├─ panetolikos.png
+│  │  ├─ panseraikos.png
+│  │  ├─ paok.png
+│  │  └─ volos.png
+│  ├─ logo192.png
+│  ├─ logo512.png
+│  ├─ manifest.json
+│  ├─ robots.txt
+│  ├─ sfondoNotizie
+│  │  ├─ dichiarazioni.png
+│  │  ├─ news.png
+│  │  └─ sfumatura.png
+│  └─ tabellini
+│     ├─ championsleague.png
+│     ├─ conferenceleague.png
+│     ├─ europaleague.png
+│     ├─ greekcup.png
+│     ├─ nationsleague.png
+│     └─ superleague.png
+├─ README.md
+└─ src
+   ├─ App.css
+   ├─ App.js
+   ├─ App.test.js
+   ├─ BioCreator
+   │  ├─ BioCreator.css
+   │  ├─ BioCreator.js
+   │  ├─ clip.png
+   │  └─ send.png
+   ├─ components
+   │  ├─ Canva
+   │  │  ├─ Canva.css
+   │  │  └─ Canva.js
+   │  ├─ CanvasNews
+   │  │  ├─ CanvasNews.css
+   │  │  └─ CanvasNews.js
+   │  ├─ ImagesSelector
+   │  │  ├─ ImagesSelector.css
+   │  │  └─ ImagesSelector.js
+   │  ├─ NavBar
+   │  │  ├─ NavBar.css
+   │  │  └─ NavBar.js
+   │  ├─ NewsCreator
+   │  │  ├─ NewsCreator.css
+   │  │  └─ NewsCreator.js
+   │  ├─ SetTeam
+   │  │  ├─ SetTeam.css
+   │  │  ├─ SetTeamOne.js
+   │  │  └─ SetTeamTwo.js
+   │  ├─ TabellinoControls
+   │  │  ├─ TabellinoControls.css
+   │  │  └─ TabellinoControls.js
+   │  ├─ ToolBar
+   │  │  ├─ ToolBar.css
+   │  │  └─ ToolBar.js
+   │  └─ ToolbarNews
+   │     ├─ ToolbarNews.css
+   │     └─ ToolbarNews.js
+   ├─ fonts
+   │  ├─ desktop.ini
+   │  ├─ kenyan coffee bd it.otf
+   │  ├─ kenyan coffee bd.otf
+   │  ├─ kenyan coffee rg it.otf
+   │  └─ kenyan coffee rg.otf
+   ├─ fonts.css
+   ├─ FullTimeEditor
+   │  ├─ FullTimeEditor.css
+   │  └─ FullTimeEditor.js
+   ├─ index.css
+   ├─ index.js
+   ├─ logo.svg
+   ├─ NewsEditor
+   │  ├─ News.css
+   │  └─ NewsEditor.js
+   ├─ reportWebVitals.js
+   └─ setupTests.js
+
+```
