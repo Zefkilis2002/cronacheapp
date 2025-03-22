@@ -2,6 +2,7 @@
 import React, { useEffect } from 'react';
 import { Stage, Layer, Image as KonvaImage, Text } from 'react-konva';
 import useImage from 'use-image';
+import './Canva.css';
 
 const Canva = ({
   stageRef,
@@ -42,7 +43,25 @@ const Canva = ({
 
 
 
-  
+  // Add this near the top of your component
+  useEffect(() => {
+    // Preload fonts for iOS Safari
+    const fonts = [
+      new FontFace('Kenyan Coffee Bold Italic', 'url(/fonts/Kenyan-Coffee-Bold-Italic.ttf)'),
+      new FontFace('Kenyan Coffee Regular', 'url(/fonts/Kenyan-Coffee-Regular.ttf)')
+    ];
+
+    Promise.all(fonts.map(font => font.load()))
+      .then(loadedFonts => {
+        loadedFonts.forEach(font => {
+          document.fonts.add(font);
+        });
+      })
+      .catch(error => {
+        console.error('Font loading failed:', error);
+      });
+  }, []);
+
 
 
   // Funzione helper per calcolare le dimensioni scalate di un'immagine
