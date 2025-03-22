@@ -34,15 +34,18 @@ h1 {
       box-shadow: 0 0 5px rgba(180, 255, 0, 0.6);
     }
 
-    /* Add font-face declarations at the top of the file */
-@font-face {
-  font-family: 'Kenyan Coffee Bold Italic';
-  src: url('/fonts/Kenyan-Coffee-Bold-Italic.ttf') format('truetype');
-  font-display: swap;
-}
+    @font-face {
+      font-family: 'Kenyan Coffee Bold Italic';
+      src: url('../../public/fonts/kenyan coffee bd it.otf') format('opentype');
+      font-display: swap;
+    }
+    
+    @font-face {
+      font-family: 'Kenyan Coffee Regular';
+      src: url('../../public/fonts/kenyan coffee rg.otf') format('opentype');
+      font-display: swap;
+    }
 
-@font-face {
-  font-family: 'Kenyan Coffee Regular';
-  src: url('/fonts/Kenyan-Coffee-Regular.ttf') format('truetype');
-  font-display: swap;
-}
+    
+    
+      

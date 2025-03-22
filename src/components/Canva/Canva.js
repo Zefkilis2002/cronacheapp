@@ -41,28 +41,84 @@ const Canva = ({
     : null;
   const [instaImg, status] = useImage(proxyUrl, 'anonymous');
 
-
-
-  // Add this near the top of your component
+  // Funzione per scalare il canvas in base alle dimensioni della finestra
   useEffect(() => {
-    // Preload fonts for iOS Safari
-    const fonts = [
-      new FontFace('Kenyan Coffee Bold Italic', 'url(/fonts/Kenyan-Coffee-Bold-Italic.ttf)'),
-      new FontFace('Kenyan Coffee Regular', 'url(/fonts/Kenyan-Coffee-Regular.ttf)')
-    ];
+    const scaleCanvas = () => {
+      const stage = stageRef.current;
+      if (!stage) return;
+      
+      // Reset della scala per calcolare le dimensioni corrette
+      stage.scale({ x: 1, y: 1 });
+      
+      // Ottieni le dimensioni del contenitore
+      const containerWidth = window.innerWidth;
+      const containerHeight = window.innerHeight * 0.8;
+      
+      // Dimensioni originali del canvas
+      const originalWidth = 1440;
+      const originalHeight = 1800;
+      
+      // Calcola la scala mantenendo le proporzioni
+      const scale = Math.min(
+        containerWidth / originalWidth,
+        containerHeight / originalHeight
+      ) * 0.9; // 90% per lasciare un po' di margine
+      
+      // Applica la scala
+      stage.width(originalWidth * scale);
+      stage.height(originalHeight * scale);
+      stage.scale({ x: scale, y: scale });
+      
+      // Assicurati che il canvas sia visibile nel contenitore
+      const container = stage.container();
+      if (container) {
+        // Forza il ricalcolo del layout
+        container.style.width = `${originalWidth * scale}px`;
+        container.style.height = `${originalHeight * scale}px`;
+        
+        // Assicurati che il contenuto Konva sia centrato
+        const konvaContent = container.querySelector('.konvajs-content');
+        if (konvaContent) {
+          konvaContent.style.position = 'relative';
+          konvaContent.style.left = '0';
+          konvaContent.style.top = '0';
+          konvaContent.style.margin = '0 auto';
+          konvaContent.style.maxWidth = '100%';
+        }
+      }
+      
+      // Trigger per forzare un rendering
+      stage.batchDraw();
+    };
 
-    Promise.all(fonts.map(font => font.load()))
-      .then(loadedFonts => {
-        loadedFonts.forEach(font => {
-          document.fonts.add(font);
-        });
-      })
-      .catch(error => {
+    // Carica i font e poi scala il canvas
+    const loadFontsAndScale = async () => {
+      try {
+        const fonts = [
+          new FontFace('Kenyan Coffee Bold Italic', 'url(/fonts/kenyan coffee bd it.otf)'),
+          new FontFace('Kenyan Coffee Regular', 'url(/fonts/kenyan coffee rg.otf)')
+        ];
+        
+        const loadedFonts = await Promise.all(fonts.map(font => font.load()));
+        loadedFonts.forEach(font => document.fonts.add(font));
+        
+        // Una volta caricati i font, scala il canvas
+        scaleCanvas();
+      } catch (error) {
         console.error('Font loading failed:', error);
-      });
-  }, []);
-
-
+        // Scala comunque il canvas anche se i font falliscono
+        scaleCanvas();
+      }
+    };
+    
+    loadFontsAndScale();
+    
+    // Aggiungi listener per il resize
+    window.addEventListener('resize', scaleCanvas);
+    
+    // Cleanup
+    return () => window.removeEventListener('resize', scaleCanvas);
+  }, [stageRef]);
 
   // Funzione helper per calcolare le dimensioni scalate di un'immagine
   const getScaledDimensions = (image, maxWidth, maxHeight) => {
@@ -77,29 +133,14 @@ const Canva = ({
     return { width, height };
   };
 
-  // Funzione per scalare il canvas in base alle dimensioni della finestra
-  useEffect(() => {
-    // Move scaleCanvas function inside useEffect
-    const scaleCanvas = () => {
-      const stage = stageRef.current;
-      if (stage) {
-        const containerWidth = window.innerWidth * 0.8;
-        const containerHeight = window.innerHeight * 0.8;
-        const scale = Math.min(containerWidth / 1440, containerHeight / 1800);
-        stage.width(1440 * scale);
-        stage.height(1800 * scale);
-        stage.scale({ x: scale, y: scale });
-      }
-    };
-
-    scaleCanvas();
-    window.addEventListener('resize', scaleCanvas);
-    return () => window.removeEventListener('resize', scaleCanvas);
-  }, [stageRef]); // Now stageRef is the only dependency
-
   return (
     <div className="canvas-container">
-      <Stage ref={stageRef} width={1440} height={1800} style={{ border: '1px solid black' }}>
+      <Stage 
+        ref={stageRef} 
+        width={1440} 
+        height={1800} 
+        style={{ border: '2px solid white' }}
+      >
         {/* Primo layer: immagine principale (da file o Instagram) */}
         <Layer>
           {uploadedImg && (
@@ -188,8 +229,7 @@ const Canva = ({
             />
           ))}
           {scorersTeam2.map((scorer, index) => {
-            // Aumentiamo la lunghezza massima
-            const maxLength = 30; // Aumentato da 20 a 30
+            const maxLength = 30;
             const displayText = scorer.length > maxLength 
               ? scorer.substring(0, maxLength) + '...' 
               : scorer;
@@ -202,8 +242,8 @@ const Canva = ({
                 fontFamily="Kenyan Coffee Regular"
                 fill="white"
                 align="right"
-                width={400} // Aumentato da 300 a 400 per dare più spazio
-                x={994} // Modificato da 1094 a 994 per compensare la larghezza maggiore
+                width={400}
+                x={994}
                 y={1510 + index * 60}
                 wrap="none"
                 listening={false}
