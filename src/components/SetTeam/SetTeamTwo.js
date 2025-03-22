@@ -75,6 +75,7 @@ const SetTeamTwo = ({
         <h4 className='text-marcatori'>Marcatori Squadra 2</h4>
         {scorersTeam2.map((scorer, index) => (
           <input
+            className="scorer-input"
             key={index}
             type="text"
             placeholder={`Marcatore ${index + 1}`}
