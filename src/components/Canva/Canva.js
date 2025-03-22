@@ -41,57 +41,68 @@ const Canva = ({
     : null;
   const [instaImg, status] = useImage(proxyUrl, 'anonymous');
 
-  // Funzione per scalare il canvas in base alle dimensioni della finestra
+  // Improved function to scale canvas with iOS Safari compatibility
   useEffect(() => {
     const scaleCanvas = () => {
       const stage = stageRef.current;
       if (!stage) return;
       
-      // Reset della scala per calcolare le dimensioni corrette
-      stage.scale({ x: 1, y: 1 });
-      
-      // Ottieni le dimensioni del contenitore
+      // Get the parent container dimensions
       const containerWidth = window.innerWidth;
       const containerHeight = window.innerHeight * 0.8;
       
-      // Dimensioni originali del canvas
+      // Original canvas dimensions
       const originalWidth = 1440;
       const originalHeight = 1800;
       
-      // Calcola la scala mantenendo le proporzioni
+      // Calculate the scale factor while preserving aspect ratio
       const scale = Math.min(
         containerWidth / originalWidth,
         containerHeight / originalHeight
-      ) * 0.9; // 90% per lasciare un po' di margine
+      ) * 0.85; // 85% to leave some margin
       
-      // Applica la scala
-      stage.width(originalWidth * scale);
-      stage.height(originalHeight * scale);
+      // Apply scale to the stage
+      stage.width(originalWidth);
+      stage.height(originalHeight);
       stage.scale({ x: scale, y: scale });
       
-      // Assicurati che il canvas sia visibile nel contenitore
+      // Get the container element
       const container = stage.container();
       if (container) {
-        // Forza il ricalcolo del layout
+        // Apply styles directly to container for consistent behavior across browsers
         container.style.width = `${originalWidth * scale}px`;
         container.style.height = `${originalHeight * scale}px`;
+        container.style.position = 'relative';
+        container.style.margin = '0 auto';
         
-        // Assicurati che il contenuto Konva sia centrato
+        // Safari iOS specific fix: ensure the konvajs-content element has the right dimensions
         const konvaContent = container.querySelector('.konvajs-content');
         if (konvaContent) {
+          konvaContent.style.width = `${originalWidth * scale}px`;
+          konvaContent.style.height = `${originalHeight * scale}px`;
           konvaContent.style.position = 'relative';
+          konvaContent.style.transform = 'translateZ(0)'; // Force hardware acceleration
           konvaContent.style.left = '0';
           konvaContent.style.top = '0';
-          konvaContent.style.margin = '0 auto';
-          konvaContent.style.maxWidth = '100%';
+          
+          // Fix for Safari iOS canvas scaling
+          const canvas = konvaContent.querySelector('canvas');
+          if (canvas) {
+            canvas.style.width = `${originalWidth * scale}px`;
+            canvas.style.height = `${originalHeight * scale}px`;
+            // Ensure width and height attributes match the scaled dimensions
+            canvas.width = originalWidth * scale * window.devicePixelRatio;
+            canvas.height = originalHeight * scale * window.devicePixelRatio;
+            canvas.style.display = 'block';
+          }
         }
       }
       
-      // Trigger per forzare un rendering
+      // Redraw everything
       stage.batchDraw();
     };
 
-    // Carica i font e poi scala il canvas
+    // Load fonts and then scale the canvas
     const loadFontsAndScale = async () => {
       try {
         const fonts = [
@@ -101,26 +112,40 @@ const Canva = ({
         
         const loadedFonts = await Promise.all(fonts.map(font => font.load()));
         loadedFonts.forEach(font => document.fonts.add(font));
-        
-        // Una volta caricati i font, scala il canvas
-        scaleCanvas();
       } catch (error) {
         console.error('Font loading failed:', error);
-        // Scala comunque il canvas anche se i font falliscono
+      } finally {
+        // Scale canvas regardless of font loading success
         scaleCanvas();
+        
+        // iOS Safari often needs a slight delay to render correctly
+        setTimeout(() => {
+          scaleCanvas();
+        }, 100);
       }
     };
     
     loadFontsAndScale();
     
-    // Aggiungi listener per il resize
-    window.addEventListener('resize', scaleCanvas);
+    // Add resize listener with debounce for better performance
+    let resizeTimeout;
+    const handleResize = () => {
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(scaleCanvas, 100);
+    };
+    
+    window.addEventListener('resize', handleResize);
+    window.addEventListener('orientationchange', handleResize);
     
     // Cleanup
-    return () => window.removeEventListener('resize', scaleCanvas);
+    return () => {
+      clearTimeout(resizeTimeout);
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('orientationchange', handleResize);
+    };
   }, [stageRef]);
 
-  // Funzione helper per calcolare le dimensioni scalate di un'immagine
+  // Helper function to calculate scaled dimensions of an image
   const getScaledDimensions = (image, maxWidth, maxHeight) => {
     if (!image) return { width: 0, height: 0 };
     const { width, height } = image;
@@ -141,7 +166,7 @@ const Canva = ({
         height={1800} 
         style={{ border: '2px solid white' }}
       >
-        {/* Primo layer: immagine principale (da file o Instagram) */}
+        {/* First layer: main image (from file or Instagram) */}
         <Layer>
           {uploadedImg && (
             <KonvaImage
@@ -170,7 +195,7 @@ const Canva = ({
           />
         )}
         </Layer>
-        {/* Secondo layer: background, loghi e testi */}
+        {/* Second layer: background, logos and texts */}
         <Layer>
           {background && (
             <KonvaImage image={background} width={1440} height={1800} listening={false} />
