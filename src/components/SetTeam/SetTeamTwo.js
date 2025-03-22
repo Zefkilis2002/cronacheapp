@@ -60,7 +60,7 @@ const SetTeamTwo = ({
             </option>
           ))}
         </select>
-        <button className="upload-logo" onClick={() => document.getElementById('logoUpload1').click()}>
+        <button className="upload-logo" onClick={() => document.getElementById('logoUpload2').click()}>
           Carica Logo
         </button>
         <input
