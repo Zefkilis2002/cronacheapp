@@ -9,8 +9,26 @@
   box-sizing: border-box;
   position: relative;
   overflow: hidden;
-  z-index: 1; /* Ensure this is lower than toolbar */
-  touch-action: manipulation; /* Better touch handling */
+  z-index: 1;
+  touch-action: none; /* Prevent all touch actions */
+  -webkit-touch-callout: none; /* Prevent iOS callout */
+  -webkit-user-select: none; /* Prevent selection */
+  user-select: none;
+}
+
+.konvajs-content {
+  position: relative !important;
+  margin: 0 auto !important;
+  display: block !important;
+  transform-origin: top center !important;
+  -webkit-transform-origin: top center !important;
+  box-sizing: border-box;
+  touch-action: none !important;
+  -webkit-touch-callout: none !important;
+  -webkit-user-select: none !important;
+  user-select: none !important;
+  width: auto !important;
+  height: auto !important;
 }
 
 

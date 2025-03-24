@@ -34,46 +34,61 @@ function TabellinoControls({
   const downloadImage = () => {
     const stage = stageRef.current;
     if (!stage) {
-      alert('Stage non disponibile o non passato come prop.');
+      alert('Stage non disponibile.');
       return;
     }
   
-    // Hide border during export
-    if (borderRef?.current) {
-      borderRef.current.visible(false);
+    try {
+      // Hide border during export
+      if (borderRef?.current) {
+        borderRef.current.visible(false);
+      }
+  
+      // Store current state
+      const currentScale = stage.scale();
+      const currentSize = {
+        width: stage.width(),
+        height: stage.height()
+      };
+  
+      // Reset to original dimensions for export
+      stage.scale({ x: 1, y: 1 });
+      stage.size({
+        width: 1440,
+        height: 1800
+      });
       stage.batchDraw();
+  
+      // Export at original size
+      const uri = stage.toDataURL({
+        x: 0,
+        y: 0,
+        width: 1440,
+        height: 1800,
+        pixelRatio: 1,
+        mimeType: 'image/jpeg',
+        quality: 0.8
+      });
+  
+      // Restore original state
+      stage.scale(currentScale);
+      stage.size(currentSize);
+      if (borderRef?.current) {
+        borderRef.current.visible(true);
+      }
+      stage.batchDraw();
+  
+      // Download
+      const link = document.createElement('a');
+      link.download = 'full_time_result.jpg';
+      link.href = uri;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error('Error during image download:', error);
+      alert('Errore durante il download dell\'immagine.');
     }
-  
-    // Save current scale and reset to 1 for export
-    const currentScale = stage.scale();
-    stage.scale({ x: 1, y: 1 });
-    stage.batchDraw();
-  
-    // Export image at original size
-    const uri = stage.toDataURL({
-      x: 0,
-      y: 0,
-      width: 1440,
-      height: 1800,
-      pixelRatio: 1, // Original resolution
-      mimeType: 'image/jpeg',
-      quality: 0.8,
-    });
-  
-    // Restore display scale and border
-    stage.scale(currentScale);
-    if (borderRef?.current) {
-      borderRef.current.visible(true);
-    }
-    stage.batchDraw();
-  
-    // Trigger download
-    const link = document.createElement('a');
-    link.download = 'full_time_result.jpg';
-    link.href = uri;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
   };
   
   

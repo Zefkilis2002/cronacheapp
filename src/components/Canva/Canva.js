@@ -46,33 +46,60 @@ const Canva = ({
       const originalWidth = 1440;
       const originalHeight = 1800;
 
+      // Get the container's parent dimensions
       const containerWidth = window.innerWidth * 0.9;
       const containerHeight = window.innerHeight * 0.9;
 
-      const scale = Math.min(containerWidth / originalWidth, containerHeight / originalHeight);
+      // Calculate scale while maintaining aspect ratio
+      const scale = Math.min(
+        containerWidth / originalWidth,
+        containerHeight / originalHeight
+      );
 
+      // Set fixed dimensions
       stage.width(originalWidth);
       stage.height(originalHeight);
       stage.scale({ x: scale, y: scale });
 
+      // Apply dimensions to container
       const container = stage.container();
       if (container) {
-        container.style.width = `${originalWidth * scale}px`;
-        container.style.height = `${originalHeight * scale}px`;
+        const scaledWidth = originalWidth * scale;
+        const scaledHeight = originalHeight * scale;
+        
+        container.style.width = `${scaledWidth}px`;
+        container.style.height = `${scaledHeight}px`;
         container.style.margin = '0 auto';
         container.style.position = 'relative';
+        
+        // Prevent mobile browsers from adjusting viewport
+        container.style.touchAction = 'none';
+        container.style.userSelect = 'none';
+        container.style.webkitUserSelect = 'none';
       }
 
       stage.batchDraw();
     };
 
+    // Initial scaling
     scaleCanvas();
-    window.addEventListener('resize', scaleCanvas);
-    window.addEventListener('orientationchange', scaleCanvas);
+
+    // Debounce resize handler
+    let resizeTimeout;
+    const handleResize = () => {
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(scaleCanvas, 100);
+    };
+
+    window.addEventListener('resize', handleResize);
+    window.addEventListener('orientationchange', () => {
+      setTimeout(scaleCanvas, 100);
+    });
 
     return () => {
-      window.removeEventListener('resize', scaleCanvas);
-      window.removeEventListener('orientationchange', scaleCanvas);
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('orientationchange', handleResize);
+      clearTimeout(resizeTimeout);
     };
   }, [stageRef]);
 
