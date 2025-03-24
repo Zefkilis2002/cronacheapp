@@ -8,8 +8,9 @@
   padding: 10px;
   box-sizing: border-box;
   position: relative;
-  overflow: hidden; /* Cambiato da "visible" a "hidden" */
-  z-index: 1;
+  overflow: hidden;
+  z-index: 1; /* Ensure this is lower than toolbar */
+  touch-action: manipulation; /* Better touch handling */
 }
 
 
@@ -67,7 +68,20 @@ body {
 @media (max-width: 768px) {
   .canvas-container {
     overflow: hidden;
-    touch-action: none;
+    touch-action: manipulation;
     padding: 5px;
+    pointer-events: none; /* Allow clicks to pass through when needed */
   }
+  
+  .konvajs-content {
+    pointer-events: auto; /* Re-enable pointer events for the canvas */
+  }
+}
+
+body {
+  touch-action: manipulation; /* Prevents double-tap zoom on mobile */
+  -webkit-text-size-adjust: 100%; /* Prevents iOS text scaling */
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
 }
