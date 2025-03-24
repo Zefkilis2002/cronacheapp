@@ -9,11 +9,12 @@
     position: fixed;
     bottom: 0;
     width: 100%;
-    z-index: 1000;
+    z-index: 9999; /* Increased z-index */
     left: 0;
     right: 0;
-  }
-  
+    touch-action: manipulation; /* Better touch handling */
+}
+
   .toolbar .toolbar-row {
     display: flex;
     gap: 0.5rem;
@@ -109,5 +110,21 @@
       min-width: 55px;
       padding: 0.4rem;
       font-size: 0.8rem;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .toolbar button {
+      min-width: 55px;
+      padding: 0.6rem;
+      font-size: 0.8rem;
+      min-height: 44px;
+      touch-action: manipulation; /* Better touch handling */
+      -webkit-tap-highlight-color: transparent; /* Remove tap highlight on iOS */
+      position: relative; /* Ensure buttons are clickable */
+      z-index: 10000; /* Higher than toolbar */
+    }
+    .toolbar-row {
+      gap: 0.8rem; /* Aumenta leggermente lo spazio tra i pulsanti */
     }
   }

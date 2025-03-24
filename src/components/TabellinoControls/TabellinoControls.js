@@ -37,44 +37,37 @@ function TabellinoControls({
       alert('Stage non disponibile o non passato come prop.');
       return;
     }
-    
-    // Nascondi il bordo
+  
+    // Hide border during export
     if (borderRef?.current) {
       borderRef.current.visible(false);
       stage.batchDraw();
     }
-    
-    // Salva la scala attuale dello stage
-    const oldScale = stage.scale();
-    
-    // Ripristina temporaneamente la scala a 1 e le dimensioni originali per l'export
+  
+    // Save current scale and reset to 1 for export
+    const currentScale = stage.scale();
     stage.scale({ x: 1, y: 1 });
-    stage.width(1440);
-    stage.height(1800);
     stage.batchDraw();
-    
-    // Esporta l'immagine come JPEG con qualità 0.8 (puoi regolare questo valore)
+  
+    // Export image at original size
     const uri = stage.toDataURL({
       x: 0,
       y: 0,
       width: 1440,
       height: 1800,
-      pixelRatio: 3,
+      pixelRatio: 1, // Original resolution
       mimeType: 'image/jpeg',
-      quality: 0.8, // Regola la qualità per bilanciare dimensione e fedeltà
+      quality: 0.8,
     });
-    
-    // Ripristina la scala originale
-    stage.scale(oldScale);
-    stage.batchDraw();
-    
-    // Ripristina il bordo
+  
+    // Restore display scale and border
+    stage.scale(currentScale);
     if (borderRef?.current) {
       borderRef.current.visible(true);
-      stage.batchDraw();
     }
-    
-    // Scarica l'immagine
+    stage.batchDraw();
+  
+    // Trigger download
     const link = document.createElement('a');
     link.download = 'full_time_result.jpg';
     link.href = uri;
