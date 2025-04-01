@@ -279,6 +279,7 @@ function TabellinoControls({
         <option value="conferenceleague.png">Conference League</option>
         <option value="championsleague.png">Champions League</option>
         <option value="greekcup.png">Greek Cup</option>
+        <option value="youthleague.png">Youth League</option>
       </select>
 
       {/* 2) Importazione immagine da Instagram */}
