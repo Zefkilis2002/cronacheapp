@@ -19,12 +19,12 @@ const FullTimeEditor = () => {
   const [selectedLogo2, setSelectedLogo2] = useState('/loghi/olympiakos.png');
   const [uploadedLogo1, setUploadedLogo1] = useState(null);
   const [uploadedLogo2, setUploadedLogo2] = useState(null);
-  const [logo1Position, setLogo1Position] = useState({ x: 65, y: 1260 });
-  const [logo2Position, setLogo2Position] = useState({ x: 1175, y: 1260 });
-  const [logo1Scale, setLogo1Scale] = useState({ scaleX: 1, scaleY: 1 });
-  const [logo2Scale, setLogo2Scale] = useState({ scaleX: 1, scaleY: 1 });
-  const [score1Y, setScore1Y] = useState(1255);
-  const [score2Y, setScore2Y] = useState(1255);
+  const [logo1Position, setLogo1Position] = useState({ x: 215, y: 1270 });
+  const [logo2Position, setLogo2Position] = useState({ x: 1070, y: 1270 });
+  const [logo1Scale, setLogo1Scale] = useState({ scaleX: 0.90, scaleY: 0.90 });
+  const [logo2Scale, setLogo2Scale] = useState({ scaleX: 0.90, scaleY: 0.90 });
+  const [score1Y, setScore1Y] = useState(1280);
+  const [score2Y, setScore2Y] = useState(1280);
   const [imagePosition, setImagePosition] = useState({ x: 100, y: 100 });
   const [imageScale, setImageScale] = useState({ scaleX: 1, scaleY: 1 });
 

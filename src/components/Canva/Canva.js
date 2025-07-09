@@ -178,33 +178,33 @@ const Canva = ({
           )}
           <Text
             text={String(score1)}
-            fontSize={260}
+            fontSize={210}
             fontFamily="Kenyan Coffee Bold Italic"
             fill="white"
             stroke="black"
             strokeWidth={1}
-            x={370}
+            x={480}
             y={score1Y}
           />
           <Text
             text={String(score2)}
-            fontSize={260}
+            fontSize={210}
             fontFamily="Kenyan Coffee Bold Italic"
             fill="white"
             stroke="black"
             strokeWidth={1}
-            x={930}
+            x={835}
             y={score2Y}
           />
           {scorersTeam1.map((scorer, index) => (
             <Text
               key={index}
               text={scorer}
-              fontSize={50}
-              fontFamily="Kenyan Coffee Regular"
+              fontSize={27}
+              fontFamily="Benzin-Medium"
               fill="white"
-              x={40}
-              y={1510 + index * 60}
+              x={180}
+              y={1510 + index * 40}
             />
           ))}
           {scorersTeam2.map((scorer, index) => {
@@ -216,13 +216,13 @@ const Canva = ({
               <Text
                 key={index}
                 text={displayText}
-                fontSize={50}
-                fontFamily="Kenyan Coffee Regular"
+                fontSize={27}
+                fontFamily="Benzin-Medium"
                 fill="white"
                 align="right"
                 width={400}
-                x={994}
-                y={1510 + index * 60}
+                x={880}
+                y={1510 + index * 40}
                 wrap="none"
                 listening={false}
               />

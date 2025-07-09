@@ -58,7 +58,7 @@ Il Panathinaikos saluta la UEFA Conference League dopo una serata sfortunata al 
 
 Nonostante l'uscita di scena, i biancoverdi hanno lottato fino all'ultimo, sfiorando il secondo gol in un secondo tempo dominato per intensità e carattere."
 
-2. "🔥 LOTTA SCUDETTO: RISULTATI CHE CAMBIANO GLI EQUILIBRI IN GRECIA! 🇬🇷💥
+2. "🔥 𝗟𝗢𝗧𝗧𝗔 𝗦𝗖𝗨𝗗𝗘𝗧𝗧𝗢: 𝗥𝗜𝗦𝗨𝗟𝗧𝗔𝗧𝗜 𝗖𝗛𝗘 𝗖𝗔𝗠𝗕𝗜𝗔𝗡𝗢 𝗚𝗟𝗜 𝗘𝗤𝗨𝗜𝗟𝗜𝗕𝗥𝗜 𝗜𝗡 𝗚𝗥𝗘𝗖𝗜𝗔! 🇬🇷💥
 
 🟡⚫ AEK travolgente: cinquina e -2 dall'Olympiacos!
 Con una prestazione dominante, l'AEK spazza via l'avversario con un netto 5-0 nell'OPAP Arena a porte chiuse. Marcial e Ljubičić sugli scudi, regalando una vittoria che avvicina i gialloneri alla vetta, ora distante solo due punti.
