@@ -200,7 +200,7 @@ const Canva = ({
             <Text
               key={index}
               text={scorer}
-              fontSize={27}
+              fontSize={30}
               fontFamily="Benzin-Medium"
               fill="white"
               x={180}
@@ -216,7 +216,7 @@ const Canva = ({
               <Text
                 key={index}
                 text={displayText}
-                fontSize={27}
+                fontSize={30}
                 fontFamily="Benzin-Medium"
                 fill="white"
                 align="right"

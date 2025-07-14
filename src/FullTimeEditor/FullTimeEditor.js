@@ -20,7 +20,7 @@ const FullTimeEditor = () => {
   const [uploadedLogo1, setUploadedLogo1] = useState(null);
   const [uploadedLogo2, setUploadedLogo2] = useState(null);
   const [logo1Position, setLogo1Position] = useState({ x: 215, y: 1270 });
-  const [logo2Position, setLogo2Position] = useState({ x: 1070, y: 1270 });
+  const [logo2Position, setLogo2Position] = useState({ x: 1052, y: 1274 });
   const [logo1Scale, setLogo1Scale] = useState({ scaleX: 0.90, scaleY: 0.90 });
   const [logo2Scale, setLogo2Scale] = useState({ scaleX: 0.90, scaleY: 0.90 });
   const [score1Y, setScore1Y] = useState(1280);

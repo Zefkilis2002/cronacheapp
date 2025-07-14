@@ -18,7 +18,13 @@ const defaultLogos = [
   '/loghi/volos.png',
   '/loghi/levadiakos.png',
   '/loghi/atromitos.png',
-  '/loghi/grecia.png'
+  '/loghi/grecia.png',
+  '/loghi/ael.png',
+  '/loghi/giannina.png',
+  '/loghi/kalamata.png',
+  '/loghi/kifisia.png',
+  '/loghi/panionios.png',
+  '/loghi/iraklis.png'
 ];
 
 const SetTeamTwo = ({
