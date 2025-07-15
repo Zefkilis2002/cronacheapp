@@ -43,13 +43,13 @@ const Toolbar = ({
           setScore1Y(prev => prev - 2);
           setScore2Y(prev => prev - 2);
         }}>
-          ↑ Posizione Y
+          ↑ Pos Y
         </button>
         <button onClick={() => {
           setScore1Y(prev => prev + 2);
           setScore2Y(prev => prev + 2);
         }}>
-          ↓ Posizione Y
+          ↓ Pos Y
         </button>
       </div>
     </div>
