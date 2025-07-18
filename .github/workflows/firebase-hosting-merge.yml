@@ -9,11 +9,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build without CI lint‑errors
-        run: npm run build:no-ci
+      - name: Install & Build disabling CI lint‑errors
+        run: |
+          npm ci
+          CI=false npm run build
 
       - uses: FirebaseExtended/action-hosting-deploy@v0
         with:
