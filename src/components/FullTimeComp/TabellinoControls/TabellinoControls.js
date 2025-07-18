@@ -201,20 +201,20 @@ function TabellinoControls({
     setCarouselImages([]);
     setShowCarouselSelector(false);
     setImageQualityInfo(null);
-
+  
     if (!(await checkServerConnection())) {
       setIsLoading(false);
       return;
     }
-
+  
     try {
       const instagramUrl = getInstagramUrl(instagramLink);
       if (!instagramUrl) {
         throw new Error("Link Instagram non valido");
       }
-
+  
       console.log("Recupero immagine da:", instagramUrl);
-
+  
       const response = await axios.get('http://localhost:5000/api/instagram-image', {
         params: {
           url: encodeURIComponent(instagramUrl),
@@ -223,19 +223,19 @@ function TabellinoControls({
         },
         timeout: 60000
       });
-
+  
       if (!response.data || !response.data.status) {
         throw new Error('Risposta server non valida');
       }
-
+  
       const { imageUrl, carouselImages: carousel, imageCount, quality } = response.data;
-
+  
       if (carousel && carousel.length > 1) {
         setCarouselImages(carousel);
         setShowCarouselSelector(true);
-
+  
         const firstImageInfo = await getImageInfo(carousel[0]);
-
+  
         setImageQualityInfo({
           width: firstImageInfo.width,
           height: firstImageInfo.height,
@@ -245,12 +245,12 @@ function TabellinoControls({
           isCarousel: true,
           totalImages: imageCount
         });
-
+  
         setInstagramImage(carousel[0]);
         alert(`Carosello con ${imageCount} immagini caricato in qualità ${quality}. Dimensioni: ${firstImageInfo.width}x${firstImageInfo.height}`);
       } else if (imageUrl) {
         const imageInfo = await getImageInfo(imageUrl);
-
+  
         setImageQualityInfo({
           width: imageInfo.width,
           height: imageInfo.height,
@@ -259,13 +259,13 @@ function TabellinoControls({
           quality: quality,
           isCarousel: false
         });
-
+  
         setInstagramImage(imageUrl);
         alert(`Immagine caricata in qualità ${quality}. Dimensioni: ${imageInfo.width}x${imageInfo.height}`);
       } else {
         throw new Error("Nessuna immagine trovata nel post");
       }
-
+  
     } catch (error) {
       console.error("Errore dettagliato:", error);
       let errorMsg = `Errore: ${error.message}`;
