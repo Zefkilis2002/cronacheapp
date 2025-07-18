@@ -37,14 +37,14 @@
     background-color: #1e1e2d;
     color: #b4ff00;
     border: 2px solid #b4ff00;
-    border-radius: 8px;
+    border-radius: 25px;
     padding: 0.5rem;
     font-size: 1rem;
     text-align: center;
   }
 
   .text-marcatori{
-    font-size: 1rem;
+    font-size: 1.17rem;
     font-weight: 600;
     margin-bottom: 1rem;
     text-align: left;
@@ -59,6 +59,8 @@
   
   .scorer-input{
     align-items: center;
+    width: 180px;
+    margin-left: 8px;
   }
 
 
@@ -77,11 +79,21 @@
 
   .upload-logo{
     padding: 5px 10px;
-    border: 1px solid #b4ff00;
+    border: 2px solid #b4ff00;
     border-radius: 25px;
-    background-color: #1e1e2d;
+    background-color: #00061b;
+    font-size: 1rem;
     color: #b4ff00;
-    height: 40px;
+    font-weight: bold;
+    cursor: pointer;
+    height: 45px;
+  }
+
+  
+  .upload-logo:hover {
+    background-color: #b4ff00;
+    color: #00061b;
+    box-shadow: 0px 6px 12px rgba(180, 255, 0, 0.4);
   }
 
   @media (max-width: 768px) {
@@ -94,5 +106,7 @@
 
     .scorer-input{
       align-items: center;
+      height: 40px;
+      margin-top: 5px;
     }
   }

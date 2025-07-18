@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
-import NewsCreator from '../components/NewsCreator/NewsCreator';
-import ImagesSelector from '../components/ImagesSelector/ImagesSelector';
-import CanvasNews from '../components/CanvasNews/CanvasNews';
-import ToolbarNews from '../components/ToolbarNews/ToolbarNews';
+import NewsCreator from '../components/NewsCreatorComp/NewsCreator/NewsCreator';
+import ImagesSelector from '../components/NewsCreatorComp/ImagesSelector/ImagesSelector';
+import CanvasNews from '../components/NewsCreatorComp/CanvasNews/CanvasNews';
+import ToolbarNews from '../components/NewsCreatorComp/ToolbarNews/ToolbarNews';
 import useImage from 'use-image';
 import '../fonts.css';
 import './News.css';

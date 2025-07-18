@@ -1,4 +1,3 @@
-// Versione aggiornata di instagram-proxy.js
 const express = require('express');
 const axios = require('axios');
 const cheerio = require('cheerio');
@@ -18,6 +17,57 @@ app.get('/api/health-check', (req, res) => {
   res.status(200).json({ status: true, message: 'Server is running' });
 });
 
+// Funzione per selezionare l'immagine con la qualità più alta
+function selectHighestQualityImage(images) {
+  if (!images || images.length === 0) return null;
+  
+  return images.reduce((best, current) => {
+    const currentWidth = current.config_width || current.width || 0;
+    const currentHeight = current.config_height || current.height || 0;
+    const currentPixels = currentWidth * currentHeight;
+    
+    const bestWidth = best.config_width || best.width || 0;
+    const bestHeight = best.config_height || best.height || 0;
+    const bestPixels = bestWidth * bestHeight;
+    
+    // Preferisci l'immagine con più pixel totali
+    return currentPixels > bestPixels ? current : best;
+  });
+}
+
+// Funzione per estrarre l'URL dell'immagine originale
+function extractOriginalImageUrl(mediaNode) {
+  // Verifica se è disponibile un URL originale esplicito
+  if (mediaNode.original_image_url) {
+    return mediaNode.original_image_url;
+  }
+
+  const imageCandidates = [];
+
+  // Priorità 1: display_resources (qualità massima)
+  if (mediaNode.display_resources && mediaNode.display_resources.length > 0) {
+    imageCandidates.push(...mediaNode.display_resources);
+  }
+
+  // Priorità 2: image_versions2 candidates
+  if (mediaNode.image_versions2 && mediaNode.image_versions2.candidates) {
+    imageCandidates.push(...mediaNode.image_versions2.candidates);
+  }
+
+  // Priorità 3: display_url (fallback)
+  if (mediaNode.display_url) {
+    imageCandidates.push({
+      src: mediaNode.display_url,
+      config_width: 1080,
+      config_height: 1080
+    });
+  }
+
+  // Seleziona l’immagine con la qualità più alta
+  const bestImage = selectHighestQualityImage(imageCandidates);
+  return bestImage ? (bestImage.src || bestImage.url) : null;
+}
+
 app.get('/api/instagram-image', async (req, res) => {
   const url = decodeURIComponent(req.query.url);
   const getCarouselImages = req.query.getCarouselImages === 'true';
@@ -30,99 +80,106 @@ app.get('/api/instagram-image', async (req, res) => {
     console.log(`Recupero contenuto da: ${url}`);
     console.log(`Modalità carosello: ${getCarouselImages ? 'attiva' : 'inattiva'}`);
     
-    // Configurazione avanzata di headers per simulare meglio un browser
+    // Headers migliorati per evitare il blocco da parte di Instagram
     const response = await axios.get(url, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
-        'Accept-Language': 'en-US,en;q=0.9',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+        'Accept-Language': 'en-US,en;q=0.9,it;q=0.8',
+        'Accept-Encoding': 'gzip, deflate, br',
         'Cache-Control': 'no-cache',
         'Pragma': 'no-cache',
-        'sec-ch-ua': '"Google Chrome";v="119", "Chromium";v="119", "Not?A_Brand";v="24"',
+        'sec-ch-ua': '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
         'sec-ch-ua-mobile': '?0',
         'sec-ch-ua-platform': '"Windows"',
         'Sec-Fetch-Dest': 'document',
         'Sec-Fetch-Mode': 'navigate',
         'Sec-Fetch-Site': 'none',
         'Sec-Fetch-User': '?1',
-        'Upgrade-Insecure-Requests': '1'
+        'Upgrade-Insecure-Requests': '1',
+        'DNT': '1'
       },
       maxRedirects: 10,
-      timeout: 15000
+      timeout: 20000
     });
     
     const html = response.data;
     const $ = cheerio.load(html);
     
-    // Log per debug
     console.log('Contenuto HTML ricevuto, lunghezza:', html.length);
-    console.log('Cercando immagini in vari percorsi...');
     
-    // Array per contenere tutte le immagini del carosello se richiesto
     let carouselImages = [];
     let mainImageUrl = null;
     
-    // Cerchiamo prima nei JSON embedded che contengono i dati più completi
-    $('script').each((i, elem) => {
+    // Cerca nei dati JSON embedded
+    $('script[type="application/ld+json"], script').each((i, elem) => {
       const scriptContent = $(elem).html();
       if (!scriptContent) return;
       
       try {
-        // Cerchiamo i pattern json comuni di Instagram
-        if (scriptContent.includes('_sharedData') || 
-            scriptContent.includes('additionalDataLoaded')) {
+        // Pattern per i dati _sharedData
+        const sharedDataMatch = scriptContent.match(/window\._sharedData\s*=\s*({.+?});/);
+        if (sharedDataMatch) {
+          const jsonData = JSON.parse(sharedDataMatch[1]);
+          console.log('Trovato _sharedData');
           
-          // Estrai JSON dai pattern comuni
-          const jsonMatch = scriptContent.match(/window\._sharedData\s*=\s*({.+?});/) || 
-                            scriptContent.match(/window\.__additionalDataLoaded\s*\(\s*['"][^'"]+['"],\s*({.+?})\s*\);/);
-          
-          if (jsonMatch && jsonMatch[1]) {
-            const jsonData = JSON.parse(jsonMatch[1]);
-            console.log('Trovato JSON nei dati condivisi di Instagram');
+          const entryData = jsonData.entry_data;
+          if (entryData && entryData.PostPage && entryData.PostPage[0]) {
+            const post = entryData.PostPage[0].graphql.shortcode_media;
             
-            // Estrai i dati del post
-            const entryData = jsonData.entry_data;
-            if (entryData && entryData.PostPage && entryData.PostPage[0]) {
-              const post = entryData.PostPage[0].graphql.shortcode_media;
+            if (post) {
+              console.log('Tipo di post:', post.__typename);
+              console.log('È un carosello?', post.edge_sidecar_to_children ? 'Sì' : 'No');
               
-              if (post) {
-                if (post.display_resources && post.display_resources.length > 0) {
-                  // Ordina le risorse per larghezza decrescente e prendi la più grande
-                  const sortedResources = post.display_resources.sort((a, b) => b.config_width - a.config_width);
-                  mainImageUrl = sortedResources[0].src;
-                  console.log('Immagine ad alta risoluzione trovata:', mainImageUrl);
-                  carouselImages.push(mainImageUrl);
-                } else {
-                  // Fallback su display_url se display_resources non è disponibile
-                  mainImageUrl = post.display_url;
-                  if (mainImageUrl) {
-                    console.log('Immagine trovata con display_url:', mainImageUrl);
-                    carouselImages.push(mainImageUrl);
+              // Gestione carosello
+              if (post.edge_sidecar_to_children && getCarouselImages) {
+                const edges = post.edge_sidecar_to_children.edges;
+                console.log(`Trovato carosello con ${edges.length} elementi`);
+                
+                edges.forEach((edge, index) => {
+                  if (!edge.node.is_video) {
+                    const imageUrl = extractOriginalImageUrl(edge.node);
+                    if (imageUrl) {
+                      carouselImages.push(imageUrl);
+                      console.log(`Immagine ${index + 1} del carosello: ${imageUrl.substring(0, 100)}...`);
+                    }
                   }
+                });
+                
+                if (carouselImages.length > 0) {
+                  mainImageUrl = carouselImages[0];
+                }
+              } else {
+                // Post singolo
+                mainImageUrl = extractOriginalImageUrl(post);
+                if (mainImageUrl) {
+                  carouselImages.push(mainImageUrl);
+                  console.log('Immagine singola trovata:', mainImageUrl.substring(0, 100) + '...');
                 }
               }
             }
-
-            if (post.edge_sidecar_to_children && getCarouselImages) {
-              const edges = post.edge_sidecar_to_children.edges;
-              console.log(`Trovato carosello con ${edges.length} immagini`);
+          }
+        }
+        
+        // Pattern per additionalDataLoaded
+        const additionalDataMatch = scriptContent.match(/window\.__additionalDataLoaded\s*\(\s*['"][^'"]+['"],\s*({.+?})\s*\);/);
+        if (additionalDataMatch && !mainImageUrl) {
+          const jsonData = JSON.parse(additionalDataMatch[1]);
+          console.log('Trovato additionalDataLoaded');
+          
+          // Cerca nei dati aggiuntivi
+          if (jsonData.items && jsonData.items.length > 0) {
+            const item = jsonData.items[0];
+            
+            if (item.carousel_media && getCarouselImages) {
+              console.log(`Carosello con ${item.carousel_media.length} elementi`);
               
-              edges.forEach(edge => {
-                if (edge.node.is_video === false) {
-                  const resources = edge.node.display_resources;
-                  if (resources && resources.length > 0) {
-                    // Ordina per larghezza e prendi la più grande
-                    const sortedResources = resources.sort((a, b) => b.config_width - a.config_width);
-                    const imgUrl = sortedResources[0].src;
-                    if (imgUrl) {
-                      carouselImages.push(imgUrl);
-                    }
-                  } else {
-                    // Fallback su display_url
-                    const imgUrl = edge.node.display_url;
-                    if (imgUrl) {
-                      carouselImages.push(imgUrl);
-                    }
+              item.carousel_media.forEach((media, index) => {
+                if (media.media_type === 1) { // Tipo 1 = immagine
+                  const imageUrl = extractOriginalImageUrl(media);
+                  if (imageUrl) {
+                    carouselImages.push(imageUrl);
+                    console.log(`Immagine ${index + 1} del carosello: ${imageUrl.substring(0, 100)}...`);
                   }
                 }
               });
@@ -130,53 +187,34 @@ app.get('/api/instagram-image', async (req, res) => {
               if (carouselImages.length > 0) {
                 mainImageUrl = carouselImages[0];
               }
-            }
-            
-            // Cerca anche nei percorsi di dati aggiornati di Instagram
-            const mediaData = jsonData.items?.[0] || jsonData.media;
-            if (mediaData && !mainImageUrl) {
-              if (mediaData.carousel_media && getCarouselImages) {
-                // È un carosello nel formato alternativo
-                console.log(`Trovato carosello alternativo con ${mediaData.carousel_media.length} immagini`);
-                
-                mediaData.carousel_media.forEach(media => {
-                  // Prendiamo l'immagine in qualità originale
-                  const candidates = media.image_versions2?.candidates;
-                  if (candidates && candidates.length > 0) {
-                    // Ordina per larghezza e prendi quella con risoluzione maggiore
-                    candidates.sort((a, b) => b.width - a.width);
-                    carouselImages.push(candidates[0].url);
-                  }
-                });
-                
-                // Imposta l'immagine principale come la prima del carosello
-                if (carouselImages.length > 0) {
-                  mainImageUrl = carouselImages[0];
-                }
-              } else {
-                // Post singolo nel formato alternativo
-                const candidates = mediaData.image_versions2?.candidates;
-                if (candidates && candidates.length > 0) {
-                  // Ordina per larghezza e prendi quella con risoluzione maggiore
-                  candidates.sort((a, b) => b.width - a.width);
-                  mainImageUrl = candidates[0].url;
-                  carouselImages.push(mainImageUrl);
-                }
-              }
-              
+            } else if (item.media_type === 1) {
+              // Immagine singola
+              mainImageUrl = extractOriginalImageUrl(item);
               if (mainImageUrl) {
-                console.log('Immagine trovata nei dati JSON (schema aggiornato):', mainImageUrl);
+                carouselImages.push(mainImageUrl);
+                console.log('Immagine singola trovata:', mainImageUrl.substring(0, 100) + '...');
               }
             }
           }
         }
+        
+        // Pattern per JSON-LD
+        if (scriptContent.includes('"@type":"ImageObject"') && !mainImageUrl) {
+          const jsonLd = JSON.parse(scriptContent);
+          if (jsonLd.image && jsonLd.image.url) {
+            mainImageUrl = jsonLd.image.url;
+            carouselImages.push(mainImageUrl);
+            console.log('Immagine trovata in JSON-LD:', mainImageUrl.substring(0, 100) + '...');
+          }
+        }
+        
       } catch (e) {
         // Continua con il prossimo script
         console.log('Errore durante il parsing di uno script:', e.message);
       }
     });
     
-    // Se non abbiamo trovato nulla nei JSON, proviamo con i meta tag
+    // Fallback: cerca nei meta tag
     if (!mainImageUrl) {
       const ogImage = $('meta[property="og:image"]').attr('content');
       if (ogImage) {
@@ -186,61 +224,57 @@ app.get('/api/instagram-image', async (req, res) => {
       }
     }
     
-    // Ultima strategia: cerca elementi <img> ad alta risoluzione
+    // Ultimo tentativo: cerca immagini ad alta risoluzione nel DOM
     if (!mainImageUrl || carouselImages.length === 0) {
       const images = [];
+      
       $('img').each((i, elem) => {
         const src = $(elem).attr('src');
-        const srcset = $(elem).attr('srcset');
         
-        // Filtra le immagini che sembrano contenuti principali ad alta risoluzione
         if (src && 
-            (src.includes('instagram.com/') || src.includes('cdninstagram.com')) && 
-            src.includes('1080x') && // Alta risoluzione
+            (src.includes('scontent') || src.includes('instagram.com') || src.includes('fbcdn.net')) &&
             !src.includes('profile_pic') && 
-            !src.includes('favicon')) {
+            !src.includes('favicon') &&
+            !src.includes('avatar') &&
+            !src.includes('story')) {
           
-          images.push({ 
-            url: src,
-            width: $(elem).attr('width') || 0
-          });
-        }
-        
-        // Controlla anche srcset per versioni di immagini di dimensioni maggiori
-        if (srcset) {
-          const srcsetUrls = srcset.split(',')
-            .map(src => {
-              const [url, size] = src.trim().split(' ');
-              return { url, size: parseInt(size) || 0 };
-            })
-            .sort((a, b) => b.size - a.size); // Ordina per dimensione (dalla più grande)
+          const width = parseInt($(elem).attr('width')) || 0;
+          const height = parseInt($(elem).attr('height')) || 0;
           
-          if (srcsetUrls.length > 0) {
+          // Filtra per dimensioni minime per evitare thumbnails
+          if (width >= 150 && height >= 150) {
             images.push({ 
-              url: srcsetUrls[0].url,
-              width: srcsetUrls[0].size
+              url: src,
+              width: width,
+              height: height,
+              pixels: width * height
             });
           }
         }
       });
       
-      // Ordina le immagini per dimensione
-      images.sort((a, b) => b.width - a.width);
+      // Ordina per numero di pixel (qualità)
+      images.sort((a, b) => b.pixels - a.pixels);
       
       if (images.length > 0) {
-        console.log(`Trovate ${images.length} immagini nel DOM. Utilizzando la prima:`, images[0].url);
+        console.log(`Trovate ${images.length} immagini nel DOM. Utilizzando la migliore:`, images[0].url.substring(0, 100) + '...');
         mainImageUrl = images[0].url;
-        carouselImages = images.map(img => img.url);
+        carouselImages = images.slice(0, getCarouselImages ? 10 : 1).map(img => img.url);
       }
     }
     
     // Prepara la risposta
     if (mainImageUrl) {
+      console.log('Immagine principale selezionata:', mainImageUrl.substring(0, 100) + '...');
+      console.log('Numero totale di immagini nel carosello:', carouselImages.length);
+      
       return res.json({
         status: true,
         imageUrl: mainImageUrl,
         carouselImages: getCarouselImages ? carouselImages : [mainImageUrl],
-        isCarousel: carouselImages.length > 1
+        isCarousel: carouselImages.length > 1,
+        imageCount: carouselImages.length,
+        quality: 'original'
       });
     }
     
@@ -249,7 +283,7 @@ app.get('/api/instagram-image', async (req, res) => {
       status: false,
       code: 'NO_IMAGE_FOUND',
       message: 'Nessuna immagine trovata nel post Instagram',
-      details: `Analizzati ${$('script').length} script, ${$('img').length} tag img e ${$('a').length} link`
+      details: `Analizzati ${$('script').length} script, ${$('img').length} tag img`
     });
     
   } catch (error) {
@@ -259,12 +293,12 @@ app.get('/api/instagram-image', async (req, res) => {
       code: 'SERVER_ERROR',
       message: 'Recupero immagine fallito',
       error: error.message,
-      stack: error.stack,
       attemptedUrl: url
     });
   }
 });
 
+// Proxy migliorato per le immagini con supporto per immagini originali
 app.get('/proxy-image', async (req, res) => {
   try {
     const imageUrl = req.query.url;
@@ -273,36 +307,45 @@ app.get('/proxy-image', async (req, res) => {
       return res.status(400).send('URL dell\'immagine non valido');
     }
     
+    console.log('Proxy richiesto per:', imageUrl.substring(0, 100) + '...');
+    
     const response = await axios.get(imageUrl, { 
       responseType: 'stream',
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         'Referer': 'https://www.instagram.com/',
         'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
         'Accept-Encoding': 'gzip, deflate, br',
         'Cache-Control': 'no-cache',
-        'Pragma': 'no-cache'
-      }
+        'Pragma': 'no-cache',
+        'sec-ch-ua': '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
+        'sec-ch-ua-mobile': '?0',
+        'sec-ch-ua-platform': '"Windows"',
+        'Sec-Fetch-Dest': 'image',
+        'Sec-Fetch-Mode': 'no-cors',
+        'Sec-Fetch-Site': 'cross-site'
+      },
+      maxRedirects: 5,
+      timeout: 30000
     });
     
-    // Imposta tutti gli header della risposta originale per mantenere il tipo di contenuto e altre informazioni
-    Object.keys(response.headers).forEach(header => {
-      // Esclude gli header che potrebbero causare problemi
-      if (!['content-encoding', 'content-length', 'transfer-encoding', 'connection'].includes(header.toLowerCase())) {
-        res.set(header, response.headers[header]);
-      }
-    });
+    // Imposta gli header per l'immagine
+    const contentType = response.headers['content-type'] || 'image/jpeg';
+    const contentLength = response.headers['content-length'];
     
-    // Assicura che il Content-Type sia impostato correttamente
-    if (response.headers['content-type']) {
-      res.set('Content-Type', response.headers['content-type']);
+    res.set('Content-Type', contentType);
+    if (contentLength) {
+      res.set('Content-Length', contentLength);
     }
     
-    // Imposta header CORS per consentire l'accesso da qualsiasi origine
+    // Header CORS
     res.set('Access-Control-Allow-Origin', '*');
-    res.set('Cache-Control', 'public, max-age=86400'); // Cache per 24 ore
+    res.set('Cache-Control', 'public, max-age=86400');
+    
+    console.log('Immagine proxy completata. Tipo:', contentType, 'Dimensione:', contentLength);
     
     response.data.pipe(res);
+    
   } catch (error) {
     console.error('Errore nel proxy:', error.message);
     res.status(500).send('Errore nel caricamento dell\'immagine');
@@ -310,4 +353,4 @@ app.get('/proxy-image', async (req, res) => {
 });
 
 const PORT = 5000;
-app.listen(PORT, () => console.log(`Server in ascolto sulla porta ${PORT}`));
+app.listen(PORT, () => console.log(`Server migliorato in ascolto sulla porta ${PORT}`));

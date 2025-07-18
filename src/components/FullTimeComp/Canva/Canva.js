@@ -46,33 +46,27 @@ const Canva = ({
       const originalWidth = 1440;
       const originalHeight = 1800;
 
-      // Get the container's parent dimensions
       const containerWidth = window.innerWidth * 0.9;
       const containerHeight = window.innerHeight * 0.9;
 
-      // Calculate scale while maintaining aspect ratio
       const scale = Math.min(
         containerWidth / originalWidth,
         containerHeight / originalHeight
       );
 
-      // Set fixed dimensions
       stage.width(originalWidth);
       stage.height(originalHeight);
       stage.scale({ x: scale, y: scale });
 
-      // Apply dimensions to container
       const container = stage.container();
       if (container) {
         const scaledWidth = originalWidth * scale;
         const scaledHeight = originalHeight * scale;
-        
+
         container.style.width = `${scaledWidth}px`;
         container.style.height = `${scaledHeight}px`;
         container.style.margin = '0 auto';
         container.style.position = 'relative';
-        
-        // Prevent mobile browsers from adjusting viewport
         container.style.touchAction = 'none';
         container.style.userSelect = 'none';
         container.style.webkitUserSelect = 'none';
@@ -81,10 +75,8 @@ const Canva = ({
       stage.batchDraw();
     };
 
-    // Initial scaling
     scaleCanvas();
 
-    // Debounce resize handler
     let resizeTimeout;
     const handleResize = () => {
       clearTimeout(resizeTimeout);
@@ -107,29 +99,37 @@ const Canva = ({
     if (!image) return { width: 0, height: 0 };
     const { width, height } = image;
     const aspectRatio = width / height;
-    if (width > maxWidth || height > maxHeight) {
-      return aspectRatio > 1
-        ? { width: maxWidth, height: maxWidth / aspectRatio }
-        : { width: maxHeight * aspectRatio, height: maxHeight };
+    let scaledWidth, scaledHeight;
+
+    if (aspectRatio > maxWidth / maxHeight) {
+      scaledWidth = maxWidth;
+      scaledHeight = maxWidth / aspectRatio;
+    } else {
+      scaledHeight = maxHeight;
+      scaledWidth = maxHeight * aspectRatio;
     }
-    return { width, height };
+
+    return { width: scaledWidth, height: scaledHeight };
   };
+
+  // Calcola le dimensioni scalate per l'immagine
+  const imageDimensions = getScaledDimensions(instaImg || uploadedImg, 1440, 1800);
+
+  // Calcola la posizione per centrare l'immagine
+  const centeredX = (1440 - imageDimensions.width) / 2;
+  const centeredY = (1800 - imageDimensions.height) / 2;
 
   return (
     <div className="canvas-container">
       <Stage ref={stageRef} width={1440} height={1800}>
-        {/* Layer con clipping per tutti gli elementi */}
-        <Layer
-          clipX={0}
-          clipY={0}
-          clipWidth={1440}
-          clipHeight={1800}
-        >
+        <Layer clipX={0} clipY={0} clipWidth={1440} clipHeight={1800}>
           {uploadedImg && (
             <KonvaImage
               image={uploadedImg}
-              x={imagePosition.x}
-              y={imagePosition.y}
+              x={imagePosition?.x ?? centeredX}
+              y={imagePosition?.y ?? centeredY}
+              width={imageDimensions.width}
+              height={imageDimensions.height}
               scaleX={imageScale.scaleX}
               scaleY={imageScale.scaleY}
               draggable
@@ -140,12 +140,12 @@ const Canva = ({
           {proxyUrl && status === 'loaded' && instaImg && (
             <KonvaImage
               image={instaImg}
-              x={imagePosition.x}
-              y={imagePosition.y}
+              x={imagePosition?.x ?? centeredX}
+              y={imagePosition?.y ?? centeredY}
+              width={imageDimensions.width}
+              height={imageDimensions.height}
               scaleX={imageScale.scaleX}
               scaleY={imageScale.scaleY}
-              width={instaImg.width}
-              height={instaImg.height}
               draggable
               onDragEnd={handleDragEnd}
               onTransformEnd={handleTransform}
@@ -229,7 +229,6 @@ const Canva = ({
             );
           })}
         </Layer>
-        {/* Layer separato per il bordo, senza clipping */}
         <Layer>
           <Rect
             ref={borderRef}

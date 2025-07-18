@@ -1,9 +1,9 @@
 import React, { useState, useRef } from 'react';
-import TabellinoControls from '../components/TabellinoControls/TabellinoControls';
-import SetTeamOne from '../components/SetTeam/SetTeamOne';
-import SetTeamTwo from '../components/SetTeam/SetTeamTwo';
-import Toolbar from '../components/ToolBar/ToolBar';
-import Canva from '../components/Canva/Canva';
+import TabellinoControls from '../components/FullTimeComp/TabellinoControls/TabellinoControls';
+import SetTeamOne from '../components/FullTimeComp/SetTeam/SetTeamOne';
+import SetTeamTwo from '../components/FullTimeComp/SetTeam/SetTeamTwo';
+import Toolbar from '../components/FullTimeComp/ToolBar/ToolBar';
+import Canva from '../components/FullTimeComp/Canva/Canva';
 import './FullTimeEditor.css';
 
 const FullTimeEditor = () => {
@@ -58,7 +58,7 @@ const FullTimeEditor = () => {
 
   return (
     <div className="App">
-      <h1>CRONACHE ELLENICHE FULL TIME</h1>
+      <h1>CRONACHE ELLENICHE <br /> FULL TIME</h1>
       <TabellinoControls
         stageRef={stageRef}
         borderRef={borderRef}

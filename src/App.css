@@ -11,7 +11,7 @@ html, body {
     flex-direction: column;
     min-height: 100vh;
     padding: 0.5rem;
-    padding-bottom: 200px; /* Spazio extra per la toolbar */
+    padding-bottom: 100px; /* Spazio extra per la toolbar */
     box-sizing: border-box;
 }
 
@@ -27,7 +27,7 @@ html, body {
 /* Mobile styles */
 @media (max-width: 768px) {
     .App {
-        padding-bottom: 250px; /* Increased padding for mobile toolbar */
+        padding-bottom: 100px; /* Increased padding for mobile toolbar */
     }
     
     .main-content {
