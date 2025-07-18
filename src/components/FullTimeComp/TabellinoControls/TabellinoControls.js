@@ -151,7 +151,6 @@ function TabellinoControls({
   const checkServerConnection = async () => {
     setErrorMessage('');
     try {
-      
       return true;
     } catch (error) {
       console.error("Errore di connessione:", error);
