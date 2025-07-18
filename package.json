@@ -25,6 +25,7 @@
     "server": "node instagram-proxy.js",
     "client": "react-scripts start",
     "build": "react-scripts build",
+    "build:no-ci": "CI=false react-scripts build",
     "start": "concurrently \"npm run server\" \"npm:client\"",
     "dev": "concurrently \"npm run server\" \"npm:client\" --kill-others-on-fail"
   },
