@@ -219,7 +219,7 @@ function TabellinoControls({
         params: {
           url: encodeURIComponent(instagramUrl),
           getCarouselImages: true,
-          quality: 'original', // Richiede qualità originale
+          quality: 'original',
         },
         timeout: 60000
       });
@@ -228,13 +228,12 @@ function TabellinoControls({
         throw new Error('Risposta server non valida');
       }
 
-      const { imageUrl, carouselImages: carousel, isCarousel, imageCount, quality } = response.data;
+      const { imageUrl, carouselImages: carousel, imageCount, quality } = response.data;
 
       if (carousel && carousel.length > 1) {
         setCarouselImages(carousel);
         setShowCarouselSelector(true);
 
-        // Ottieni informazioni sulla prima immagine
         const firstImageInfo = await getImageInfo(carousel[0]);
 
         setImageQualityInfo({
@@ -250,7 +249,6 @@ function TabellinoControls({
         setInstagramImage(carousel[0]);
         alert(`Carosello con ${imageCount} immagini caricato in qualità ${quality}. Dimensioni: ${firstImageInfo.width}x${firstImageInfo.height}`);
       } else if (imageUrl) {
-        // Immagine singola
         const imageInfo = await getImageInfo(imageUrl);
 
         setImageQualityInfo({
@@ -277,6 +275,7 @@ function TabellinoControls({
           case 403: errorMsg = "Post privato o protetto."; break;
           case 429: errorMsg = "Troppi tentativi."; break;
           case 500: errorMsg = "Errore del server."; break;
+          default: errorMsg = `Errore sconosciuto: ${error.response.status}`; break;
         }
       }
       setErrorMessage(errorMsg);
@@ -288,51 +287,7 @@ function TabellinoControls({
     }
   };
 
-  // Funzione migliorata per precaricamento immagini
-  const preloadImages = async (imageUrls) => {
-    console.log(`Precaricamento di ${imageUrls.length} immagini...`);
-    
-    const preloadPromises = imageUrls.map((url, index) => {
-      return new Promise((resolve) => {
-        const img = new Image();
-        
-        img.onload = () => {
-          console.log(`✓ Immagine ${index + 1} precaricata: ${img.width}x${img.height}`);
-          resolve({ url, width: img.width, height: img.height, loaded: true });
-        };
-        
-        img.onerror = () => {
-          console.warn(`✗ Errore precaricamento immagine ${index + 1}`);
-          resolve({ url, loaded: false });
-        };
-        
-        img.src = url;
-        
-        // Timeout per evitare blocchi
-        setTimeout(() => {
-          if (!img.complete) {
-            console.warn(`⏱ Timeout immagine ${index + 1}`);
-            resolve({ url, loaded: false });
-          }
-        }, 15000);
-      });
-    });
-
-    try {
-      const results = await Promise.all(preloadPromises);
-      const loaded = results.filter(r => r.loaded);
-      
-      console.log(`Precaricamento completato: ${loaded.length}/${imageUrls.length} immagini`);
-      
-      if (loaded.length > 0) {
-        const dimensions = loaded.map(img => `${img.width}x${img.height}`);
-        console.log("Dimensioni immagini:", dimensions);
-      }
-      
-    } catch (error) {
-      console.error("Errore durante precaricamento:", error);
-    }
-  };
+  // Removed preloadImages function
 
   // Funzione per ottenere informazioni dettagliate sull'immagine
   const getImageInfo = (imageUrl) => {
