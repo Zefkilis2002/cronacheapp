@@ -151,9 +151,7 @@ function TabellinoControls({
   const checkServerConnection = async () => {
     setErrorMessage('');
     try {
-      const response = await axios.get('http://localhost:5000/api/health-check', {
-        timeout: 5000
-      });
+      
       return true;
     } catch (error) {
       console.error("Errore di connessione:", error);
