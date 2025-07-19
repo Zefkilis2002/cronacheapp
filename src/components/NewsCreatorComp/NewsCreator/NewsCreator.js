@@ -31,6 +31,11 @@ function NewsCreator({
           <option value="/sfondoNotizie/sfumatura.png">Sfumatura</option>
           <option value="/sfondoNotizie/dichiarazioni.png">Dichiarazioni</option>
           <option value="/sfondoNotizie/news.png">News</option>
+          <option value="/sfondoNotizie/news2.png">News 2</option>
+          <option value="/sfondoNotizie/news3.png">News 3</option>
+          <option value="/sfondoNotizie/breaking.png">Breaking</option>
+          <option value="/sfondoNotizie/roumor.png">Roumor</option>
+          <option value="/sfondoNotizie/citation.png">Citation</option>
         </select>
       </div>
 
@@ -60,6 +65,11 @@ function NewsCreator({
             <option value="Kenyan Coffee Bold">Kenyan Coffee Bold</option>
             <option value="Kenyan Coffee Regular Italic">Kenyan Coffee Regular Italic</option>
             <option value="Kenyan Coffee Bold Italic">Kenyan Coffee Bold Italic</option>
+            <option value="Benzin-Bold.ttf">Benzin Bold</option>
+            <option value="Benzin-ExtraBold.ttf">Benzin Extra Bold</option>
+            <option value="Benzin-Medium.ttf">Benzin Medium</option>
+            <option value="Benzin-Regular.ttf">Benzin Regular</option>
+            <option value="Benzin-SemiBold.ttf">Benzin Semi Bold</option>
           </select>
         </div>
       </div>
@@ -96,6 +106,11 @@ function NewsCreator({
             <option value="Kenyan Coffee Bold">Kenyan Coffee Bold</option>
             <option value="Kenyan Coffee Regular Italic">Kenyan Coffee Regular Italic</option>
             <option value="Kenyan Coffee Bold Italic">Kenyan Coffee Bold Italic</option>
+            <option value="Benzin-Bold.ttf">Benzin Bold</option>
+            <option value="Benzin-ExtraBold.ttf">Benzin Extra Bold</option>
+            <option value="Benzin-Medium.ttf">Benzin Medium</option>
+            <option value="Benzin-Regular.ttf">Benzin Regular</option>
+            <option value="Benzin-SemiBold.ttf">Benzin Semi Bold</option>
           </select>
         </div>
       </div>
