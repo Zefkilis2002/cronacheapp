@@ -11,11 +11,8 @@ html, body {
     flex-direction: column;
     min-height: 100vh;
     padding: 0.5rem;
-    padding-bottom: 100px;
+    padding-bottom: 100px; /* Spazio extra per la toolbar */
     box-sizing: border-box;
-    /* Aggiungi solo queste due righe */
-    -webkit-overflow-scrolling: touch;
-    overflow-x: hidden;
 }
 
 
@@ -50,27 +47,43 @@ body {
 }
 
 html {
-  -webkit-text-size-adjust: 100%;
-  touch-action: pan-y; /* Mantieni il pan-y per lo scroll verticale */
-  overscroll-behavior-x: none; /* Previene solo il bounce orizzontale */
+  -webkit-text-size-adjust: 100%; /* Impedisce il ridimensionamento automatico del testo su iOS */
+  touch-action: pan-y;           /* Consente solo lo scroll verticale, bloccando pinch-to-zoom */
+  overscroll-behavior: none;     /* Previene effetti di rimbalzo o zoom indesiderati */
 }
 
 body {
   margin: 0;
   padding: 0;
+  overflow-x: hidden;            /* Evita scroll orizzontale non voluto */
+  touch-action: pan-y;           /* Rinforza il controllo touch anche sul body */
+}
+
+.App {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  padding: 0.5rem;
+  padding-bottom: 100px; /* Spazio per la toolbar */
+  box-sizing: border-box;
+}
+
+.main-content {
+  flex-grow: 1;
+  padding-bottom: 200px; /* Spazio per evitare sovrapposizioni */
+  width: 100%;
   overflow-x: hidden;
-  -webkit-overflow-scrolling: touch; /* Scroll fluido su iOS */
 }
 
-/* Previeni solo il doppio tap zoom mantenendo tutto il resto */
-* {
-  -webkit-tap-highlight-color: transparent; /* Rimuove highlight blu su tap */
-}
-
-/* Consenti selezione normale per input e testo */
-input, textarea, p, span, div {
-  -webkit-user-select: auto;
-  user-select: auto;
+/* Stili per mobile */
+@media (max-width: 768px) {
+  .App {
+    padding-bottom: 100px; /* Padding per toolbar su mobile */
+  }
+  
+  .main-content {
+    padding-bottom: 250px;
+  }
 }
 
 
