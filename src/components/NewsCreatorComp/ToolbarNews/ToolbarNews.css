@@ -61,7 +61,7 @@
     .toolnews-row button {
       min-width: 55px;
       padding: 0.4rem;
-      font-size: 0.75rem;
+      font-size: 1rem;
       width: auto; /* Evita larghezza fissa */
     }
     
