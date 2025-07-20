@@ -34,7 +34,7 @@
   /* Stile per i pulsanti */
   .toolnews-row button {
     padding: 0.5rem 1rem;
-    font-size: 16px;
+    font-size: 0.9rem;
     min-width: 80px;
     width: 200px; /* Se non vuoi una larghezza fissa, rimuovi questa proprietà */
   
@@ -61,7 +61,7 @@
     .toolnews-row button {
       min-width: 55px;
       padding: 0.4rem;
-      font-size: 1rem;
+      font-size: 0.75rem;
       width: auto; /* Evita larghezza fissa */
     }
     
