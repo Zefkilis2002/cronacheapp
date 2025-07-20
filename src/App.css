@@ -52,5 +52,28 @@ input, textarea, select, button {
   -webkit-text-size-adjust: none;
 }
 
+html {
+  /* disabilita la riduzione/ingrandimento automatico del testo */
+  -webkit-text-size-adjust: 100%;
+  -ms-text-size-adjust: 100%;
+}
+
+input,
+select,
+textarea,
+button,
+a {
+  font-size: 16px !important;
+  -webkit-text-size-adjust: none; /* doppia sicurezza */
+}
+
+html, body, #root {
+  /* permette solo il pan verticale, blocca gli altri gesti che causano zoom */
+  touch-action: pan-y;
+}
+
+
+
+
 
 
