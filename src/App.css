@@ -46,44 +46,11 @@ body {
   overflow-x: hidden;            /* previene scroll orizzontale indesiderato */
 }
 
-html {
-  -webkit-text-size-adjust: 100%; /* Impedisce il ridimensionamento automatico del testo su iOS */
-  touch-action: pan-y;           /* Consente solo lo scroll verticale, bloccando pinch-to-zoom */
-  overscroll-behavior: none;     /* Previene effetti di rimbalzo o zoom indesiderati */
+/* Previene lo zoom automatico su focus di input/select/textarea/button */
+input, textarea, select, button {
+  font-size: 16px !important;
+  -webkit-text-size-adjust: none;
 }
 
-body {
-  margin: 0;
-  padding: 0;
-  overflow-x: hidden;            /* Evita scroll orizzontale non voluto */
-  touch-action: pan-y;           /* Rinforza il controllo touch anche sul body */
-}
-
-.App {
-  display: flex;
-  flex-direction: column;
-  min-height: 100vh;
-  padding: 0.5rem;
-  padding-bottom: 100px; /* Spazio per la toolbar */
-  box-sizing: border-box;
-}
-
-.main-content {
-  flex-grow: 1;
-  padding-bottom: 200px; /* Spazio per evitare sovrapposizioni */
-  width: 100%;
-  overflow-x: hidden;
-}
-
-/* Stili per mobile */
-@media (max-width: 768px) {
-  .App {
-    padding-bottom: 100px; /* Padding per toolbar su mobile */
-  }
-  
-  .main-content {
-    padding-bottom: 250px;
-  }
-}
 
 
