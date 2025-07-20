@@ -11,8 +11,11 @@ html, body {
     flex-direction: column;
     min-height: 100vh;
     padding: 0.5rem;
-    padding-bottom: 100px; /* Spazio extra per la toolbar */
+    padding-bottom: 100px;
     box-sizing: border-box;
+    /* Aggiungi solo queste due righe */
+    -webkit-overflow-scrolling: touch;
+    overflow-x: hidden;
 }
 
 
@@ -44,6 +47,30 @@ body {
   margin: 0;
   padding: 0;
   overflow-x: hidden;            /* previene scroll orizzontale indesiderato */
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  touch-action: pan-y; /* Mantieni il pan-y per lo scroll verticale */
+  overscroll-behavior-x: none; /* Previene solo il bounce orizzontale */
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch; /* Scroll fluido su iOS */
+}
+
+/* Previeni solo il doppio tap zoom mantenendo tutto il resto */
+* {
+  -webkit-tap-highlight-color: transparent; /* Rimuove highlight blu su tap */
+}
+
+/* Consenti selezione normale per input e testo */
+input, textarea, p, span, div {
+  -webkit-user-select: auto;
+  user-select: auto;
 }
 
 
