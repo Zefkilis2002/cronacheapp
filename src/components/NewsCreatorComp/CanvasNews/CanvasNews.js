@@ -103,20 +103,7 @@ function CanvasNews({
     });
   };
   
-  useEffect(() => {
-    calculateDimensions();
-    const handleResize = () => calculateDimensions();
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, [containerRef]);
-  
-  useEffect(() => {
-    if (stageRef.current) {
-      stageRef.current.width(ORIGINAL_WIDTH);
-      stageRef.current.height(ORIGINAL_HEIGHT);
-      stageRef.current.scale({ x: dimensions.scale, y: dimensions.scale });
-    }
-  }, [dimensions, stageRef]);
+ 
 
   return (
     <div className="canvas-container" ref={containerRef}>
