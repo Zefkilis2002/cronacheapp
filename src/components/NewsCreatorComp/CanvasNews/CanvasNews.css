@@ -166,3 +166,33 @@
     width: 100% !important;
   }
 }
+
+
+
+.canvas-container {
+  width: 100%;
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+
+.canvas-wrapper {
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
+.canvas-stage {
+  display: block;
+  margin: 0 auto;
+}
+
+/* Media query per dispositivi mobili */
+@media (max-width: 768px) {
+  .canvas-container {
+    padding: 0;
+  }
+  
+  .canvas-wrapper {
+    width: 100% !important;
+    max-width: 100vw;
+  }
+}
