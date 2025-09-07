@@ -372,40 +372,47 @@ function CanvasNews({
   // Funzione per calcolare le dimensioni e la scala
   const calculateDimensions = () => {
     if (!containerRef.current) return;
-    
-    const containerWidth = containerRef.current.clientWidth;
-    const maxHeight = window.innerHeight * 0.8;
-    let scale = Math.min(containerWidth / ORIGINAL_WIDTH, maxHeight / ORIGINAL_HEIGHT);
+
+    const containerWidth = containerRef.current.clientWidth || ORIGINAL_WIDTH;
+    let scale = containerWidth / ORIGINAL_WIDTH;
+    // clamp per sicurezza
     scale = Math.max(0.2, Math.min(scale, 1));
-    const scaledWidth = ORIGINAL_WIDTH * scale;
-    const scaledHeight = ORIGINAL_HEIGHT * scale;
-    
+
     setDimensions({
-      width: scaledWidth,
-      height: scaledHeight,
-      scale: scale
+      width: ORIGINAL_WIDTH * scale,
+      height: ORIGINAL_HEIGHT * scale,
+      scale
     });
   };
+
   
   // useEffect per il calcolo iniziale e il resize - versione sicura per mobile
   useEffect(() => {
-    // Calcolo iniziale con un piccolo delay per assicurarsi che il DOM sia pronto
-    const timer = setTimeout(() => {
-      calculateDimensions();
-    }, 100);
-    
-    // Handler per il resize con debounce per evitare calcoli troppo frequenti
+    const timer = setTimeout(calculateDimensions, 100);
+
     let resizeTimeout;
     const handleResize = () => {
       clearTimeout(resizeTimeout);
       resizeTimeout = setTimeout(() => {
+        // Evita ricalcoli mentre si digita e la tastiera è aperta
+        const ae = document.activeElement;
+        const isTyping =
+          ae &&
+          (ae.tagName === 'INPUT' ||
+          ae.tagName === 'TEXTAREA' ||
+          ae.getAttribute('contenteditable') === 'true' ||
+          ae.isContentEditable);
+
+        const vv = window.visualViewport;
+        const keyboardLikelyOpen = vv && (window.innerHeight - vv.height) > 120;
+
+        if (isTyping && keyboardLikelyOpen) return; // IGNORA questo resize
         calculateDimensions();
       }, 150);
     };
 
-    window.addEventListener('resize', handleResize);
-    // Aggiungi anche listener per orientationchange su mobile
-    window.addEventListener('orientationchange', handleResize);
+    window.addEventListener('resize', handleResize, { passive: true });
+    window.addEventListener('orientationchange', handleResize, { passive: true });
 
     return () => {
       clearTimeout(timer);
@@ -414,6 +421,7 @@ function CanvasNews({
       window.removeEventListener('orientationchange', handleResize);
     };
   }, [containerRef]);
+
 
   // useEffect per applicare le dimensioni al stage - versione sicura
   useEffect(() => {
