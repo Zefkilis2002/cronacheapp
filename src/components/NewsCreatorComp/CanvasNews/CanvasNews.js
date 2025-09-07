@@ -1,10 +1,10 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Stage, Layer, Image as KonvaImage, Text } from 'react-konva';
+import { Stage, Layer, Image as KonvaImage, Text, Group } from 'react-konva';
 import useImage from 'use-image';
 import './CanvasNews.css';
 
 // Componente per le immagini di sfondo
-const BackgroundImage = ({ bgImage, updateItemPosition, backgroundImages, setBackgroundImages }) => {
+const BackgroundImage = ({ bgImage, updateItemPosition, backgroundImages, setBackgroundImages, isSelected = false, onSelect = () => {}, showSelection = true }) => {
   const [image] = useImage(bgImage.src);
   
   return (
@@ -16,6 +16,11 @@ const BackgroundImage = ({ bgImage, updateItemPosition, backgroundImages, setBac
       scaleX={bgImage.scale.scaleX}
       scaleY={bgImage.scale.scaleY}
       draggable={true}
+      stroke={(showSelection && isSelected) ? '#b4ff00' : undefined}
+      strokeWidth={(showSelection && isSelected) ? 3 : 0}
+      shadowBlur={(showSelection && isSelected) ? 10 : 0}
+      onClick={onSelect}
+      onTap={onSelect}
       onDragStart={(e) => {
         // Puoi rimuovere il moveToTop se vuoi che l'immagine non venga portata in primo piano
         // e.target.moveToTop();
@@ -33,7 +38,7 @@ const BackgroundImage = ({ bgImage, updateItemPosition, backgroundImages, setBac
 };
 
 // Componente per i loghi
-const LogoImage = ({ logo, updateItemPosition, logos, setLogos }) => {
+const LogoImage = ({ logo, updateItemPosition, logos, setLogos, isSelected = false, onSelect = () => {} , showSelection = true }) => {
   const [image] = useImage(logo.src);
   
   return (
@@ -44,7 +49,15 @@ const LogoImage = ({ logo, updateItemPosition, logos, setLogos }) => {
       y={logo.position.y}
       scaleX={logo.scale.scaleX}
       scaleY={logo.scale.scaleY}
+      rotation={logo.rotation || 0} 
+      offsetX={image ? image.width / 2 : 0}
+      offsetY={image ? image.height / 2 : 0}
       draggable={true}
+      stroke={(showSelection && isSelected) ? '#b4ff00' : undefined}
+      strokeWidth={(showSelection && isSelected) ? 3 : 0}
+      shadowBlur={(showSelection && isSelected) ? 10 : 0}
+      onClick={onSelect}
+      onTap={onSelect}
       onDragEnd={(e) => {
         updateItemPosition(
           logo.id, 
@@ -71,19 +84,290 @@ function CanvasNews({
   titlePosition,
   titleFont,
   text,
+  richText,
   textFontSize,
   textColor,
   textPosition,
   textFont,
-  setTitlePosition,  // Assicurati di passare questo prop dal componente padre
-  setTextPosition    // Assicurati di passare questo prop dal componente padre
+  setTitlePosition,
+  setTextPosition,
+  textAboveImages = true,
+  selectedBackground = null,
+  selectedLogo = null,
+  setSelectedBackground = () => {}, 
+  setSelectedLogo = () => {}, 
+  showSelection = true
 }) {
   const containerRef = useRef(null);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0, scale: 1 });
+
+  // cosa stai controllando con la tastiera: 'title' | 'text' | null
+  const [selectedText, setSelectedText] = useState(null);
+
+  // scala locale per titolo e testo (così puoi ridurre/aumentare con i tasti)
+  const [titleScale, setTitleScale] = useState({ x: 1, y: 1 });
+  const [textScale,  setTextScale ] = useState({ x: 1, y: 1 });
+
+
+  const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
+
+  const nudgePos = (p, dx, dy) => ({ x: p.x + dx, y: p.y + dy });
+
+  const handleKeyDown = (e) => {
+    const step  = KEY_MOVE_STEP;
+    const upF   = 1 + KEY_SCALE_STEP;
+    const downF = 1 / (1 + KEY_SCALE_STEP);
+
+    let handled = true;
+
+    // FRECCE = sposta a piccoli passi
+    if (
+      e.key === 'ArrowUp'   ||
+      e.key === 'ArrowDown' ||
+      e.key === 'ArrowLeft' ||
+      e.key === 'ArrowRight'
+    ) {
+      const dx = e.key === 'ArrowLeft'  ? -step : e.key === 'ArrowRight' ? step : 0;
+      const dy = e.key === 'ArrowUp'    ? -step : e.key === 'ArrowDown'  ? step : 0;
+
+      if (selectedLogo) {
+        const logo = logos.find(l => l.id === selectedLogo);
+        if (logo) {
+          updateItemPosition(
+            selectedLogo,
+            nudgePos(logo.position, dx, dy),
+            logos,
+            setLogos
+          );
+        }
+      } else if (selectedBackground) {
+        const bg = backgroundImages.find(b => b.id === selectedBackground);
+        if (bg) {
+          updateItemPosition(
+            selectedBackground,
+            nudgePos(bg.position, dx, dy),
+            backgroundImages,
+            setBackgroundImages
+          );
+        }
+      } else if (selectedText === 'title') {
+        setTitlePosition(p => nudgePos(p, dx, dy));
+      } else if (selectedText === 'text') {
+        setTextPosition(p => nudgePos(p, dx, dy));
+      } else {
+        handled = false;
+      }
+    }
+
+    // + / = / NumpadAdd  => ingrandisci a piccoli passi
+    else if (e.key === '+' || e.key === '=' || e.key === 'NumpadAdd') {
+      if (selectedLogo) {
+        setLogos(ls => ls.map(l => l.id !== selectedLogo ? l : ({
+          ...l,
+          scale: {
+            scaleX: clamp(l.scale.scaleX * upF,   0.05, 8),
+            scaleY: clamp(l.scale.scaleY * upF,   0.05, 8),
+          }
+        })));
+      } else if (selectedBackground) {
+        setBackgroundImages(bs => bs.map(b => b.id !== selectedBackground ? b : ({
+          ...b,
+          scale: {
+            scaleX: clamp(b.scale.scaleX * upF,   0.05, 8),
+            scaleY: clamp(b.scale.scaleY * upF,   0.05, 8),
+          }
+        })));
+      } else if (selectedText === 'title') {
+        setTitleScale(s => ({ x: s.x * upF, y: s.y * upF }));
+      } else if (selectedText === 'text') {
+        setTextScale (s => ({ x: s.x * upF, y: s.y * upF }));
+      } else {
+        handled = false;
+      }
+    }
+
+    // - / _ / NumpadSubtract  => rimpicciolisci a piccoli passi
+    else if (e.key === '-' || e.key === '_' || e.key === 'NumpadSubtract') {
+      if (selectedLogo) {
+        setLogos(ls => ls.map(l => l.id !== selectedLogo ? l : ({
+          ...l,
+          scale: {
+            scaleX: clamp(l.scale.scaleX * downF, 0.05, 8),
+            scaleY: clamp(l.scale.scaleY * downF, 0.05, 8),
+          }
+        })));
+      } else if (selectedBackground) {
+        setBackgroundImages(bs => bs.map(b => b.id !== selectedBackground ? b : ({
+          ...b,
+          scale: {
+            scaleX: clamp(b.scale.scaleX * downF, 0.05, 8),
+            scaleY: clamp(b.scale.scaleY * downF, 0.05, 8),
+          }
+        })));
+      } else if (selectedText === 'title') {
+        setTitleScale(s => ({ x: s.x * downF, y: s.y * downF }));
+      } else if (selectedText === 'text') {
+        setTextScale (s => ({ x: s.x * downF, y: s.y * downF }));
+      } else {
+        handled = false;
+      }
+    }
+
+    // [ / ] / NumpadDivide / NumpadMultiply  => ruota i LOGHI a piccoli passi
+    else if (
+      e.key === '[' || e.key === ']' ||
+      e.key === 'NumpadDivide' || e.key === 'NumpadMultiply'
+    ) {
+      if (!selectedLogo) {
+        handled = false;
+      } else {
+        const dir   = (e.key === ']' || e.key === 'NumpadMultiply') ? 1 : -1;
+        const delta = KEY_ROTATE_STEP * dir;
+
+        setLogos(ls => ls.map(l => {
+          if (l.id !== selectedLogo) return l;
+          const prev = (typeof l.rotation === 'number') ? l.rotation : 0;
+          return { ...l, rotation: normalizeAngle(prev + delta) };
+        }));
+      }
+    }
+
+    else {
+      handled = false;
+    }
+
+    if (handled) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+  };
+
+
+
+    
+    
+    // Costanti per le dimensioni originali del canvas
+    const ORIGINAL_WIDTH = 1440;
+    const ORIGINAL_HEIGHT = 1800;
+
+    // 🚦 Sensibilità (passi) per i tasti
+    const KEY_MOVE_STEP  = 2;     // 2 px per pressione freccia
+    const KEY_SCALE_STEP = 0.02;  // 2% per + / -
+    const KEY_FONT_STEP  = 2;     // 2 px (se lo userai per font)
+    const KEY_ROTATE_STEP = 2;      // 🔁 2° per pressione
+    const normalizeAngle = (a) => ((a % 360) + 360) % 360;
+
+
+
+    const measureCtxRef = useRef(null);
+    useEffect(() => {
+      const c = document.createElement('canvas');
+      measureCtxRef.current = c.getContext('2d');
+    }, []);
+
+    const measureWidth = (t, fontFamily, fontSize) => {
+      const ctx = measureCtxRef.current;
+      if (!ctx) return 0;
+      ctx.font = `${fontSize}px ${fontFamily}`;
+      const m = ctx.measureText(t || '');
+      return m.width || 0;
+    };
+
+    // ✅ aggiungi onClick con default noop
+    const RichTextGroup = ({ lines, x, y, fontFamily, fontSize, defaultColor, onClick = () => {} }) => {
+      const lineHeight = Math.round(fontSize * 1);
+      let yOffset = 0;
+      const elements = [];
+
+      lines.forEach((segments, li) => {
+        if (!segments || segments.length === 0 || (segments.length === 1 && !segments[0].text)) {
+          yOffset += lineHeight;
+          return;
+        }
+        const totalWidth = segments.reduce((acc, s) => acc + measureWidth(s.text || '', fontFamily, fontSize), 0);
+        const startX = -totalWidth / 2;
+        let xOffset = 0;
+
+        segments.forEach((segment, si) => {
+          const segmentWidth = measureWidth(segment.text || '', fontFamily, fontSize);
+          const segmentColor = segment.color || defaultColor;
+
+          elements.push(
+            <Text
+              key={`rt-${li}-${si}`}
+              text={segment.text || ''}
+              fontSize={fontSize}
+              fill={segmentColor}
+              x={startX + xOffset}
+              y={yOffset}
+              align="left"
+              fontFamily={fontFamily}
+              // ❌ prima avevi listening={false}; toglilo così i click/tap funzionano
+            />
+          );
+
+          xOffset += segmentWidth;
+        });
+
+        yOffset += lineHeight;
+      });
+
+      return (
+        <Group
+          x={x + ORIGINAL_WIDTH / 2}
+          y={y}
+          draggable
+          scaleX={textScale.x}   // ✅ applica la scala del testo
+          scaleY={textScale.y}
+          onClick={onClick}
+          onTap={onClick}
+          onDragEnd={(e) => setTextPosition({ x: e.target.x() - ORIGINAL_WIDTH / 2, y: e.target.y() })}
+        >
+          {elements}
+        </Group>
+      );
+    };
+
+
   
-  // Costanti per le dimensioni originali del canvas
-  const ORIGINAL_WIDTH = 1440;
-  const ORIGINAL_HEIGHT = 1800;
+  // Nuovo componente per gestire il testo normale con ritorni a capo
+  const MultiLineText = ({ text, x, y, fontFamily, fontSize, color, width }) => {
+    const lineHeight = Math.round(fontSize * 1.25);
+    const elements = [];
+    
+    if (!text) return null;
+    
+    // Dividi il testo in righe
+    const lines = text.split('\n');
+    
+    lines.forEach((line, i) => {
+      elements.push(
+        <Text
+          key={`line-${i}`}
+          text={line}
+          fontSize={fontSize}
+          fill={color}
+          x={0}
+          y={i * lineHeight}
+          align="center"
+          width={width}
+          fontFamily={fontFamily}
+          listening={false}
+        />
+      );
+    });
+    
+    return (
+      <Group
+        x={x}
+        y={y}
+        draggable
+        onDragEnd={(e) => setTextPosition({ x: e.target.x(), y: e.target.y() })}
+      >
+        {elements}
+      </Group>
+    );
+  };
   
   // Funzione per calcolare le dimensioni e la scala
   const calculateDimensions = () => {
@@ -150,9 +434,12 @@ function CanvasNews({
     <div className="canvas-container" ref={containerRef}>
       <div 
         className="canvas-wrapper"
+        tabIndex={0}
+        onKeyDown={handleKeyDown}
         style={{
           width: `${dimensions.width}px`,
           height: `${dimensions.height}px`,
+          outline: 'none',
           // Aggiungi queste proprietà per evitare problemi di layout su mobile
           maxWidth: '100%',
           overflow: 'hidden',
@@ -179,10 +466,65 @@ function CanvasNews({
                 updateItemPosition={updateItemPosition}
                 backgroundImages={backgroundImages}
                 setBackgroundImages={setBackgroundImages}
+                isSelected={selectedBackground === bgImage.id}
+                onSelect={() => { setSelectedBackground(bgImage.id); setSelectedLogo(null); }}
+                showSelection={showSelection}
               />
             ))}
+
+            {/* Se textAboveImages è false, metti il testo sotto il template e i loghi */}
+            {!textAboveImages && (
+              <>
+                <Text
+                  text={title}
+                  fontSize={titleFontSize}
+                  fill={titleColor}
+                  x={titlePosition.x + (ORIGINAL_WIDTH / 2)}
+                  y={titlePosition.y}
+                  align="center"
+                  offsetX={measureWidth(title, titleFont, titleFontSize) / 2}
+                  fontFamily={titleFont}
+                  scaleX={titleScale.x}
+                  scaleY={titleScale.y}
+                  draggable={true}
+                  onClick={() => setSelectedText('title')}
+                  onTap={() => setSelectedText('title')}
+                  onDragEnd={(e) => {
+                    const newX = e.target.x() - (ORIGINAL_WIDTH / 2);
+                    const newY = e.target.y();
+                    setTitlePosition({ x: newX, y: newY });
+                  }}
+                />
+
+
+
+                {(richText && richText.length > 0) ? (
+                  <RichTextGroup
+                    lines={richText}
+                    x={textPosition.x}
+                    y={textPosition.y}
+                    fontFamily={textFont}
+                    fontSize={textFontSize}
+                    defaultColor={textColor}
+                    onClick={() => setSelectedText('text')}
+                  />
+
+                ) : (
+                  <MultiLineText
+                    text={text}
+                    fontSize={textFontSize}
+                    color={textColor}
+                    x={textPosition.x}
+                    y={textPosition.y}
+                    width={ORIGINAL_WIDTH}
+                    fontFamily={textFont}
+                  />
+                )}
+              </>
+            )}
+
             
-            {/* Renderizza lo sfondo template sopra, ma non interagibile */}
+            {/* Renderizza lo sfondo template sopra, non interagibile */}
             {background && (
               <KonvaImage 
                 image={background} 
@@ -200,35 +542,64 @@ function CanvasNews({
                 updateItemPosition={updateItemPosition}
                 logos={logos}
                 setLogos={setLogos}
+                isSelected={selectedLogo === logo.id}
+                onSelect={() => { setSelectedLogo(logo.id); setSelectedBackground(null); }}
+                showSelection={showSelection}
               />
             ))}
             
-            {/* Renderizza il titolo come testo draggable */}
-            <Text
-              text={title}
-              fontSize={titleFontSize}
-              fill={titleColor}
-              x={titlePosition.x}
-              y={titlePosition.y}
-              align="center"
-              width={ORIGINAL_WIDTH}
-              fontFamily={titleFont}
-              draggable={true}
-              onDragEnd={(e) => setTitlePosition({ x: e.target.x(), y: e.target.y() })}
-            />
-            {/* Renderizza il testo come testo draggable */}
-            <Text
-              text={text}
-              fontSize={textFontSize}
-              fill={textColor}
-              x={textPosition.x}
-              y={textPosition.y}
-              align="center"
-              width={ORIGINAL_WIDTH}
-              fontFamily={textFont}
-              draggable={true}
-              onDragEnd={(e) => setTextPosition({ x: e.target.x(), y: e.target.y() })}
-            />
+            {/* Se textAboveImages è true, metti il testo in cima a tutto */}
+            {textAboveImages && (
+              <>
+                <Text
+                  text={title}
+                  fontSize={titleFontSize}
+                  fill={titleColor}
+                  x={titlePosition.x + (ORIGINAL_WIDTH / 2)}
+                  y={titlePosition.y}
+                  align="center"
+                  offsetX={measureWidth(title, titleFont, titleFontSize) / 2} // Centra rispetto al punto di ancoraggio
+                  fontFamily={titleFont}
+                  draggable={true}
+                  onDragEnd={(e) => {
+                    // Calcola la posizione relativa al centro
+                    const newX = e.target.x() - (ORIGINAL_WIDTH / 2);
+                    const newY = e.target.y();
+                    setTitlePosition({ x: newX, y: newY });
+                  }}
+                />
+
+                {(richText && richText.length > 0) ? (
+                  <RichTextGroup
+                    lines={richText}
+                    x={textPosition.x}
+                    y={textPosition.y}
+                    fontFamily={textFont}
+                    fontSize={textFontSize}
+                    defaultColor={textColor}
+                  />
+                ) : (
+                  <Text
+                    text={text}
+                    fontSize={textFontSize}
+                    fill={textColor}
+                    x={textPosition.x + (ORIGINAL_WIDTH / 2)}
+                    y={textPosition.y}
+                    align="center"
+                    offsetX={measureWidth(text, textFont, textFontSize) / 2}
+                    fontFamily={textFont}
+                    draggable={true}
+                    onDragEnd={(e) => {
+                      const newX = e.target.x() - (ORIGINAL_WIDTH / 2);
+                      const newY = e.target.y();
+                      setTextPosition({ x: newX, y: newY });
+                    }}
+                  />
+                )}
+              </>
+            )}
+
+
           </Layer>
         </Stage>
       </div>

@@ -16,6 +16,8 @@ function NewsCreator({
   handleTextChange,
   backgroundImage,
   handleBackgroundChange,
+  textAboveImages,
+  setTextAboveImages,
   downloadImage
 }) {
   return (
@@ -37,6 +39,16 @@ function NewsCreator({
           <option value="/sfondoNotizie/roumor.png">Roumor</option>
           <option value="/sfondoNotizie/citation.png">Citation</option>
         </select>
+      </div>
+
+      {/* Opzione: testo sopra immagini e loghi */}
+      <div>
+        <label>Testo sopra immagini e loghi:</label>
+        <input
+          type="checkbox"
+          checked={!!textAboveImages}
+          onChange={(e) => setTextAboveImages(e.target.checked)}
+        />
       </div>
 
       {/* Prima riga: Titolo, Colore titolo, Font titolo */}
@@ -90,7 +102,71 @@ function NewsCreator({
               whiteSpace: 'pre-wrap',
             }}
           />
+
+          {/* NUOVO: controlli selezione colore */}
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 8, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 14 }}>Colore parole selezionate:</span>
+            <input
+              type="color"
+              onChange={(e) => {
+                const color = e.target.value;
+                const sel = document.getSelection();
+                const editor = textContainerRef?.current;
+                if (!sel || sel.rangeCount === 0 || !editor || !editor.contains(sel.anchorNode)) return;
+
+                // tentativo standard
+                try {
+                  document.execCommand('styleWithCSS', false, true);
+                  document.execCommand('foreColor', false, color);
+                } catch (_) {
+                  // fallback: avvolgi la selezione in uno span colorato
+                  try {
+                    const range = sel.getRangeAt(0);
+                    if (!range.collapsed) {
+                      const span = document.createElement('span');
+                      span.style.color = color;
+                      range.surroundContents(span);
+                    }
+                  } catch (_) {}
+                }
+                // Notifica il parent per ricalcolare il richText
+                if (typeof handleTextChange === 'function') handleTextChange();
+              }}
+              title="Seleziona una parola/frase nell'editor sopra, poi scegli un colore"
+              style={{ width: 40, height: 32 }}
+            />
+            <button
+              type="button"
+              onClick={() => {
+                const sel = document.getSelection();
+                const editor = textContainerRef?.current;
+                if (!sel || sel.rangeCount === 0 || !editor || !editor.contains(sel.anchorNode)) return;
+
+                // prova a rimuovere formattazione
+                try {
+                  document.execCommand('removeFormat');
+                } catch (_) {
+                  // fallback: rimuovi solo il colore dagli span nella selezione
+                  try {
+                    const range = sel.getRangeAt(0);
+                    if (!range.collapsed) {
+                      const frag = range.cloneContents();
+                      frag.querySelectorAll && frag.querySelectorAll('span').forEach(s => s.style && (s.style.color = ''));
+                      range.deleteContents();
+                      range.insertNode(frag);
+                    }
+                  } catch (_) {}
+                }
+                if (typeof handleTextChange === 'function') handleTextChange();
+              }}
+              className="modern-button"
+              style={{ padding: '6px 10px' }}
+            >
+              Pulisci colore selezione
+            </button>
+          </div>
         </div>
+
         <div>
           <label>Colore del testo:</label>
           <input

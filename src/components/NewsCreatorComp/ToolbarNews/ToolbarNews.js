@@ -18,6 +18,9 @@ function ToolbarNews(props = {}) {
     backgroundImages = null,
     logos = null,
     selectedLogo = null,
+    moveStep = 2,  
+    fontStep = 2,
+    rotateStep = 2,
   } = props || {};
 
   // Protezione estrema per gli array
@@ -31,7 +34,7 @@ function ToolbarNews(props = {}) {
     try {
       setTitlePosition(prev => {
         const safePrev = prev || { x: 0, y: 1200 };
-        const delta = 10;
+        const delta = moveStep;
         
         if (direction === 'up') return { ...safePrev, y: safePrev.y - delta };
         if (direction === 'down') return { ...safePrev, y: safePrev.y + delta };
@@ -50,7 +53,7 @@ function ToolbarNews(props = {}) {
     try {
       setTextPosition(prev => {
         const safePrev = prev || { x: 0, y: 1385 };
-        const delta = 10;
+        const delta = moveStep;
         
         if (direction === 'up') return { ...safePrev, y: safePrev.y - delta };
         if (direction === 'down') return { ...safePrev, y: safePrev.y + delta };
@@ -130,6 +133,24 @@ function ToolbarNews(props = {}) {
     }
   };
 
+  const normalizeAngle = (a) => ((a % 360) + 360) % 360;
+
+  const setLogoRotation = (id, angle) => {
+    setLogos(ls => ls.map(l => l.id !== id ? l : ({
+      ...l,
+      rotation: normalizeAngle(angle)
+    })));
+  };
+
+  const nudgeLogoRotation = (id, delta) => {
+    setLogos(ls => ls.map(l => {
+      if (l.id !== id) return l;
+      const prev = (typeof l.rotation === 'number') ? l.rotation : 0;
+      return { ...l, rotation: normalizeAngle(prev + delta) };
+    }));
+  };
+
+
   // Renderizza il componente solo se è sicuro farlo
   return (
     <div className="toolnews">
@@ -138,8 +159,8 @@ function ToolbarNews(props = {}) {
           <div className="toolnews-row">
             <button onClick={() => moveTitle('up')}>Tit↑</button>
             <button onClick={() => moveTitle('down')}>Tit↓</button>
-            <button onClick={() => safeEnlargeTextSize(setTitleFontSize)}>Tit+</button>
-            <button onClick={() => safeShrinkTextSize(setTitleFontSize)}>Tit-</button>
+            <button onClick={() => safeEnlargeTextSize(setTitleFontSize, fontStep)}>Tit+</button>
+            <button onClick={() => safeShrinkTextSize(setTitleFontSize, fontStep)}>Tit-</button>
           </div>
         </div>
         
@@ -147,8 +168,8 @@ function ToolbarNews(props = {}) {
           <div className="toolnews-row">
             <button onClick={() => moveText('up')}>Testo↑</button>
             <button onClick={() => moveText('down')}>Testo↓</button>
-            <button onClick={() => safeEnlargeTextSize(setTextFontSize)}>Testo+</button>
-            <button onClick={() => safeShrinkTextSize(setTextFontSize)}>Testo-</button>
+            <button onClick={() => safeEnlargeTextSize(setTextFontSize, fontStep)}>Testo+</button>
+            <button onClick={() => safeShrinkTextSize(setTextFontSize, fontStep)}>Testo-</button>
           </div>
         </div>
         
@@ -162,9 +183,64 @@ function ToolbarNews(props = {}) {
             <button onClick={() => resizeSelectedElement('decrease')}>Elem-</button>
           </div>
         </div>
+
+        {/* Sezione aggiunta: Rotazione Logo (visibile solo se un logo è selezionato) */}
+        {selectedLogo && (
+          <div className="toolnews-section">
+            <div className="toolnews-row rot-row">
+              <button 
+                type="button" 
+                className="rot-btn" 
+                onClick={() => nudgeLogoRotation(selectedLogo, -rotateStep)}
+              >
+                ↺ {rotateStep}°
+              </button>
+
+              <button 
+                type="button" 
+                className="rot-btn" 
+                onClick={() => nudgeLogoRotation(selectedLogo, rotateStep)}
+              >
+                ↻ {rotateStep}°
+              </button>
+
+              <input
+                className="rot-slider"
+                type="range"
+                min="0"
+                max="360"
+                step={1}
+                value={(logos?.find(l => l?.id === selectedLogo)?.rotation ?? 0)}
+                onChange={(e) => setLogoRotation(selectedLogo, Number(e.target.value))}
+              />
+
+              <div className="deg-input">
+                <input
+                  type="number"
+                  min="0"
+                  max="360"
+                  step={1}
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  value={(logos?.find(l => l?.id === selectedLogo)?.rotation ?? 0)}
+                  onChange={(e) => setLogoRotation(selectedLogo, Number(e.target.value))}
+                />
+              </div>
+
+              <button 
+                type="button" 
+                className="rot-reset" 
+                onClick={() => setLogoRotation(selectedLogo, 0)}
+              >
+                Reset
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
+
 }
 
 export default ToolbarNews;

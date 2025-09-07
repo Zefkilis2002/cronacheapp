@@ -15,17 +15,23 @@ function NewsEditor() {
   // States for text content
   const [title, setTitle] = useState('');
   const [text, setText] = useState('');
+  const [richText, setRichText] = useState([]); 
+
+
   const [titleColor, setTitleColor] = useState('#FFFFFF');
   const [textColor, setTextColor] = useState('#FFFFFF');
   const [titleFont, setTitleFont] = useState('Kenyan Coffee Bold');
   const [textFont, setTextFont] = useState('Kenyan Coffee Regular');
   const [titleFontSize, setTitleFontSize] = useState(180);
   const [textFontSize, setTextFontSize] = useState(100);
+
   
   // States for background images
   const [backgroundImages, setBackgroundImages] = useState([]);
   const [backgroundImage, setBackgroundImage] = useState('/sfondoNotizie/sfumatura.png');  
   const [background] = useImage(backgroundImage);
+  const [showSelection, setShowSelection] = useState(true);
+
   
   // States for logos
   const [logos, setLogos] = useState([]);
@@ -38,34 +44,125 @@ function NewsEditor() {
   const [selectedBackground, setSelectedBackground] = useState(null);
   const [selectedLogo, setSelectedLogo] = useState(null);
 
+  // Layering
+  const [textAboveImages, setTextAboveImages] = useState(true);
 
-  const scaleCanvas = () => {
-    const stage = stageRef.current;
-    const containerWidth = window.innerWidth * 0.95;
-    const containerHeight = window.innerHeight * 0.8;
-    const scaleWidth = containerWidth / 1440;
-    const scaleHeight = containerHeight / 1800;
-    const scale = Math.min(scaleWidth, scaleHeight);
+  // Passi unificati per controlli UI
+  const MOVE_STEP  = 2;    // px
+  const SCALE_STEP = 0.02; // 2%
+  const FONT_STEP  = 2;    // px
 
-    stage.width(1440 * scale);
-    stage.height(1800 * scale);
-    stage.scale({ x: scale, y: scale });
-  };
-
-  useEffect(() => {
-    scaleCanvas();
-    window.addEventListener('resize', scaleCanvas);
-    return () => window.removeEventListener('resize', scaleCanvas);
-  }, []);
 
   const handleBackgroundChange = (e) => {
     setBackgroundImage(e.target.value);  // Remove path manipulation
   };
 
   const handleTextChange = () => {
-    const newText = textContainerRef.current.innerText;
-    setText(newText);
+    const html = textContainerRef.current.innerHTML;
+    const plain = textContainerRef.current.innerText;
+    setText(plain);
+
+    // Parse HTML -> righe di segmenti { text, color | null }
+    const container = document.createElement('div');
+    container.innerHTML = html;
+
+    const lines = [];
+    let current = [];
+
+    const flush = () => {
+      // Anche se current è vuoto, aggiungi una riga vuota per preservare gli a capo
+      const merged = [];
+      for (const seg of current) {
+        if (!seg.text && seg.text !== '') continue; // Permetti stringhe vuote
+        if (merged.length && merged[merged.length - 1].color === seg.color) {
+          merged[merged.length - 1].text += seg.text;
+        } else {
+          merged.push({ text: seg.text, color: seg.color });
+        }
+      }
+      // Se non ci sono segmenti, aggiungi una riga vuota
+      lines.push(merged.length > 0 ? merged : [{ text: '', color: null }]);
+      current = [];
+    };
+
+    const pushText = (t, color) => {
+      const text = (t || '').replace(/\u00A0/g, ' '); // normalizza NBSP
+      current.push({ text, color: color || null });
+    };
+
+    // Funzione per convertire colori rgb() in hex
+    const rgbToHex = (rgb) => {
+      if (!rgb || rgb === 'inherit' || rgb === 'initial') return null;
+      if (rgb.startsWith('#')) return rgb;
+      
+      const match = rgb.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+      if (match) {
+        const r = parseInt(match[1]);
+        const g = parseInt(match[2]);
+        const b = parseInt(match[3]);
+        return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
+      }
+      return rgb;
+    };
+
+    const walk = (node, inheritedColor = null) => {
+      if (!node) return;
+      
+      if (node.nodeType === 3) { // TEXT_NODE
+        pushText(node.nodeValue, inheritedColor);
+        return;
+      }
+      
+      if (node.nodeType !== 1) return; // non ELEMENT_NODE
+
+      const tag = node.tagName;
+      let nodeColor = inheritedColor;
+
+      // Controlla vari modi in cui il colore può essere specificato
+      if (node.style && node.style.color) {
+        nodeColor = rgbToHex(node.style.color);
+      } else if (node.getAttribute && node.getAttribute('color')) {
+        nodeColor = node.getAttribute('color');
+      }
+
+      // Gestione dei tag che creano nuove righe
+      if (tag === 'BR') { 
+        flush(); 
+        return; 
+      }
+      
+      if (tag === 'DIV') {
+        // Se il DIV non è il primo nodo, crea una nuova riga prima
+        if (current.length > 0) flush();
+        Array.from(node.childNodes).forEach(child => walk(child, nodeColor));
+        flush(); // Flush dopo il DIV per creare la nuova riga
+        return;
+      }
+      
+      if (tag === 'P') {
+        // Simile ai DIV, i paragrafi creano nuove righe
+        if (current.length > 0) flush();
+        Array.from(node.childNodes).forEach(child => walk(child, nodeColor));
+        flush();
+        return;
+      }
+      
+      // Per tutti gli altri tag, processa i figli con il colore corrente
+      Array.from(node.childNodes).forEach(child => walk(child, nodeColor));
+    };
+
+    Array.from(container.childNodes).forEach(n => walk(n, null));
+    
+    // Se non ci sono state flush, flush l'ultima riga
+    if (current.length > 0) flush();
+    
+    // Non filtrare le righe vuote - sono necessarie per preservare gli a capo
+    setRichText(lines);
+    
+    console.log('Rich text parsed:', lines); // Debug
   };
+
+
 
   const handleBackgroundUpload = (e) => {
     const file = e.target.files[0];
@@ -141,7 +238,7 @@ function NewsEditor() {
     const itemIndex = items.findIndex(i => i.id === item.id);
     if (itemIndex === -1) return;
     
-    const delta = 10;
+    const delta = MOVE_STEP;
     const updatedItems = [...items];
     const updatedItem = { ...updatedItems[itemIndex] };
     
@@ -163,7 +260,7 @@ function NewsEditor() {
     const itemIndex = items.findIndex(i => i.id === item.id);
     if (itemIndex === -1) return;
     
-    const scaleChange = 0.1;
+    const scaleChange = SCALE_STEP;
     const updatedItems = [...items];
     const updatedItem = { ...updatedItems[itemIndex] };
     
@@ -192,7 +289,67 @@ function NewsEditor() {
     setter(updatedItems);
   };
 
-  // Remove handleDragEnd function as it's not being used
+  /*
+  // Keyboard shortcuts: arrows to move selected, +/- to resize, Delete to remove
+  useEffect(() => {
+    const onKeyDown = (e) => {
+      // Avoid intercepting when typing in inputs or contenteditable
+      const ae = document.activeElement;
+      const isTyping = ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.tagName === 'SELECT' || ae.getAttribute('contenteditable') === 'true');
+      if (isTyping) return;
+
+      const dirMap = { ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right' };
+      if (dirMap[e.key]) {
+        e.preventDefault();
+        if (selectedBackground) {
+          const item = backgroundImages.find(i => i.id === selectedBackground);
+          if (item) moveElement(item, setBackgroundImages, backgroundImages, dirMap[e.key]);
+        } else if (selectedLogo) {
+          const item = logos.find(i => i.id === selectedLogo);
+          if (item) moveElement(item, setLogos, logos, dirMap[e.key]);
+        } else {
+          // Move title by default if nothing is selected
+          const delta = 10;
+          if (e.key === 'ArrowUp') setTitlePosition(prev => ({ ...prev, y: prev.y - delta }));
+          if (e.key === 'ArrowDown') setTitlePosition(prev => ({ ...prev, y: prev.y + delta }));
+          if (e.key === 'ArrowLeft') setTitlePosition(prev => ({ ...prev, x: prev.x - delta }));
+          if (e.key === 'ArrowRight') setTitlePosition(prev => ({ ...prev, x: prev.x + delta }));
+        }
+      }
+
+      if ((e.key === '+' || e.key === '=') && (selectedBackground || selectedLogo)) {
+        e.preventDefault();
+        if (selectedBackground) {
+          const item = backgroundImages.find(i => i.id === selectedBackground);
+          if (item) resizeElement(item, setBackgroundImages, backgroundImages, 'increase');
+        } else if (selectedLogo) {
+          const item = logos.find(i => i.id === selectedLogo);
+          if (item) resizeElement(item, setLogos, logos, 'increase');
+        }
+      }
+      if ((e.key === '-' || e.key === '_') && (selectedBackground || selectedLogo)) {
+        e.preventDefault();
+        if (selectedBackground) {
+          const item = backgroundImages.find(i => i.id === selectedBackground);
+          if (item) resizeElement(item, setBackgroundImages, backgroundImages, 'decrease');
+        } else if (selectedLogo) {
+          const item = logos.find(i => i.id === selectedLogo);
+          if (item) resizeElement(item, setLogos, logos, 'decrease');
+        }
+      }
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        if (selectedBackground) {
+          removeBackgroundImage(selectedBackground);
+        } else if (selectedLogo) {
+          removeLogo(selectedLogo);
+        }
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [selectedBackground, selectedLogo, backgroundImages, logos]);
+// Remove handleDragEnd function as it's not being used
+*/
 
   const reorderItems = (dragIndex, hoverIndex, items, setter) => {
     const draggedItem = items[dragIndex];
@@ -206,45 +363,48 @@ function NewsEditor() {
     setter(updatedItems);
   };
 
-  const enlargeTextSize = (setter) => setter((prevSize) => prevSize + 10);
-  const shrinkTextSize = (setter) => setter((prevSize) => Math.max(20, prevSize - 10));
+  const enlargeTextSize = (setter, step = FONT_STEP) =>
+    setter(prev => prev + step);
+  const shrinkTextSize  = (setter, step = FONT_STEP) =>
+    setter(prev => Math.max(20, prev - step));
 
     // ... existing code ...
   
-    const downloadImage = () => {
+    const downloadImage = async () => {
       const stage = stageRef.current;
-      
-      // Salva le dimensioni e la scala originali
+      setShowSelection(false);
+      await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+
       const originalWidth = stage.width();
       const originalHeight = stage.height();
       const originalScale = stage.scale();
-      
-      // Imposta temporaneamente la scala a 1 per l'esportazione e le dimensioni desiderate
+
       stage.scale({ x: 1, y: 1 });
       stage.width(1440);
       stage.height(1800);
-      
-      // Crea l'immagine in alta risoluzione con formato JPEG
-      const uri = stage.toDataURL({ 
+      stage.batchDraw();
+
+      const uri = stage.toDataURL({
         pixelRatio: 3,
         mimeType: 'image/jpeg',
-        quality: 0.8, // Regola questo valore per bilanciare qualità e peso
+        quality: 0.92,
         width: 1440,
         height: 1800
       });
-      
-      // Ripristina le dimensioni e la scala originali
+
       stage.scale(originalScale);
       stage.width(originalWidth);
       stage.height(originalHeight);
-      
-      // Scarica l'immagine
+      stage.batchDraw();
+
       const link = document.createElement('a');
       link.download = 'final_image.jpg';
       link.href = uri;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+
+      setShowSelection(true);
     };
     
     
@@ -269,6 +429,8 @@ function NewsEditor() {
             handleTextChange={handleTextChange}
             backgroundImage={backgroundImage}
             handleBackgroundChange={handleBackgroundChange}
+            textAboveImages={textAboveImages}
+            setTextAboveImages={setTextAboveImages}
             downloadImage={downloadImage}
           />
           
@@ -290,27 +452,33 @@ function NewsEditor() {
         </div>
         
         <CanvasNews 
-  stageRef={stageRef}
-  backgroundImages={backgroundImages}
-  setBackgroundImages={setBackgroundImages}
-  background={background}
-  logos={logos}
-  setLogos={setLogos}
-  updateItemPosition={updateItemPosition}
-  title={title}
-  titleFontSize={titleFontSize}
-  titleColor={titleColor}
-  titlePosition={titlePosition}
-  titleFont={titleFont}
-  text={text}
-  textFontSize={textFontSize}
-  textColor={textColor}
-  textPosition={textPosition}
-  textFont={textFont}
-  setTitlePosition={setTitlePosition}
-  setTextPosition={setTextPosition}
-  textAboveImages={true}  // o false, in base a cosa desideri
-/>
+          stageRef={stageRef}
+          backgroundImages={backgroundImages}
+          setBackgroundImages={setBackgroundImages}
+          background={background}
+          logos={logos}
+          setLogos={setLogos}
+          updateItemPosition={updateItemPosition}
+          title={title}
+          titleFontSize={titleFontSize}
+          titleColor={titleColor}
+          titlePosition={titlePosition}
+          titleFont={titleFont}
+          text={text}
+          textFontSize={textFontSize}
+          textColor={textColor}
+          textPosition={textPosition}
+          textFont={textFont}
+          setTitlePosition={setTitlePosition}
+          setTextPosition={setTextPosition}
+          textAboveImages={textAboveImages}
+          selectedBackground={selectedBackground}
+          selectedLogo={selectedLogo}
+          setSelectedBackground={setSelectedBackground}
+          setSelectedLogo={setSelectedLogo}
+          showSelection={showSelection}
+          richText={richText}
+        />
 
         
         <ToolbarNews 
@@ -328,6 +496,8 @@ function NewsEditor() {
           setLogos={setLogos}
           selectedBackground={selectedBackground}
           selectedLogo={selectedLogo}
+          moveStep={MOVE_STEP}
+          fontStep={FONT_STEP}
         />
       </div>
     </div>

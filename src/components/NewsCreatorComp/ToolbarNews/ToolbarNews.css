@@ -73,6 +73,201 @@
       gap: 0.4rem;
     }
   }
-  
 
+
+/* ===== Toolbar rotazione: layout universale (desktop + mobile) ===== */
+
+/* Variabili per proporzioni responsive */
+.toolnews {
+  --rot-gap: clamp(8px, 1.2vw, 16px);           /* spaziatura tra elementi */
+  --rot-font: clamp(12px, 0.9vw + 10px, 14px);  /* dimensione testo */
+  --btn-h: clamp(32px, 1.8vw + 26px, 38px);     /* altezza elementi */
+  --deg-w: clamp(50px, 7vw, 70px);              /* larghezza input numerico */
+  --slider-min: clamp(120px, 25vw, 200px);      /* larghezza minima slider */
+}
+
+/* Layout principale della riga rotazione */
+.toolnews .rot-row {
+  display: flex;
+  align-items: center;
+  gap: var(--rot-gap);
+  padding: 8px 0;
+  font-size: var(--rot-font);
+  min-height: var(--btn-h);
+}
+
+/* Slider: elemento elastico che si espande */
+.toolnews .rot-slider {
+  flex: 1;
+  min-width: var(--slider-min);
+  height: 8px;
+  margin: 0 4px;
+  border-radius: 4px;
+  background: #3a3a3a;
+  outline: none;
+  cursor: pointer;
+}
+
+.toolnews .rot-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #9acd32;
+  cursor: pointer;
+  border: 2px solid #fff;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.toolnews .rot-slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #9acd32;
+  cursor: pointer;
+  border: 2px solid #fff;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+/* Bottoni uniformi */
+.toolnews .rot-btn,
+.toolnews .rot-reset {
+  height: var(--btn-h);
+  padding: 0 12px;
+  border: 2px solid #9acd32;
+  background: rgba(154, 205, 50, 0.1);
+  color: #9acd32;
+  border-radius: 20px;
+  font-size: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: fit-content;
+}
+
+.toolnews .rot-btn:hover,
+.toolnews .rot-reset:hover {
+  background: rgba(154, 205, 50, 0.2);
+  transform: translateY(-1px);
+}
+
+.toolnews .rot-btn:active,
+.toolnews .rot-reset:active {
+  transform: translateY(0);
+}
+
+/* Input numerico con simbolo dei gradi */
+.toolnews .deg-input {
+  position: relative;
+  width: var(--deg-w);
+  min-width: var(--deg-w);
+  flex-shrink: 0;
+}
+
+.toolnews .deg-input input {
+  width: 100%;
+  height: var(--btn-h);
+  padding: 0 18px 0 8px;
+  border: 2px solid #9acd32;
+  background: rgba(154, 205, 50, 0.1);
+  color: #9acd32;
+  border-radius: 20px;
+  font-size: inherit;
+  font-weight: 500;
+  text-align: center;
+  box-sizing: border-box;
+  outline: none;
+  /* Rimuovi spinner sui browser webkit */
+  -webkit-appearance: none;
+  -moz-appearance: textfield;
+}
+
+.toolnews .deg-input input::-webkit-outer-spin-button,
+.toolnews .deg-input input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.toolnews .deg-input input:focus {
+  background: rgba(154, 205, 50, 0.2);
+}
+
+/* Simbolo dei gradi */
+.toolnews .deg-input::after {
+  content: "°";
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #9acd32;
+  font-weight: 500;
+  pointer-events: none;
+  opacity: 0.8;
+}
+
+/* ----- Responsive Design ----- */
+
+/* Tablet - riduci spaziature */
+@media (max-width: 900px) {
+  .toolnews {
+    --rot-gap: clamp(6px, 1vw, 12px);
+  }
   
+  .toolnews .rot-btn,
+  .toolnews .rot-reset {
+    padding: 0 10px;
+  }
+}
+
+/* Mobile - layout compatto con scroll orizzontale se necessario */
+@media (max-width: 640px) {
+  .toolnews {
+    --rot-gap: 8px;
+    --btn-h: 36px;
+    --deg-w: 55px;
+    --slider-min: 100px;
+  }
+  
+  .toolnews .rot-row {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 8px 4px;
+  }
+  
+  .toolnews .rot-btn,
+  .toolnews .rot-reset {
+    padding: 0 8px;
+    font-size: 12px;
+    flex-shrink: 0;
+  }
+  
+  .toolnews .rot-slider {
+    min-width: 80px;
+    height: 6px;
+  }
+}
+
+/* Mobile molto piccolo - elementi ancora più compatti */
+@media (max-width: 480px) {
+  .toolnews {
+    --rot-gap: 6px;
+    --btn-h: 34px;
+    --deg-w: 50px;
+  }
+  
+  .toolnews .rot-btn,
+  .toolnews .rot-reset {
+    padding: 0 6px;
+    border-radius: 17px;
+  }
+  
+  .toolnews .deg-input input {
+    padding: 0 14px 0 6px;
+    border-radius: 17px;
+  }
+}
