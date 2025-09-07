@@ -372,47 +372,59 @@ function CanvasNews({
   // Funzione per calcolare le dimensioni e la scala
   const calculateDimensions = () => {
     if (!containerRef.current) return;
-
-    const containerWidth = containerRef.current.clientWidth || ORIGINAL_WIDTH;
-    let scale = containerWidth / ORIGINAL_WIDTH;
-    // clamp per sicurezza
+    
+    // Usa getBoundingClientRect per dimensioni più accurate su mobile
+    const containerRect = containerRef.current.getBoundingClientRect();
+    const containerWidth = containerRect.width;
+    const maxHeight = window.innerHeight * 0.8;
+    
+    // Calcola la scala mantenendo le proporzioni originali
+    const widthScale = containerWidth / ORIGINAL_WIDTH;
+    const heightScale = maxHeight / ORIGINAL_HEIGHT;
+    
+    // Usa la scala più piccola che mantenga tutto visibile
+    let scale = Math.min(widthScale, heightScale);
+    
+    // Limita la scala tra 0.2 e 1
     scale = Math.max(0.2, Math.min(scale, 1));
-
+    
+    // Calcola le dimensioni scalate
+    const scaledWidth = ORIGINAL_WIDTH * scale;
+    const scaledHeight = ORIGINAL_HEIGHT * scale;
+    
     setDimensions({
-      width: ORIGINAL_WIDTH * scale,
-      height: ORIGINAL_HEIGHT * scale,
-      scale
+      width: scaledWidth,
+      height: scaledHeight,
+      scale: scale
     });
   };
-
   
   // useEffect per il calcolo iniziale e il resize - versione sicura per mobile
   useEffect(() => {
-    const timer = setTimeout(calculateDimensions, 100);
-
+    // Calcolo iniziale con un piccolo delay per assicurarsi che il DOM sia pronto
+    const timer = setTimeout(() => {
+      calculateDimensions();
+    }, 100);
+    
+    // Handler per il resize con debounce per evitare calcoli troppo frequenti
     let resizeTimeout;
     const handleResize = () => {
       clearTimeout(resizeTimeout);
       resizeTimeout = setTimeout(() => {
-        // Evita ricalcoli mentre si digita e la tastiera è aperta
-        const ae = document.activeElement;
-        const isTyping =
-          ae &&
-          (ae.tagName === 'INPUT' ||
-          ae.tagName === 'TEXTAREA' ||
-          ae.getAttribute('contenteditable') === 'true' ||
-          ae.isContentEditable);
-
-        const vv = window.visualViewport;
-        const keyboardLikelyOpen = vv && (window.innerHeight - vv.height) > 120;
-
-        if (isTyping && keyboardLikelyOpen) return; // IGNORA questo resize
+        // Forza il ridimensionamento anche quando le dimensioni non cambiano
+        // Questo risolve problemi su mobile dove l'orientationchange
+        // potrebbe non triggerare un resize
+        setDimensions(prev => ({
+          ...prev,
+          width: prev.width + 0.0001
+        }));
         calculateDimensions();
       }, 150);
     };
 
-    window.addEventListener('resize', handleResize, { passive: true });
-    window.addEventListener('orientationchange', handleResize, { passive: true });
+    window.addEventListener('resize', handleResize);
+    // Aggiungi anche listener per orientationchange su mobile
+    window.addEventListener('orientationchange', handleResize);
 
     return () => {
       clearTimeout(timer);
@@ -422,21 +434,34 @@ function CanvasNews({
     };
   }, [containerRef]);
 
-
   // useEffect per applicare le dimensioni al stage - versione sicura
   useEffect(() => {
     if (stageRef.current && dimensions.scale > 0) {
       // Usa requestAnimationFrame per assicurarti che l'update avvenga al momento giusto
       requestAnimationFrame(() => {
         if (stageRef.current) {
+          // Resetta la posizione prima di ridimensionare
+          stageRef.current.x(0);
+          stageRef.current.y(0);
+          
+          // Imposta dimensioni originali
           stageRef.current.width(ORIGINAL_WIDTH);
           stageRef.current.height(ORIGINAL_HEIGHT);
+          
+          // Applica la scala
           stageRef.current.scale({ x: dimensions.scale, y: dimensions.scale });
+          
+          // Centra il canvas nel contenitore
+          const containerRect = containerRef.current.getBoundingClientRect();
+          const offsetX = (containerRect.width - (ORIGINAL_WIDTH * dimensions.scale)) / 2;
+          const offsetY = (containerRect.height - (ORIGINAL_HEIGHT * dimensions.scale)) / 2;
+          
+          stageRef.current.position({ x: offsetX, y: offsetY });
           stageRef.current.batchDraw();
         }
       });
     }
-  }, [dimensions, stageRef]);
+  }, [dimensions, stageRef, containerRef]);
 
   return (
     <div className="canvas-container" ref={containerRef}>
