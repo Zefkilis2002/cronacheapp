@@ -41,6 +41,9 @@ const BackgroundImage = ({ bgImage, updateItemPosition, backgroundImages, setBac
 const LogoImage = ({ logo, updateItemPosition, logos, setLogos, isSelected = false, onSelect = () => {} , showSelection = true }) => {
   const [image] = useImage(logo.src);
   
+  // Assicurati che la rotazione sia un numero valido
+  const safeRotation = (typeof logo.rotation === 'number') ? logo.rotation : 0;
+  
   return (
     <KonvaImage
       key={logo.id}
@@ -49,7 +52,7 @@ const LogoImage = ({ logo, updateItemPosition, logos, setLogos, isSelected = fal
       y={logo.position.y}
       scaleX={logo.scale.scaleX}
       scaleY={logo.scale.scaleY}
-      rotation={logo.rotation || 0} 
+      rotation={safeRotation} 
       offsetX={image ? image.width / 2 : 0}
       offsetY={image ? image.height / 2 : 0}
       draggable={true}
@@ -58,13 +61,24 @@ const LogoImage = ({ logo, updateItemPosition, logos, setLogos, isSelected = fal
       shadowBlur={(showSelection && isSelected) ? 10 : 0}
       onClick={onSelect}
       onTap={onSelect}
+      onDragStart={(e) => {
+        // Previene comportamenti indesiderati durante il trascinamento
+        e.cancelBubble = true;
+      }}
       onDragEnd={(e) => {
+        // Previene comportamenti indesiderati durante il rilascio
+        e.cancelBubble = true;
+        
         updateItemPosition(
           logo.id, 
           { x: e.target.x(), y: e.target.y() }, 
           logos, 
           setLogos
         );
+      }}
+      onTransformEnd={(e) => {
+        // Gestisce la fine della trasformazione (se implementata)
+        e.cancelBubble = true;
       }}
     />
   );
@@ -224,11 +238,28 @@ function CanvasNews({
         const dir   = (e.key === ']' || e.key === 'NumpadMultiply') ? 1 : -1;
         const delta = KEY_ROTATE_STEP * dir;
 
+        // Previene il ricalcolo delle dimensioni durante la rotazione
+        // che potrebbe causare il ridimensionamento imprevisto del canvas
+        e.preventDefault();
+        e.stopPropagation();
+        
+        // Aggiorna la rotazione del logo selezionato
         setLogos(ls => ls.map(l => {
           if (l.id !== selectedLogo) return l;
           const prev = (typeof l.rotation === 'number') ? l.rotation : 0;
-          return { ...l, rotation: normalizeAngle(prev + delta) };
+          const newRotation = normalizeAngle(prev + delta);
+          return { ...l, rotation: newRotation };
         }));
+        
+        // Forza un ridisegno dello stage dopo la rotazione
+        // per assicurarsi che il canvas non si ridimensioni
+        if (stageRef.current) {
+          setTimeout(() => {
+            if (stageRef.current) {
+              stageRef.current.batchDraw();
+            }
+          }, 0);
+        }
       }
     }
 
@@ -370,6 +401,7 @@ function CanvasNews({
   };
   
   // Funzione per calcolare le dimensioni e la scala
+  // Questa funzione è critica per la stabilità del canvas, specialmente su mobile
   const calculateDimensions = () => {
     if (!containerRef.current) return;
     
@@ -383,7 +415,10 @@ function CanvasNews({
     // Limita la scala tra 0.2 e 1 per evitare dimensioni estreme
     scale = Math.max(0.2, Math.min(scale, 1));
     
-    // Calcola le dimensioni scalate in modo preciso
+    // Arrotonda la scala a 4 decimali per evitare calcoli imprecisi
+    scale = Math.round(scale * 10000) / 10000;
+    
+    // Calcola le dimensioni scalate in modo preciso con arrotondamento
     const scaledWidth = Math.round(ORIGINAL_WIDTH * scale);
     const scaledHeight = Math.round(ORIGINAL_HEIGHT * scale);
     
@@ -406,22 +441,29 @@ function CanvasNews({
     };
     
     // Calcolo iniziale con un delay più lungo per assicurarsi che il DOM sia completamente pronto
-    const initialTimer = setTimeout(safeCalculateDimensions, 200);
+    // Aumentato a 300ms per garantire che il DOM sia completamente caricato
+    const initialTimer = setTimeout(safeCalculateDimensions, 300);
     
     // Secondo calcolo dopo un tempo maggiore per gestire eventuali ritardi nel rendering
-    const secondaryTimer = setTimeout(safeCalculateDimensions, 500);
+    // Aumentato a 800ms per catturare eventuali ritardi nel rendering su dispositivi più lenti
+    const secondaryTimer = setTimeout(safeCalculateDimensions, 800);
+    
+    // Terzo calcolo per assicurarsi che tutto sia stabile dopo eventuali animazioni o transizioni
+    const tertiaryTimer = setTimeout(safeCalculateDimensions, 1500);
     
     // Handler per il resize con debounce per evitare calcoli troppo frequenti
     let resizeTimeout;
+    let immediateTimeout;
     const handleResize = () => {
       // Cancella eventuali timeout pendenti
       clearTimeout(resizeTimeout);
+      clearTimeout(immediateTimeout);
       
-      // Esegui un calcolo immediato per feedback rapido
-      safeCalculateDimensions();
+      // Piccolo ritardo prima del calcolo immediato per evitare calcoli durante l'animazione
+      immediateTimeout = setTimeout(safeCalculateDimensions, 50);
       
-      // Pianifica un secondo calcolo dopo un breve ritardo per stabilizzare
-      resizeTimeout = setTimeout(safeCalculateDimensions, 250);
+      // Pianifica un secondo calcolo dopo un ritardo più lungo per stabilizzare
+      resizeTimeout = setTimeout(safeCalculateDimensions, 350);
     };
 
     // Aggiungi listener per eventi di resize
@@ -432,15 +474,25 @@ function CanvasNews({
     
     // Aggiungi listener per scroll che potrebbe influenzare le dimensioni su mobile
     window.addEventListener('scroll', handleResize, { passive: true });
+    
+    // Aggiungi listener per touchmove che potrebbe influenzare le dimensioni su mobile
+    window.addEventListener('touchmove', handleResize, { passive: true });
+    
+    // Aggiungi listener per touchend che potrebbe influenzare le dimensioni su mobile
+    window.addEventListener('touchend', handleResize, { passive: true });
 
     // Cleanup function
     return () => {
       clearTimeout(initialTimer);
       clearTimeout(secondaryTimer);
+      clearTimeout(tertiaryTimer);
       clearTimeout(resizeTimeout);
+      clearTimeout(immediateTimeout);
       window.removeEventListener('resize', handleResize);
       window.removeEventListener('orientationchange', handleResize);
       window.removeEventListener('scroll', handleResize);
+      window.removeEventListener('touchmove', handleResize);
+      window.removeEventListener('touchend', handleResize);
     };
   }, [containerRef]);
 
@@ -457,8 +509,9 @@ function CanvasNews({
             stageRef.current.width(ORIGINAL_WIDTH);
             stageRef.current.height(ORIGINAL_HEIGHT);
             
-            // Applica la scala in modo uniforme
-            const newScale = { x: dimensions.scale, y: dimensions.scale };
+            // Applica la scala in modo uniforme con valori arrotondati per maggiore stabilità
+            const scale = Math.round(dimensions.scale * 10000) / 10000; // Arrotonda a 4 decimali
+            const newScale = { x: scale, y: scale };
             stageRef.current.scale(newScale);
             
             // Forza il ridisegno completo dello stage
@@ -467,9 +520,36 @@ function CanvasNews({
             // Esegui un secondo ridisegno dopo un breve ritardo per assicurarsi che tutto sia aggiornato
             setTimeout(() => {
               if (stageRef.current) {
-                stageRef.current.batchDraw();
+                try {
+                  // Verifica che la scala sia ancora corretta
+                  const currentScale = stageRef.current.scale();
+                  if (Math.abs(currentScale.x - scale) > 0.0001 || Math.abs(currentScale.y - scale) > 0.0001) {
+                    // Se la scala è cambiata, riapplicala
+                    stageRef.current.scale({ x: scale, y: scale });
+                  }
+                  stageRef.current.batchDraw();
+                } catch (innerError) {
+                  console.error('Errore durante il ridisegno ritardato:', innerError);
+                }
               }
             }, 50);
+            
+            // Esegui un terzo ridisegno dopo un ritardo più lungo per catturare eventuali aggiornamenti tardivi
+            setTimeout(() => {
+              if (stageRef.current) {
+                try {
+                  // Verifica che la scala sia ancora corretta
+                  const currentScale = stageRef.current.scale();
+                  if (Math.abs(currentScale.x - scale) > 0.0001 || Math.abs(currentScale.y - scale) > 0.0001) {
+                    // Se la scala è cambiata, riapplicala
+                    stageRef.current.scale({ x: scale, y: scale });
+                  }
+                  stageRef.current.batchDraw();
+                } catch (innerError) {
+                  console.error('Errore durante il ridisegno finale:', innerError);
+                }
+              }
+            }, 200);
           } catch (error) {
             console.error('Errore durante l\'applicazione delle dimensioni allo stage:', error);
           }
@@ -480,6 +560,26 @@ function CanvasNews({
       requestAnimationFrame(applyDimensions);
     }
   }, [dimensions, stageRef]);
+  
+  // useEffect aggiuntivo per stabilizzare il canvas dopo la rotazione dei loghi
+  useEffect(() => {
+    // Questo effetto si attiva quando cambia logos (inclusa la rotazione)
+    if (stageRef.current && dimensions.scale > 0) {
+      // Usa un timeout per assicurarsi che il ridisegno avvenga dopo che React ha aggiornato il DOM
+      const stabilizeTimer = setTimeout(() => {
+        if (stageRef.current) {
+          try {
+            // Forza un ridisegno per assicurarsi che tutto sia correttamente visualizzato
+            stageRef.current.batchDraw();
+          } catch (error) {
+            console.error('Errore durante la stabilizzazione dopo rotazione:', error);
+          }
+        }
+      }, 50);
+      
+      return () => clearTimeout(stabilizeTimer);
+    }
+  }, [logos, stageRef, dimensions.scale]);
 
   return (
     <div className="canvas-container" ref={containerRef}>
@@ -501,7 +601,14 @@ function CanvasNews({
           transform: 'translateZ(0)',  // Forza l'accelerazione hardware
           backfaceVisibility: 'hidden',  // Migliora le performance di rendering
           willChange: 'transform',  // Suggerisce al browser di ottimizzare le trasformazioni
-          userSelect: 'none'  // Previene la selezione del testo indesiderata
+          userSelect: 'none',  // Previene la selezione del testo indesiderata
+          WebkitOverflowScrolling: 'touch',  // Migliora lo scrolling su iOS
+          WebkitTransformStyle: 'preserve-3d',  // Migliora la stabilità 3D su iOS
+          WebkitPerspective: '1000',  // Migliora la stabilità 3D su iOS
+          WebkitBackfaceVisibility: 'hidden',  // Versione specifica per WebKit
+          MozBackfaceVisibility: 'hidden',  // Versione specifica per Mozilla
+          msBackfaceVisibility: 'hidden',  // Versione specifica per Microsoft
+          transformStyle: 'preserve-3d'  // Migliora la stabilità 3D
         }}
       >
         <Stage 
@@ -517,7 +624,17 @@ function CanvasNews({
             position: 'absolute',  // Posizionamento assoluto per evitare spostamenti
             left: '0',
             top: '0',
-            transformOrigin: 'top left'  // Punto di origine per le trasformazioni
+            transformOrigin: 'top left',  // Punto di origine per le trasformazioni
+            touchAction: 'none',  // Previene comportamenti touch indesiderati
+            transform: 'translateZ(0)',  // Forza l'accelerazione hardware
+            WebkitTransform: 'translateZ(0)',  // Versione specifica per WebKit
+            MozTransform: 'translateZ(0)',  // Versione specifica per Mozilla
+            msTransform: 'translateZ(0)',  // Versione specifica per Microsoft
+            WebkitTransformOrigin: 'top left',  // Versione specifica per WebKit
+            MozTransformOrigin: 'top left',  // Versione specifica per Mozilla
+            msTransformOrigin: 'top left',  // Versione specifica per Microsoft
+            WebkitPerspective: '1000',  // Migliora la stabilità 3D su iOS
+            perspective: '1000'  // Migliora la stabilità 3D
           }}
         >
           <Layer>
