@@ -108,10 +108,14 @@ function CanvasNews({
   const [titleScale, setTitleScale] = useState({ x: 1, y: 1 });
   const [textScale,  setTextScale ] = useState({ x: 1, y: 1 });
 
-  // 🔧 AGGIUNTE MINIME per stabilità mobile
-  const resizeTimeoutRef = useRef(null);
-  const isCalculatingRef = useRef(false);
-  const lastDimensionsRef = useRef({ width: 0, height: 0, scale: 1 });
+  // 🔧 NUOVA STRATEGIA: Stabilizzazione definitiva
+  const stableStateRef = useRef({
+    isInitialized: false,
+    lastValidDimensions: { width: 0, height: 0, scale: 1 },
+    resizeTimer: null,
+    orientationTimer: null,
+    skipNextUpdate: false
+  });
 
   const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
   const nudgePos = (p, dx, dy) => ({ x: p.x + dx, y: p.y + dy });
@@ -245,7 +249,7 @@ function CanvasNews({
     }
   };
 
-  // Costanti per le dimensioni originali del canvas
+  // Costanti per le dimensioni originali del canvas - NON CAMBIANO MAI
   const ORIGINAL_WIDTH = 1440;
   const ORIGINAL_HEIGHT = 1800;
 
@@ -299,7 +303,6 @@ function CanvasNews({
             y={yOffset}
             align="left"
             fontFamily={fontFamily}
-            // ⌀ prima avevi listening={false}; toglilo così i click/tap funzionano
           />
         );
 
@@ -364,141 +367,139 @@ function CanvasNews({
     );
   };
   
-  // 🔧 MODIFICA MINIMA: Calcolo dimensioni più stabile
+  // 🔧 SOLUZIONE DEFINITIVA: Calcolo stabilizzato - MANTIENE LE TUE DIMENSIONI ESATTE
   const calculateDimensions = () => {
-    if (!containerRef.current || isCalculatingRef.current) return;
+    if (!containerRef.current) return;
     
-    isCalculatingRef.current = true;
+    const state = stableStateRef.current;
+    
+    // Se dobbiamo saltare questo update (ad es. dopo orientationchange)
+    if (state.skipNextUpdate) {
+      state.skipNextUpdate = false;
+      return;
+    }
     
     try {
-      // Ottieni le dimensioni effettive del container (TUA LOGICA ORIGINALE)
+      // 🔧 TUA LOGICA ORIGINALE - mantenuta identica
       const containerWidth = containerRef.current.clientWidth;
-      // Usa una percentuale fissa dell'altezza della finestra per evitare calcoli instabili
       const maxHeight = window.innerHeight * 0.8;
       
-      // Calcola la scala mantenendo l'aspect ratio (TUA LOGICA ORIGINALE)
+      // Verifica validità dei valori
+      if (containerWidth <= 0 || maxHeight <= 0) {
+        return;
+      }
+      
+      // 🔧 TUA LOGICA ORIGINALE - mantenuta identica  
       let scale = Math.min(containerWidth / ORIGINAL_WIDTH, maxHeight / ORIGINAL_HEIGHT);
-      // Limita la scala tra 0.2 e 1 per evitare dimensioni estreme
       scale = Math.max(0.2, Math.min(scale, 1));
       
-      // 🔧 AGGIUNTA MINIMA: Arrotonda per evitare micro-fluttuazioni
-      scale = Math.round(scale * 10000) / 10000;
-      
-      // Calcola le dimensioni scalate in modo preciso (TUA LOGICA ORIGINALE)
       const scaledWidth = Math.round(ORIGINAL_WIDTH * scale);
       const scaledHeight = Math.round(ORIGINAL_HEIGHT * scale);
       
-      // 🔧 AGGIUNTA MINIMA: Aggiorna solo se c'è un cambiamento significativo
-      const lastDims = lastDimensionsRef.current;
-      if (Math.abs(lastDims.scale - scale) > 0.001 || 
-          Math.abs(lastDims.width - scaledWidth) > 1 || 
-          Math.abs(lastDims.height - scaledHeight) > 1) {
-        
+      // 🔧 STABILIZZAZIONE: Confronta con le dimensioni precedenti
+      const lastDims = state.lastValidDimensions;
+      const scaleChange = Math.abs(lastDims.scale - scale);
+      const widthChange = Math.abs(lastDims.width - scaledWidth);
+      const heightChange = Math.abs(lastDims.height - scaledHeight);
+      
+      // Aggiorna solo se il cambiamento è significativo
+      if (scaleChange > 0.001 || widthChange > 2 || heightChange > 2) {
         const newDimensions = {
           width: scaledWidth,
           height: scaledHeight,
           scale: scale
         };
         
-        lastDimensionsRef.current = newDimensions;
+        state.lastValidDimensions = newDimensions;
         setDimensions(newDimensions);
       }
-    } finally {
-      isCalculatingRef.current = false;
+      
+    } catch (error) {
+      console.error('Errore nel calcolo dimensioni:', error);
     }
   };
   
-  // 🔧 MODIFICA MINIMA: useEffect più stabile per mobile
+  // 🔧 INIZIALIZZAZIONE E GESTIONE EVENTI - Ultra stabilizzata
   useEffect(() => {
-    // Funzione per calcolare le dimensioni in modo sicuro
-    const safeCalculateDimensions = () => {
-      if (containerRef.current) {
-        calculateDimensions();
-      }
-    };
+    const state = stableStateRef.current;
     
-    // Calcolo iniziale con un delay più lungo per assicurarsi che il DOM sia completamente pronto
-    const initialTimer = setTimeout(safeCalculateDimensions, 200);
+    // Inizializzazione progressiva e stabile
+    if (!state.isInitialized) {
+      state.isInitialized = true;
+      
+      // Calcoli iniziali con delay progressivi
+      setTimeout(calculateDimensions, 100);
+      setTimeout(calculateDimensions, 300);
+      setTimeout(calculateDimensions, 600);
+    }
     
-    // Secondo calcolo dopo un tempo maggiore per gestire eventuali ritardi nel rendering
-    const secondaryTimer = setTimeout(safeCalculateDimensions, 500);
-    
-    // 🔧 MODIFICA MINIMA: Handler per il resize con debounce migliorato
+    // 🔧 GESTIONE RESIZE ultra-stabilizzata
     const handleResize = () => {
-      // Cancella eventuali timeout pendenti
-      if (resizeTimeoutRef.current) {
-        clearTimeout(resizeTimeoutRef.current);
+      if (state.resizeTimer) {
+        clearTimeout(state.resizeTimer);
       }
       
-      // Pianifica un calcolo dopo un breve ritardo per stabilizzare
-      resizeTimeoutRef.current = setTimeout(safeCalculateDimensions, 150);
+      state.resizeTimer = setTimeout(() => {
+        calculateDimensions();
+      }, 100);
     };
-
-    // Aggiungi listener per eventi di resize
-    window.addEventListener('resize', handleResize, { passive: true });
     
-    // Aggiungi listener specifici per dispositivi mobili
-    window.addEventListener('orientationchange', handleResize, { passive: true });
-    
-    // 🔧 RIMOSSO: scroll listener che causava instabilità
-    // window.addEventListener('scroll', handleResize, { passive: true });
-
-    // Cleanup function
-    return () => {
-      clearTimeout(initialTimer);
-      clearTimeout(secondaryTimer);
-      if (resizeTimeoutRef.current) {
-        clearTimeout(resizeTimeoutRef.current);
+    // 🔧 GESTIONE ORIENTATIONCHANGE ultra-stabilizzata  
+    const handleOrientationChange = () => {
+      if (state.orientationTimer) {
+        clearTimeout(state.orientationTimer);
       }
-      window.removeEventListener('resize', handleResize);
-      window.removeEventListener('orientationchange', handleResize);
+      
+      // Su mobile, l'orientationchange richiede tempo per stabilizzarsi
+      state.skipNextUpdate = true; // Salta il primo calcolo instabile
+      
+      state.orientationTimer = setTimeout(() => {
+        state.skipNextUpdate = false;
+        calculateDimensions();
+        
+        // Secondo calcolo di conferma
+        setTimeout(calculateDimensions, 300);
+      }, 200);
     };
-  }, [containerRef]);
 
-  // 🔧 MODIFICA CRITICA: useEffect per applicare le dimensioni allo stage
+    window.addEventListener('resize', handleResize, { passive: true });
+    window.addEventListener('orientationchange', handleOrientationChange, { passive: true });
+
+    return () => {
+      if (state.resizeTimer) clearTimeout(state.resizeTimer);
+      if (state.orientationTimer) clearTimeout(state.orientationTimer);
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('orientationchange', handleOrientationChange);
+    };
+  }, []);
+
+  // 🔧 APPLICAZIONE STAGE - Garantisce dimensioni fisse
   useEffect(() => {
-    // Verifica che lo stage e la scala siano validi
     if (stageRef.current && dimensions.scale > 0) {
-      // Funzione per applicare le dimensioni in modo sicuro
-      const applyDimensions = () => {
-        // Verifica nuovamente che lo stage esista
-        if (stageRef.current) {
-          try {
-            // Imposta le dimensioni originali (TUA LOGICA ORIGINALE)
-            stageRef.current.width(ORIGINAL_WIDTH);
-            stageRef.current.height(ORIGINAL_HEIGHT);
-            
-            // 🔧 AGGIUNTA CRITICA: Forza la posizione a (0,0)
-            stageRef.current.position({ x: 0, y: 0 });
-            
-            // Applica la scala in modo uniforme (TUA LOGICA ORIGINALE)
-            const newScale = { x: dimensions.scale, y: dimensions.scale };
-            stageRef.current.scale(newScale);
-            
-            // Forza il ridisegno completo dello stage
-            stageRef.current.batchDraw();
-            
-            // 🔧 SEMPLIFICATO: Un solo ridisegno ritardato invece di multipli
-            setTimeout(() => {
-              if (stageRef.current) {
-                // 🔧 AGGIUNTA CRITICA: Ricontrolla la posizione
-                const pos = stageRef.current.position();
-                if (pos.x !== 0 || pos.y !== 0) {
-                  stageRef.current.position({ x: 0, y: 0 });
-                }
-                stageRef.current.batchDraw();
-              }
-            }, 50);
-          } catch (error) {
-            console.error('Errore durante l\'applicazione delle dimensioni allo stage:', error);
-          }
+      const applyStageSettings = () => {
+        if (!stageRef.current) return;
+        
+        try {
+          // 🔧 DIMENSIONI FISSE - non cambiano mai
+          stageRef.current.width(ORIGINAL_WIDTH);  // Sempre 1440
+          stageRef.current.height(ORIGINAL_HEIGHT); // Sempre 1800
+          
+          // 🔧 POSIZIONE FISSA - sempre (0,0)
+          stageRef.current.position({ x: 0, y: 0 });
+          
+          // 🔧 SCALA - secondo i tuoi calcoli originali
+          stageRef.current.scale({ x: dimensions.scale, y: dimensions.scale });
+          
+          stageRef.current.batchDraw();
+          
+        } catch (error) {
+          console.error('Errore applicazione stage:', error);
         }
       };
       
-      // Usa requestAnimationFrame per sincronizzare con il ciclo di rendering del browser
-      requestAnimationFrame(applyDimensions);
+      requestAnimationFrame(applyStageSettings);
     }
-  }, [dimensions, stageRef]);
+  }, [dimensions]);
 
   return (
     <div className="canvas-container" ref={containerRef}>
@@ -507,10 +508,10 @@ function CanvasNews({
         tabIndex={0}
         onKeyDown={handleKeyDown}
         style={{
+          // 🔧 TUE DIMENSIONI - calcolate dai tuoi algoritmi originali
           width: `${dimensions.width}px`,
           height: `${dimensions.height}px`,
           outline: 'none',
-          // Proprietà CSS originali + piccole aggiunte per stabilità
           maxWidth: '100%',
           overflow: 'hidden',
           position: 'relative',
@@ -529,11 +530,10 @@ function CanvasNews({
       >
         <Stage 
           ref={stageRef} 
-          width={ORIGINAL_WIDTH}
-          height={ORIGINAL_HEIGHT}
+          width={ORIGINAL_WIDTH}    // 🔧 SEMPRE 1440
+          height={ORIGINAL_HEIGHT}  // 🔧 SEMPRE 1800
           className="canvas-stage"
           style={{
-            // I tuoi stili originali
             maxWidth: '100%',
             height: 'auto',
             display: 'block',
@@ -547,7 +547,6 @@ function CanvasNews({
             perspective: '1000px',
             touchAction: 'none'
           }}
-          // 🔧 RIMOSSO: onTouchStart che poteva causare problemi
         >
           <Layer>
             {/* Renderizza le immagini caricate dall'utente */}
@@ -618,8 +617,8 @@ function CanvasNews({
             {background && (
               <KonvaImage 
                 image={background} 
-                width={ORIGINAL_WIDTH} 
-                height={ORIGINAL_HEIGHT} 
+                width={ORIGINAL_WIDTH}   // 🔧 SEMPRE 1440
+                height={ORIGINAL_HEIGHT} // 🔧 SEMPRE 1800
                 listening={false} 
               />
             )}
@@ -688,7 +687,6 @@ function CanvasNews({
                 )}
               </>
             )}
-
 
           </Layer>
         </Stage>
