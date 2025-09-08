@@ -373,25 +373,21 @@ function CanvasNews({
   const calculateDimensions = () => {
     if (!containerRef.current) return;
     
-    // Usa getBoundingClientRect per dimensioni più accurate su mobile
-    const containerRect = containerRef.current.getBoundingClientRect();
-    const containerWidth = containerRect.width;
+    // Ottieni le dimensioni effettive del container
+    const containerWidth = containerRef.current.clientWidth;
+    // Usa una percentuale fissa dell'altezza della finestra per evitare calcoli instabili
     const maxHeight = window.innerHeight * 0.8;
     
-    // Calcola la scala mantenendo le proporzioni originali
-    const widthScale = containerWidth / ORIGINAL_WIDTH;
-    const heightScale = maxHeight / ORIGINAL_HEIGHT;
-    
-    // Usa la scala più piccola che mantenga tutto visibile
-    let scale = Math.min(widthScale, heightScale);
-    
-    // Limita la scala tra 0.2 e 1
+    // Calcola la scala mantenendo l'aspect ratio
+    let scale = Math.min(containerWidth / ORIGINAL_WIDTH, maxHeight / ORIGINAL_HEIGHT);
+    // Limita la scala tra 0.2 e 1 per evitare dimensioni estreme
     scale = Math.max(0.2, Math.min(scale, 1));
     
-    // Calcola le dimensioni scalate
-    const scaledWidth = ORIGINAL_WIDTH * scale;
-    const scaledHeight = ORIGINAL_HEIGHT * scale;
+    // Calcola le dimensioni scalate in modo preciso
+    const scaledWidth = Math.round(ORIGINAL_WIDTH * scale);
+    const scaledHeight = Math.round(ORIGINAL_HEIGHT * scale);
     
+    // Aggiorna lo stato con i valori calcolati
     setDimensions({
       width: scaledWidth,
       height: scaledHeight,
@@ -399,69 +395,91 @@ function CanvasNews({
     });
   };
   
-  // useEffect per il calcolo iniziale e il resize - versione sicura per mobile
+  // useEffect per il calcolo iniziale e il resize - versione migliorata per mobile
   useEffect(() => {
-    // Calcolo iniziale con un piccolo delay per assicurarsi che il DOM sia pronto
-    const timer = setTimeout(() => {
-      calculateDimensions();
-    }, 100);
+    // Funzione per calcolare le dimensioni in modo sicuro
+    const safeCalculateDimensions = () => {
+      // Verifica che il componente sia ancora montato
+      if (containerRef.current) {
+        calculateDimensions();
+      }
+    };
+    
+    // Calcolo iniziale con un delay più lungo per assicurarsi che il DOM sia completamente pronto
+    const initialTimer = setTimeout(safeCalculateDimensions, 200);
+    
+    // Secondo calcolo dopo un tempo maggiore per gestire eventuali ritardi nel rendering
+    const secondaryTimer = setTimeout(safeCalculateDimensions, 500);
     
     // Handler per il resize con debounce per evitare calcoli troppo frequenti
     let resizeTimeout;
     const handleResize = () => {
+      // Cancella eventuali timeout pendenti
       clearTimeout(resizeTimeout);
-      resizeTimeout = setTimeout(() => {
-        // Forza il ridimensionamento anche quando le dimensioni non cambiano
-        // Questo risolve problemi su mobile dove l'orientationchange
-        // potrebbe non triggerare un resize
-        setDimensions(prev => ({
-          ...prev,
-          width: prev.width + 0.0001
-        }));
-        calculateDimensions();
-      }, 150);
+      
+      // Esegui un calcolo immediato per feedback rapido
+      safeCalculateDimensions();
+      
+      // Pianifica un secondo calcolo dopo un breve ritardo per stabilizzare
+      resizeTimeout = setTimeout(safeCalculateDimensions, 250);
     };
 
-    window.addEventListener('resize', handleResize);
-    // Aggiungi anche listener per orientationchange su mobile
-    window.addEventListener('orientationchange', handleResize);
+    // Aggiungi listener per eventi di resize
+    window.addEventListener('resize', handleResize, { passive: true });
+    
+    // Aggiungi listener specifici per dispositivi mobili
+    window.addEventListener('orientationchange', handleResize, { passive: true });
+    
+    // Aggiungi listener per scroll che potrebbe influenzare le dimensioni su mobile
+    window.addEventListener('scroll', handleResize, { passive: true });
 
+    // Cleanup function
     return () => {
-      clearTimeout(timer);
+      clearTimeout(initialTimer);
+      clearTimeout(secondaryTimer);
       clearTimeout(resizeTimeout);
       window.removeEventListener('resize', handleResize);
       window.removeEventListener('orientationchange', handleResize);
+      window.removeEventListener('scroll', handleResize);
     };
   }, [containerRef]);
 
-  // useEffect per applicare le dimensioni al stage - versione sicura
+  // useEffect per applicare le dimensioni al stage - versione robusta
   useEffect(() => {
+    // Verifica che lo stage e la scala siano validi
     if (stageRef.current && dimensions.scale > 0) {
-      // Usa requestAnimationFrame per assicurarti che l'update avvenga al momento giusto
-      requestAnimationFrame(() => {
+      // Funzione per applicare le dimensioni in modo sicuro
+      const applyDimensions = () => {
+        // Verifica nuovamente che lo stage esista
         if (stageRef.current) {
-          // Resetta la posizione prima di ridimensionare
-          stageRef.current.x(0);
-          stageRef.current.y(0);
-          
-          // Imposta dimensioni originali
-          stageRef.current.width(ORIGINAL_WIDTH);
-          stageRef.current.height(ORIGINAL_HEIGHT);
-          
-          // Applica la scala
-          stageRef.current.scale({ x: dimensions.scale, y: dimensions.scale });
-          
-          // Centra il canvas nel contenitore
-          const containerRect = containerRef.current.getBoundingClientRect();
-          const offsetX = (containerRect.width - (ORIGINAL_WIDTH * dimensions.scale)) / 2;
-          const offsetY = (containerRect.height - (ORIGINAL_HEIGHT * dimensions.scale)) / 2;
-          
-          stageRef.current.position({ x: offsetX, y: offsetY });
-          stageRef.current.batchDraw();
+          try {
+            // Imposta le dimensioni originali
+            stageRef.current.width(ORIGINAL_WIDTH);
+            stageRef.current.height(ORIGINAL_HEIGHT);
+            
+            // Applica la scala in modo uniforme
+            const newScale = { x: dimensions.scale, y: dimensions.scale };
+            stageRef.current.scale(newScale);
+            
+            // Forza il ridisegno completo dello stage
+            stageRef.current.batchDraw();
+            
+            // Esegui un secondo ridisegno dopo un breve ritardo per assicurarsi che tutto sia aggiornato
+            setTimeout(() => {
+              if (stageRef.current) {
+                stageRef.current.batchDraw();
+              }
+            }, 50);
+          } catch (error) {
+            console.error('Errore durante l\'applicazione delle dimensioni allo stage:', error);
+          }
         }
-      });
+      };
+      
+      // Usa requestAnimationFrame per sincronizzare con il ciclo di rendering del browser
+      requestAnimationFrame(applyDimensions);
     }
-  }, [dimensions, stageRef, containerRef]);
+  }, [dimensions, stageRef]);
 
   return (
     <div className="canvas-container" ref={containerRef}>
@@ -473,10 +491,17 @@ function CanvasNews({
           width: `${dimensions.width}px`,
           height: `${dimensions.height}px`,
           outline: 'none',
-          // Aggiungi queste proprietà per evitare problemi di layout su mobile
+          // Proprietà CSS migliorate per la stabilità su dispositivi mobili
           maxWidth: '100%',
           overflow: 'hidden',
-          position: 'relative'
+          position: 'relative',
+          margin: '0 auto',  // Centra il canvas orizzontalmente
+          touchAction: 'none',  // Previene comportamenti touch indesiderati
+          WebkitTapHighlightColor: 'transparent',  // Rimuove l'evidenziazione al tocco su iOS
+          transform: 'translateZ(0)',  // Forza l'accelerazione hardware
+          backfaceVisibility: 'hidden',  // Migliora le performance di rendering
+          willChange: 'transform',  // Suggerisce al browser di ottimizzare le trasformazioni
+          userSelect: 'none'  // Previene la selezione del testo indesiderata
         }}
       >
         <Stage 
@@ -485,9 +510,14 @@ function CanvasNews({
           height={ORIGINAL_HEIGHT}
           className="canvas-stage"
           style={{
-            // Assicurati che lo stage non causi overflow
+            // Stile migliorato per lo stage
             maxWidth: '100%',
-            height: 'auto'
+            height: 'auto',
+            display: 'block',  // Rimuove spazi bianchi indesiderati
+            position: 'absolute',  // Posizionamento assoluto per evitare spostamenti
+            left: '0',
+            top: '0',
+            transformOrigin: 'top left'  // Punto di origine per le trasformazioni
           }}
         >
           <Layer>
