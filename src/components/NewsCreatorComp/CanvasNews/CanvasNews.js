@@ -108,9 +108,12 @@ function CanvasNews({
   const [titleScale, setTitleScale] = useState({ x: 1, y: 1 });
   const [textScale,  setTextScale ] = useState({ x: 1, y: 1 });
 
+  // 🔧 AGGIUNTE MINIME per stabilità mobile
+  const resizeTimeoutRef = useRef(null);
+  const isCalculatingRef = useRef(false);
+  const lastDimensionsRef = useRef({ width: 0, height: 0, scale: 1 });
 
   const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
-
   const nudgePos = (p, dx, dy) => ({ x: p.x + dx, y: p.y + dy });
 
   const handleKeyDown = (e) => {
@@ -242,94 +245,86 @@ function CanvasNews({
     }
   };
 
+  // Costanti per le dimensioni originali del canvas
+  const ORIGINAL_WIDTH = 1440;
+  const ORIGINAL_HEIGHT = 1800;
 
+  // 🚦 Sensibilità (passi) per i tasti
+  const KEY_MOVE_STEP  = 2;     // 2 px per pressione freccia
+  const KEY_SCALE_STEP = 0.02;  // 2% per + / -
+  const KEY_FONT_STEP  = 2;     // 2 px (se lo userai per font)
+  const KEY_ROTATE_STEP = 2;      // 🔄 2° per pressione
+  const normalizeAngle = (a) => ((a % 360) + 360) % 360;
 
-    
-    
-    // Costanti per le dimensioni originali del canvas
-    const ORIGINAL_WIDTH = 1440;
-    const ORIGINAL_HEIGHT = 1800;
+  const measureCtxRef = useRef(null);
+  useEffect(() => {
+    const c = document.createElement('canvas');
+    measureCtxRef.current = c.getContext('2d');
+  }, []);
 
-    // 🚦 Sensibilità (passi) per i tasti
-    const KEY_MOVE_STEP  = 2;     // 2 px per pressione freccia
-    const KEY_SCALE_STEP = 0.02;  // 2% per + / -
-    const KEY_FONT_STEP  = 2;     // 2 px (se lo userai per font)
-    const KEY_ROTATE_STEP = 2;      // 🔁 2° per pressione
-    const normalizeAngle = (a) => ((a % 360) + 360) % 360;
+  const measureWidth = (t, fontFamily, fontSize) => {
+    const ctx = measureCtxRef.current;
+    if (!ctx) return 0;
+    ctx.font = `${fontSize}px ${fontFamily}`;
+    const m = ctx.measureText(t || '');
+    return m.width || 0;
+  };
 
+  // ✅ aggiungi onClick con default noop
+  const RichTextGroup = ({ lines, x, y, fontFamily, fontSize, defaultColor, onClick = () => {} }) => {
+    const lineHeight = Math.round(fontSize * 1);
+    let yOffset = 0;
+    const elements = [];
 
-
-    const measureCtxRef = useRef(null);
-    useEffect(() => {
-      const c = document.createElement('canvas');
-      measureCtxRef.current = c.getContext('2d');
-    }, []);
-
-    const measureWidth = (t, fontFamily, fontSize) => {
-      const ctx = measureCtxRef.current;
-      if (!ctx) return 0;
-      ctx.font = `${fontSize}px ${fontFamily}`;
-      const m = ctx.measureText(t || '');
-      return m.width || 0;
-    };
-
-    // ✅ aggiungi onClick con default noop
-    const RichTextGroup = ({ lines, x, y, fontFamily, fontSize, defaultColor, onClick = () => {} }) => {
-      const lineHeight = Math.round(fontSize * 1);
-      let yOffset = 0;
-      const elements = [];
-
-      lines.forEach((segments, li) => {
-        if (!segments || segments.length === 0 || (segments.length === 1 && !segments[0].text)) {
-          yOffset += lineHeight;
-          return;
-        }
-        const totalWidth = segments.reduce((acc, s) => acc + measureWidth(s.text || '', fontFamily, fontSize), 0);
-        const startX = -totalWidth / 2;
-        let xOffset = 0;
-
-        segments.forEach((segment, si) => {
-          const segmentWidth = measureWidth(segment.text || '', fontFamily, fontSize);
-          const segmentColor = segment.color || defaultColor;
-
-          elements.push(
-            <Text
-              key={`rt-${li}-${si}`}
-              text={segment.text || ''}
-              fontSize={fontSize}
-              fill={segmentColor}
-              x={startX + xOffset}
-              y={yOffset}
-              align="left"
-              fontFamily={fontFamily}
-              // ❌ prima avevi listening={false}; toglilo così i click/tap funzionano
-            />
-          );
-
-          xOffset += segmentWidth;
-        });
-
+    lines.forEach((segments, li) => {
+      if (!segments || segments.length === 0 || (segments.length === 1 && !segments[0].text)) {
         yOffset += lineHeight;
+        return;
+      }
+      const totalWidth = segments.reduce((acc, s) => acc + measureWidth(s.text || '', fontFamily, fontSize), 0);
+      const startX = -totalWidth / 2;
+      let xOffset = 0;
+
+      segments.forEach((segment, si) => {
+        const segmentWidth = measureWidth(segment.text || '', fontFamily, fontSize);
+        const segmentColor = segment.color || defaultColor;
+
+        elements.push(
+          <Text
+            key={`rt-${li}-${si}`}
+            text={segment.text || ''}
+            fontSize={fontSize}
+            fill={segmentColor}
+            x={startX + xOffset}
+            y={yOffset}
+            align="left"
+            fontFamily={fontFamily}
+            // ⌀ prima avevi listening={false}; toglilo così i click/tap funzionano
+          />
+        );
+
+        xOffset += segmentWidth;
       });
 
-      return (
-        <Group
-          x={x + ORIGINAL_WIDTH / 2}
-          y={y}
-          draggable
-          scaleX={textScale.x}   // ✅ applica la scala del testo
-          scaleY={textScale.y}
-          onClick={onClick}
-          onTap={onClick}
-          onDragEnd={(e) => setTextPosition({ x: e.target.x() - ORIGINAL_WIDTH / 2, y: e.target.y() })}
-        >
-          {elements}
-        </Group>
-      );
-    };
+      yOffset += lineHeight;
+    });
 
+    return (
+      <Group
+        x={x + ORIGINAL_WIDTH / 2}
+        y={y}
+        draggable
+        scaleX={textScale.x}   // ✅ applica la scala del testo
+        scaleY={textScale.y}
+        onClick={onClick}
+        onTap={onClick}
+        onDragEnd={(e) => setTextPosition({ x: e.target.x() - ORIGINAL_WIDTH / 2, y: e.target.y() })}
+      >
+        {elements}
+      </Group>
+    );
+  };
 
-  
   // Nuovo componente per gestire il testo normale con ritorni a capo
   const MultiLineText = ({ text, x, y, fontFamily, fontSize, color, width }) => {
     const lineHeight = Math.round(fontSize * 1.25);
@@ -369,55 +364,55 @@ function CanvasNews({
     );
   };
   
-  // Funzione per calcolare le dimensioni e la scala - versione migliorata per stabilità mobile
+  // 🔧 MODIFICA MINIMA: Calcolo dimensioni più stabile
   const calculateDimensions = () => {
-    if (!containerRef.current) return;
+    if (!containerRef.current || isCalculatingRef.current) return;
     
-    // Ottieni le dimensioni effettive del container
-    const containerWidth = containerRef.current.clientWidth;
-    // Usa una percentuale fissa dell'altezza della finestra per evitare calcoli instabili
-    const maxHeight = window.innerHeight * 0.8;
+    isCalculatingRef.current = true;
     
-    // Calcola la scala mantenendo l'aspect ratio
-    let scale = Math.min(containerWidth / ORIGINAL_WIDTH, maxHeight / ORIGINAL_HEIGHT);
-    // Limita la scala tra 0.2 e 1 per evitare dimensioni estreme
-    scale = Math.max(0.2, Math.min(scale, 1));
-    
-    // Arrotonda la scala a 4 decimali per evitare fluttuazioni minime che causano instabilità
-    scale = Math.round(scale * 10000) / 10000;
-    
-    // Calcola le dimensioni scalate in modo preciso
-    const scaledWidth = Math.round(ORIGINAL_WIDTH * scale);
-    const scaledHeight = Math.round(ORIGINAL_HEIGHT * scale);
-    
-    // Aggiorna lo stato con i valori calcolati solo se sono effettivamente cambiati
-    // per evitare re-render inutili che possono causare instabilità
-    setDimensions(prevDimensions => {
-      if (
-        Math.abs(prevDimensions.scale - scale) < 0.0001 &&
-        prevDimensions.width === scaledWidth &&
-        prevDimensions.height === scaledHeight
-      ) {
-        return prevDimensions; // Nessun cambiamento significativo, mantieni lo stato precedente
-      }
+    try {
+      // Ottieni le dimensioni effettive del container (TUA LOGICA ORIGINALE)
+      const containerWidth = containerRef.current.clientWidth;
+      // Usa una percentuale fissa dell'altezza della finestra per evitare calcoli instabili
+      const maxHeight = window.innerHeight * 0.8;
       
-      return {
-        width: scaledWidth,
-        height: scaledHeight,
-        scale: scale
-      };
-    });
+      // Calcola la scala mantenendo l'aspect ratio (TUA LOGICA ORIGINALE)
+      let scale = Math.min(containerWidth / ORIGINAL_WIDTH, maxHeight / ORIGINAL_HEIGHT);
+      // Limita la scala tra 0.2 e 1 per evitare dimensioni estreme
+      scale = Math.max(0.2, Math.min(scale, 1));
+      
+      // 🔧 AGGIUNTA MINIMA: Arrotonda per evitare micro-fluttuazioni
+      scale = Math.round(scale * 10000) / 10000;
+      
+      // Calcola le dimensioni scalate in modo preciso (TUA LOGICA ORIGINALE)
+      const scaledWidth = Math.round(ORIGINAL_WIDTH * scale);
+      const scaledHeight = Math.round(ORIGINAL_HEIGHT * scale);
+      
+      // 🔧 AGGIUNTA MINIMA: Aggiorna solo se c'è un cambiamento significativo
+      const lastDims = lastDimensionsRef.current;
+      if (Math.abs(lastDims.scale - scale) > 0.001 || 
+          Math.abs(lastDims.width - scaledWidth) > 1 || 
+          Math.abs(lastDims.height - scaledHeight) > 1) {
+        
+        const newDimensions = {
+          width: scaledWidth,
+          height: scaledHeight,
+          scale: scale
+        };
+        
+        lastDimensionsRef.current = newDimensions;
+        setDimensions(newDimensions);
+      }
+    } finally {
+      isCalculatingRef.current = false;
+    }
   };
   
-  // useEffect per il calcolo iniziale e il resize - versione ottimizzata per stabilità mobile
+  // 🔧 MODIFICA MINIMA: useEffect più stabile per mobile
   useEffect(() => {
-    // Flag per tracciare se il componente è montato
-    let isMounted = true;
-    
     // Funzione per calcolare le dimensioni in modo sicuro
     const safeCalculateDimensions = () => {
-      // Verifica che il componente sia ancora montato
-      if (isMounted && containerRef.current) {
+      if (containerRef.current) {
         calculateDimensions();
       }
     };
@@ -428,56 +423,39 @@ function CanvasNews({
     // Secondo calcolo dopo un tempo maggiore per gestire eventuali ritardi nel rendering
     const secondaryTimer = setTimeout(safeCalculateDimensions, 500);
     
-    // Terzo calcolo ancora più ritardato per dispositivi più lenti
-    const tertiaryTimer = setTimeout(safeCalculateDimensions, 1000);
-    
-    // Handler per il resize con debounce per evitare calcoli troppo frequenti
-    let resizeTimeout;
+    // 🔧 MODIFICA MINIMA: Handler per il resize con debounce migliorato
     const handleResize = () => {
       // Cancella eventuali timeout pendenti
-      clearTimeout(resizeTimeout);
+      if (resizeTimeoutRef.current) {
+        clearTimeout(resizeTimeoutRef.current);
+      }
       
       // Pianifica un calcolo dopo un breve ritardo per stabilizzare
-      // Evita calcoli immediati che possono causare instabilità su mobile
-      resizeTimeout = setTimeout(safeCalculateDimensions, 100);
-    };
-    
-    // Funzione per gestire specificamente i cambiamenti di orientamento
-    const handleOrientationChange = () => {
-      // Sui dispositivi mobili, l'orientationchange richiede più tempo per stabilizzarsi
-      // Esegui calcoli multipli a intervalli crescenti
-      setTimeout(safeCalculateDimensions, 100);
-      setTimeout(safeCalculateDimensions, 300);
-      setTimeout(safeCalculateDimensions, 600);
+      resizeTimeoutRef.current = setTimeout(safeCalculateDimensions, 150);
     };
 
     // Aggiungi listener per eventi di resize
     window.addEventListener('resize', handleResize, { passive: true });
     
     // Aggiungi listener specifici per dispositivi mobili
-    window.addEventListener('orientationchange', handleOrientationChange, { passive: true });
+    window.addEventListener('orientationchange', handleResize, { passive: true });
     
-    // Rimuovi l'evento scroll che può causare troppi ricalcoli e instabilità
+    // 🔧 RIMOSSO: scroll listener che causava instabilità
     // window.addEventListener('scroll', handleResize, { passive: true });
-    
-    // Aggiungi listener per visibilitychange per ricalcolare quando l'app torna in primo piano
-    document.addEventListener('visibilitychange', safeCalculateDimensions);
 
     // Cleanup function
     return () => {
-      isMounted = false;
       clearTimeout(initialTimer);
       clearTimeout(secondaryTimer);
-      clearTimeout(tertiaryTimer);
-      clearTimeout(resizeTimeout);
+      if (resizeTimeoutRef.current) {
+        clearTimeout(resizeTimeoutRef.current);
+      }
       window.removeEventListener('resize', handleResize);
-      window.removeEventListener('orientationchange', handleOrientationChange);
-      // window.removeEventListener('scroll', handleResize);
-      document.removeEventListener('visibilitychange', safeCalculateDimensions);
+      window.removeEventListener('orientationchange', handleResize);
     };
-  }, []);  // Rimuovi containerRef dalle dipendenze per evitare re-render non necessari
+  }, [containerRef]);
 
-  // useEffect per applicare le dimensioni al stage - versione ultra-stabile per mobile
+  // 🔧 MODIFICA CRITICA: useEffect per applicare le dimensioni allo stage
   useEffect(() => {
     // Verifica che lo stage e la scala siano validi
     if (stageRef.current && dimensions.scale > 0) {
@@ -486,27 +464,24 @@ function CanvasNews({
         // Verifica nuovamente che lo stage esista
         if (stageRef.current) {
           try {
-            // Memorizza la posizione attuale dello stage
-            const currentPos = stageRef.current.position();
-            
-            // Imposta le dimensioni originali
+            // Imposta le dimensioni originali (TUA LOGICA ORIGINALE)
             stageRef.current.width(ORIGINAL_WIDTH);
             stageRef.current.height(ORIGINAL_HEIGHT);
             
-            // Assicurati che la posizione rimanga a 0,0 (questo è cruciale per la stabilità)
+            // 🔧 AGGIUNTA CRITICA: Forza la posizione a (0,0)
             stageRef.current.position({ x: 0, y: 0 });
             
-            // Applica la scala in modo uniforme
+            // Applica la scala in modo uniforme (TUA LOGICA ORIGINALE)
             const newScale = { x: dimensions.scale, y: dimensions.scale };
             stageRef.current.scale(newScale);
             
             // Forza il ridisegno completo dello stage
             stageRef.current.batchDraw();
             
-            // Esegui un secondo ridisegno dopo un breve ritardo per assicurarsi che tutto sia aggiornato
+            // 🔧 SEMPLIFICATO: Un solo ridisegno ritardato invece di multipli
             setTimeout(() => {
               if (stageRef.current) {
-                // Verifica nuovamente che la posizione sia corretta
+                // 🔧 AGGIUNTA CRITICA: Ricontrolla la posizione
                 const pos = stageRef.current.position();
                 if (pos.x !== 0 || pos.y !== 0) {
                   stageRef.current.position({ x: 0, y: 0 });
@@ -522,13 +497,8 @@ function CanvasNews({
       
       // Usa requestAnimationFrame per sincronizzare con il ciclo di rendering del browser
       requestAnimationFrame(applyDimensions);
-      
-      // Aggiungi un secondo requestAnimationFrame ritardato per assicurarsi che tutto sia stabile
-      setTimeout(() => {
-        requestAnimationFrame(applyDimensions);
-      }, 100);
     }
-  }, [dimensions]);  // Rimuovi stageRef dalle dipendenze per evitare re-render non necessari
+  }, [dimensions, stageRef]);
 
   return (
     <div className="canvas-container" ref={containerRef}>
@@ -540,23 +510,20 @@ function CanvasNews({
           width: `${dimensions.width}px`,
           height: `${dimensions.height}px`,
           outline: 'none',
-          // Proprietà CSS migliorate per la stabilità su dispositivi mobili
+          // Proprietà CSS originali + piccole aggiunte per stabilità
           maxWidth: '100%',
           overflow: 'hidden',
           position: 'relative',
-          margin: '0 auto',  // Centra il canvas orizzontalmente
-          touchAction: 'none',  // Previene comportamenti touch indesiderati
-          WebkitTapHighlightColor: 'transparent',  // Rimuove l'evidenziazione al tocco su iOS
-          transform: 'translateZ(0)',  // Forza l'accelerazione hardware
-          backfaceVisibility: 'hidden',  // Migliora le performance di rendering
-          willChange: 'transform',  // Suggerisce al browser di ottimizzare le trasformazioni
-          userSelect: 'none',  // Previene la selezione del testo indesiderata
-          // Aggiungi proprietà per prevenire lo zoom su iOS
+          margin: '0 auto',
+          touchAction: 'none',
+          WebkitTapHighlightColor: 'transparent',
+          transform: 'translateZ(0)',
+          backfaceVisibility: 'hidden',
+          willChange: 'transform',
+          userSelect: 'none',
           WebkitUserSelect: 'none',
           WebkitTouchCallout: 'none',
-          // Previeni il ridimensionamento automatico del testo su iOS
           WebkitTextSizeAdjust: '100%',
-          // Stabilizza il rendering su dispositivi mobili
           perspective: '1000px'
         }}
       >
@@ -566,26 +533,21 @@ function CanvasNews({
           height={ORIGINAL_HEIGHT}
           className="canvas-stage"
           style={{
-            // Stile migliorato per lo stage
+            // I tuoi stili originali
             maxWidth: '100%',
             height: 'auto',
-            display: 'block',  // Rimuove spazi bianchi indesiderati
-            position: 'absolute',  // Posizionamento assoluto per evitare spostamenti
+            display: 'block',
+            position: 'absolute',
             left: '0',
             top: '0',
-            transformOrigin: 'top left',  // Punto di origine per le trasformazioni
-            // Aggiungi proprietà per migliorare la stabilità su mobile
-            transform: 'translate3d(0,0,0)',  // Forza l'accelerazione hardware in modo più efficace
-            WebkitTransform: 'translate3d(0,0,0)',  // Per Safari
-            // Previeni il ridimensionamento automatico del testo su iOS
+            transformOrigin: 'top left',
+            transform: 'translate3d(0,0,0)',
+            WebkitTransform: 'translate3d(0,0,0)',
             WebkitTextSizeAdjust: '100%',
-            // Stabilizza il rendering su dispositivi mobili
             perspective: '1000px',
-            // Assicura che il canvas non venga ridimensionato in modo imprevisto
             touchAction: 'none'
           }}
-          // Aggiungi gestori eventi per prevenire comportamenti indesiderati su mobile
-          onTouchStart={e => e.evt.preventDefault()}
+          // 🔧 RIMOSSO: onTouchStart che poteva causare problemi
         >
           <Layer>
             {/* Renderizza le immagini caricate dall'utente */}
@@ -625,8 +587,6 @@ function CanvasNews({
                     setTitlePosition({ x: newX, y: newY });
                   }}
                 />
-
-
 
                 {(richText && richText.length > 0) ? (
                   <RichTextGroup
