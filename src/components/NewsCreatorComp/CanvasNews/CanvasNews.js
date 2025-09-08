@@ -397,52 +397,45 @@ function CanvasNews({
   
   // useEffect per il calcolo iniziale e il resize - versione migliorata per mobile
   useEffect(() => {
-    // Funzione per calcolare le dimensioni in modo sicuro
-    const safeCalculateDimensions = () => {
-      // Verifica che il componente sia ancora montato
-      if (containerRef.current) {
-        calculateDimensions();
-      }
-    };
+  // Funzione per calcolare le dimensioni in modo sicuro
+  const safeCalculateDimensions = () => {
+    // Verifica che il componente sia ancora montato
+    if (containerRef.current) {
+      calculateDimensions();
+    }
+  };
+  
+  // Calcolo iniziale con un delay più lungo per assicurarsi che il DOM sia completamente pronto
+  const initialTimer = setTimeout(safeCalculateDimensions, 200);
+  
+  // Secondo calcolo dopo un tempo maggiore per gestire eventuali ritardi nel rendering
+  const secondaryTimer = setTimeout(safeCalculateDimensions, 500);
+  
+  // Handler per il resize con debounce migliorato
+  let resizeTimeout;
+  const handleResize = () => {
+    // Cancella eventuali timeout pendenti
+    clearTimeout(resizeTimeout);
     
-    // Calcolo iniziale con un delay più lungo per assicurarsi che il DOM sia completamente pronto
-    const initialTimer = setTimeout(safeCalculateDimensions, 200);
-    
-    // Secondo calcolo dopo un tempo maggiore per gestire eventuali ritardi nel rendering
-    const secondaryTimer = setTimeout(safeCalculateDimensions, 500);
-    
-    // Handler per il resize con debounce per evitare calcoli troppo frequenti
-    let resizeTimeout;
-    const handleResize = () => {
-      // Cancella eventuali timeout pendenti
-      clearTimeout(resizeTimeout);
-      
-      // Esegui un calcolo immediato per feedback rapido
-      safeCalculateDimensions();
-      
-      // Pianifica un secondo calcolo dopo un breve ritardo per stabilizzare
-      resizeTimeout = setTimeout(safeCalculateDimensions, 250);
-    };
+    // Esegui un calcolo dopo un breve ritardo
+    resizeTimeout = setTimeout(safeCalculateDimensions, 300);
+  };
 
-    // Aggiungi listener per eventi di resize
-    window.addEventListener('resize', handleResize, { passive: true });
-    
-    // Aggiungi listener specifici per dispositivi mobili
-    window.addEventListener('orientationchange', handleResize, { passive: true });
-    
-    // Aggiungi listener per scroll che potrebbe influenzare le dimensioni su mobile
-    window.addEventListener('scroll', handleResize, { passive: true });
-
-    // Cleanup function
-    return () => {
-      clearTimeout(initialTimer);
-      clearTimeout(secondaryTimer);
-      clearTimeout(resizeTimeout);
-      window.removeEventListener('resize', handleResize);
-      window.removeEventListener('orientationchange', handleResize);
-      window.removeEventListener('scroll', handleResize);
-    };
-  }, [containerRef]);
+  // Aggiungi listener per eventi di resize
+  window.addEventListener('resize', handleResize, { passive: true });
+  
+  // Aggiungi listener specifici per dispositivi mobili
+  window.addEventListener('orientationchange', handleResize, { passive: true });
+  
+  // Cleanup function
+  return () => {
+    clearTimeout(initialTimer);
+    clearTimeout(secondaryTimer);
+    clearTimeout(resizeTimeout);
+    window.removeEventListener('resize', handleResize);
+    window.removeEventListener('orientationchange', handleResize);
+  };
+}, [containerRef]);
 
   // useEffect per applicare le dimensioni al stage - versione robusta
   useEffect(() => {
