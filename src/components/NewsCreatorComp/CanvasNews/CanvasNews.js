@@ -243,6 +243,16 @@ function CanvasNews({
         e.preventDefault();
         e.stopPropagation();
         
+        // Salva la scala corrente prima della rotazione
+        let currentScale = null;
+        if (stageRef.current) {
+          try {
+            currentScale = { ...stageRef.current.scale() };
+          } catch (error) {
+            console.error('Errore nel salvare la scala corrente:', error);
+          }
+        }
+        
         // Aggiorna la rotazione del logo selezionato
         setLogos(ls => ls.map(l => {
           if (l.id !== selectedLogo) return l;
@@ -251,14 +261,44 @@ function CanvasNews({
           return { ...l, rotation: newRotation };
         }));
         
-        // Forza un ridisegno dello stage dopo la rotazione
-        // per assicurarsi che il canvas non si ridimensioni
+        // Sequenza di ridisegni per garantire la stabilità su iOS
         if (stageRef.current) {
+          // Ridisegno immediato
+          try {
+            stageRef.current.batchDraw();
+          } catch (error) {
+            console.error('Errore durante il ridisegno immediato:', error);
+          }
+          
+          // Ripristina la scala originale se necessario dopo un breve ritardo
+          setTimeout(() => {
+            if (stageRef.current && currentScale) {
+              try {
+                // Verifica se la scala è cambiata
+                const newScale = stageRef.current.scale();
+                if (Math.abs(newScale.x - currentScale.x) > 0.0001 || 
+                    Math.abs(newScale.y - currentScale.y) > 0.0001) {
+                  // Ripristina la scala originale
+                  stageRef.current.scale(currentScale);
+                  console.log('Scala ripristinata dopo rotazione');
+                }
+                stageRef.current.batchDraw();
+              } catch (error) {
+                console.error('Errore durante il ripristino della scala:', error);
+              }
+            }
+          }, 10);
+          
+          // Secondo ridisegno dopo un ritardo più lungo
           setTimeout(() => {
             if (stageRef.current) {
-              stageRef.current.batchDraw();
+              try {
+                stageRef.current.batchDraw();
+              } catch (error) {
+                console.error('Errore durante il ridisegno ritardato:', error);
+              }
             }
-          }, 0);
+          }, 100);
         }
       }
     }
@@ -565,11 +605,25 @@ function CanvasNews({
   useEffect(() => {
     // Questo effetto si attiva quando cambia logos (inclusa la rotazione)
     if (stageRef.current && dimensions.scale > 0) {
-      // Usa un timeout per assicurarsi che il ridisegno avvenga dopo che React ha aggiornato il DOM
-      const stabilizeTimer = setTimeout(() => {
+      // Sequenza di ridisegni per garantire la stabilità su iOS
+      // Primo ridisegno immediato
+      try {
+        stageRef.current.batchDraw();
+      } catch (error) {
+        console.error('Errore durante il ridisegno immediato:', error);
+      }
+      
+      // Secondo ridisegno dopo un breve ritardo
+      const stabilizeTimer1 = setTimeout(() => {
         if (stageRef.current) {
           try {
-            // Forza un ridisegno per assicurarsi che tutto sia correttamente visualizzato
+            // Verifica che la scala sia ancora corretta
+            const scale = Math.round(dimensions.scale * 10000) / 10000;
+            const currentScale = stageRef.current.scale();
+            if (Math.abs(currentScale.x - scale) > 0.0001 || Math.abs(currentScale.y - scale) > 0.0001) {
+              // Se la scala è cambiata, riapplicala
+              stageRef.current.scale({ x: scale, y: scale });
+            }
             stageRef.current.batchDraw();
           } catch (error) {
             console.error('Errore durante la stabilizzazione dopo rotazione:', error);
@@ -577,7 +631,41 @@ function CanvasNews({
         }
       }, 50);
       
-      return () => clearTimeout(stabilizeTimer);
+      // Terzo ridisegno dopo un ritardo più lungo per iOS
+      const stabilizeTimer2 = setTimeout(() => {
+        if (stageRef.current) {
+          try {
+            // Verifica che la scala sia ancora corretta
+            const scale = Math.round(dimensions.scale * 10000) / 10000;
+            const currentScale = stageRef.current.scale();
+            if (Math.abs(currentScale.x - scale) > 0.0001 || Math.abs(currentScale.y - scale) > 0.0001) {
+              // Se la scala è cambiata, riapplicala
+              stageRef.current.scale({ x: scale, y: scale });
+            }
+            stageRef.current.batchDraw();
+          } catch (error) {
+            console.error('Errore durante la stabilizzazione finale:', error);
+          }
+        }
+      }, 200);
+      
+      // Quarto ridisegno specifico per iOS dopo un ritardo ancora più lungo
+      const stabilizeTimer3 = setTimeout(() => {
+        if (stageRef.current) {
+          try {
+            // Forza un ridisegno finale per assicurarsi che tutto sia correttamente visualizzato
+            stageRef.current.batchDraw();
+          } catch (error) {
+            console.error('Errore durante la stabilizzazione iOS:', error);
+          }
+        }
+      }, 500);
+      
+      return () => {
+        clearTimeout(stabilizeTimer1);
+        clearTimeout(stabilizeTimer2);
+        clearTimeout(stabilizeTimer3);
+      };
     }
   }, [logos, stageRef, dimensions.scale]);
 
@@ -634,7 +722,24 @@ function CanvasNews({
             MozTransformOrigin: 'top left',  // Versione specifica per Mozilla
             msTransformOrigin: 'top left',  // Versione specifica per Microsoft
             WebkitPerspective: '1000',  // Migliora la stabilità 3D su iOS
-            perspective: '1000'  // Migliora la stabilità 3D
+            perspective: '1000',  // Migliora la stabilità 3D
+            WebkitOverflowScrolling: 'touch', // Migliora lo scrolling su iOS
+            WebkitUserSelect: 'none', // Previene la selezione del testo
+            userSelect: 'none', // Previene la selezione del testo
+            WebkitTouchCallout: 'none', // Disabilita il menu contestuale su iOS
+            willChange: 'transform', // Ottimizza le trasformazioni
+            WebkitFontSmoothing: 'antialiased', // Migliora il rendering del testo
+            MozOsxFontSmoothing: 'grayscale' // Migliora il rendering del testo su Firefox
+          }}
+          onContentMousedown={(e) => {
+            // Previene comportamenti indesiderati durante il click
+            e.evt.preventDefault();
+            e.evt.stopPropagation();
+          }}
+          onContentTouchstart={(e) => {
+            // Previene comportamenti indesiderati durante il touch
+            e.evt.preventDefault();
+            e.evt.stopPropagation();
           }}
         >
           <Layer>
