@@ -373,159 +373,95 @@ function CanvasNews({
   const calculateDimensions = () => {
   if (!containerRef.current) return;
   
-  // Get container dimensions
-  const containerWidth = containerRef.current.clientWidth;
+  // Use getBoundingClientRect for more accurate measurements
+  const containerRect = containerRef.current.getBoundingClientRect();
+  const containerWidth = containerRect.width;
   
-  // FIX: Use visualViewport API where available for more stable mobile dimensions
-  const viewportHeight = 'visualViewport' in window ? 
-    window.visualViewport.height : 
-    window.innerHeight;
+  // Use a more reliable height calculation for mobile
+  const maxHeight = Math.min(window.innerHeight * 0.8, window.screen.height * 0.8);
   
-  // FIX: Add a small buffer to avoid rapid oscillations between values
-  const maxHeight = viewportHeight * 0.85;
+  // Add a small buffer to prevent rounding issues
+  const scale = Math.max(
+    0.2, 
+    Math.min(
+      (containerWidth - 5) / ORIGINAL_WIDTH, 
+      (maxHeight - 5) / ORIGINAL_HEIGHT
+    )
+  );
   
-  // Calculate scale while maintaining aspect ratio
-  let scale = Math.min(containerWidth / ORIGINAL_WIDTH, maxHeight / ORIGINAL_HEIGHT);
+  // Calculate precise dimensions
+  const scaledWidth = Math.floor(ORIGINAL_WIDTH * scale);
+  const scaledHeight = Math.floor(ORIGINAL_HEIGHT * scale);
   
-  // FIX: Add a small hysteresis to prevent tiny fluctuations from causing layout shifts
-  const currentScale = dimensions.scale || 0;
-  if (Math.abs(scale - currentScale) < 0.01 && currentScale > 0) {
-    scale = currentScale; // Keep the current scale if the change is negligible
-  }
-  
-  // Limit scale to reasonable values
-  scale = Math.max(0.2, Math.min(scale, 1.5)); // Slightly increased max scale for flexibility
-  
-  // Calculate scaled dimensions
-  const scaledWidth = Math.round(ORIGINAL_WIDTH * scale);
-  const scaledHeight = Math.round(ORIGINAL_HEIGHT * scale);
-  
-  // FIX: Only update if dimensions changed significantly
-  if (
-    Math.abs(scaledWidth - (dimensions.width || 0)) > 1 || 
-    Math.abs(scaledHeight - (dimensions.height || 0)) > 1
-  ) {
-    setDimensions({
-      width: scaledWidth,
-      height: scaledHeight,
-      scale: scale
-    });
-  }
+  // Only update state if dimensions actually changed
+  setDimensions(prev => {
+    if (prev.width !== scaledWidth || prev.height !== scaledHeight || prev.scale !== scale) {
+      return { width: scaledWidth, height: scaledHeight, scale };
+    }
+    return prev;
+  });
 };
   
   // useEffect per il calcolo iniziale e il resize - versione migliorata per mobile
   useEffect(() => {
-    const safeCalculateDimensions = () => {
+  let rafId;
+  let resizeTimeout;
+  
+  const handleResize = () => {
+    // Cancel any pending animation frame
+    cancelAnimationFrame(rafId);
+    
+    // Use requestAnimationFrame for better performance
+    rafId = requestAnimationFrame(() => {
       if (containerRef.current) {
         calculateDimensions();
       }
-    };
+    });
+  };
 
-    // FIX: Use a more sophisticated debounce with leading edge execution
-    let resizeTimeout;
-    let lastExecution = 0;
-    const DEBOUNCE_TIME = 100;
-    const MIN_EXECUTION_INTERVAL = 50;
-    
-    const handleResize = () => {
-      const now = Date.now();
-      // Only process if enough time has passed since last execution
-      if (now - lastExecution > MIN_EXECUTION_INTERVAL) {
-        safeCalculateDimensions();
-        lastExecution = now;
-      }
-      
-      clearTimeout(resizeTimeout);
-      resizeTimeout = setTimeout(() => {
-        safeCalculateDimensions();
-        lastExecution = Date.now();
-      }, DEBOUNCE_TIME);
-    };
+  // Initial calculation after a short delay
+  const initialTimer = setTimeout(handleResize, 100);
+  
+  // Add event listeners
+  window.addEventListener('resize', handleResize, { passive: true });
+  window.addEventListener('orientationchange', handleResize, { passive: true });
 
-    // FIX: Remove scroll listener - it causes unnecessary recalculations during interaction
-    window.addEventListener('resize', handleResize, { passive: true });
-    window.addEventListener('orientationchange', handleResize, { passive: true });
-    
-    // FIX: Add iOS-specific handling for viewport changes
-    if ('visualViewport' in window) {
-      window.visualViewport.addEventListener('resize', handleResize);
-      window.visualViewport.addEventListener('scroll', handleResize);
-    }
-
-    // Initial calculation with proper timing
-    const initialCalculation = () => {
-      // Use requestAnimationFrame for smoother initial layout
-      requestAnimationFrame(() => {
-        if (containerRef.current) {
-          calculateDimensions();
-          
-          // Additional calculation after images might have loaded
-          setTimeout(calculateDimensions, 300);
-        }
-      });
-    };
-    
-    // FIX: Use multiple timing strategies for reliable initialization
-    initialCalculation();
-    setTimeout(initialCalculation, 100);
-    setTimeout(initialCalculation, 500);
-
-    return () => {
-      clearTimeout(resizeTimeout);
-      window.removeEventListener('resize', handleResize);
-      window.removeEventListener('orientationchange', handleResize);
-      
-      if ('visualViewport' in window) {
-        window.visualViewport.removeEventListener('resize', handleResize);
-        window.visualViewport.removeEventListener('scroll', handleResize);
-      }
-    };
-  }, [containerRef, dimensions.scale]);
+  return () => {
+    clearTimeout(initialTimer);
+    clearTimeout(resizeTimeout);
+    cancelAnimationFrame(rafId);
+    window.removeEventListener('resize', handleResize);
+    window.removeEventListener('orientationchange', handleResize);
+  };
+}, [containerRef]);
 
   // useEffect per applicare le dimensioni al stage - versione robusta
   useEffect(() => {
-  if (stageRef.current && dimensions.scale > 0) {
-    const applyDimensions = () => {
-      if (!stageRef.current) return;
+  if (!stageRef.current || dimensions.scale <= 0) return;
+  
+  const applyDimensions = () => {
+    if (!stageRef.current) return;
+    
+    try {
+      stageRef.current.width(ORIGINAL_WIDTH);
+      stageRef.current.height(ORIGINAL_HEIGHT);
       
-      try {
-        // FIX: Only update if dimensions actually changed
-        const currentWidth = stageRef.current.width();
-        const currentHeight = stageRef.current.height();
-        const currentScale = stageRef.current.scaleX();
-        
-        if (
-          Math.abs(currentWidth - ORIGINAL_WIDTH) > 1 ||
-          Math.abs(currentHeight - ORIGINAL_HEIGHT) > 1 ||
-          Math.abs(currentScale - dimensions.scale) > 0.01
-        ) {
-          // Set dimensions
-          stageRef.current.width(ORIGINAL_WIDTH);
-          stageRef.current.height(ORIGINAL_HEIGHT);
-          
-          // Apply scale
-          const newScale = { x: dimensions.scale, y: dimensions.scale };
-          stageRef.current.scale(newScale);
-          
-          // FIX: Only one batchDraw is needed - the second one was causing flickering
-          stageRef.current.batchDraw();
-        }
-      } catch (error) {
-        console.error('Error applying dimensions to stage:', error);
-      }
-    };
-    
-    // FIX: Use a more reliable timing approach
-    const applyWithRetry = (attempts = 0) => {
-      if (stageRef.current && dimensions.scale > 0) {
-        applyDimensions();
-      } else if (attempts < 3) {
-        setTimeout(() => applyWithRetry(attempts + 1), 50);
-      }
-    };
-    
-    applyWithRetry();
-  }
+      const newScale = { x: dimensions.scale, y: dimensions.scale };
+      stageRef.current.scale(newScale);
+      
+      // Only draw once
+      stageRef.current.batchDraw();
+    } catch (error) {
+      console.error('Error applying stage dimensions:', error);
+    }
+  };
+  
+  // Use a single requestAnimationFrame
+  const rafId = requestAnimationFrame(applyDimensions);
+  
+  return () => {
+    cancelAnimationFrame(rafId);
+  };
 }, [dimensions, stageRef]);
 
   return (
