@@ -375,17 +375,33 @@ function CanvasNews({
     
     // Ottieni le dimensioni effettive del container
     const containerWidth = containerRef.current.clientWidth;
-    // Usa una percentuale fissa dell'altezza della finestra per evitare calcoli instabili
-    const maxHeight = window.innerHeight * 0.8;
+    
+    // Utilizziamo document.documentElement.clientHeight invece di window.innerHeight
+    const viewportHeight = document.documentElement.clientHeight;
+    
+    // Usa una percentuale fissa dell'altezza della viewport per evitare calcoli instabili
+    const maxHeight = viewportHeight * 0.8;
     
     // Calcola la scala mantenendo l'aspect ratio
     let scale = Math.min(containerWidth / ORIGINAL_WIDTH, maxHeight / ORIGINAL_HEIGHT);
+    
     // Limita la scala tra 0.2 e 1 per evitare dimensioni estreme
     scale = Math.max(0.2, Math.min(scale, 1));
     
     // Calcola le dimensioni scalate in modo preciso
     const scaledWidth = Math.round(ORIGINAL_WIDTH * scale);
     const scaledHeight = Math.round(ORIGINAL_HEIGHT * scale);
+    
+    // ✅ AGGIUNTA: Verifica se le nuove dimensioni sono significativamente diverse
+    if (dimensions.width && dimensions.height) {
+      const widthDiff = Math.abs(dimensions.width - scaledWidth);
+      const heightDiff = Math.abs(dimensions.height - scaledHeight);
+      
+      // Se la differenza è minore di 5px, non aggiornare le dimensioni
+      if (widthDiff < 5 && heightDiff < 5) {
+        return;
+      }
+    }
     
     // Aggiorna lo stato con i valori calcolati
     setDimensions({
@@ -441,6 +457,12 @@ function CanvasNews({
   useEffect(() => {
     // Verifica che lo stage e la scala siano validi
     if (stageRef.current && dimensions.scale > 0) {
+      // ✅ AGGIUNTA: Evita scale estremamente piccole che potrebbero causare problemi
+      if (dimensions.scale < 0.15) {
+        console.warn('Scala troppo piccola, ignorata:', dimensions.scale);
+        return;
+      }
+      
       // Funzione per applicare le dimensioni in modo sicuro
       const applyDimensions = () => {
         // Verifica nuovamente che lo stage esista
