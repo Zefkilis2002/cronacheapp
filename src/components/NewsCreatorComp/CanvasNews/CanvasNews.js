@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { Stage, Layer, Image as KonvaImage, Text, Group } from 'react-konva';
 import useImage from 'use-image';
 import './CanvasNews.css';
@@ -21,10 +21,6 @@ const BackgroundImage = ({ bgImage, updateItemPosition, backgroundImages, setBac
       shadowBlur={(showSelection && isSelected) ? 10 : 0}
       onClick={onSelect}
       onTap={onSelect}
-      onDragStart={(e) => {
-        // Puoi rimuovere il moveToTop se vuoi che l'immagine non venga portata in primo piano
-        // e.target.moveToTop();
-      }}
       onDragEnd={(e) => {
         updateItemPosition(
           bgImage.id, 
@@ -58,17 +54,6 @@ const LogoImage = ({ logo, updateItemPosition, logos, setLogos, isSelected = fal
       shadowBlur={(showSelection && isSelected) ? 10 : 0}
       onClick={onSelect}
       onTap={onSelect}
-      onTransform={() => {
-        // Forza il ridisegno del canvas quando il logo viene trasformato (inclusa la rotazione)
-        if (window.requestAnimationFrame) {
-          window.requestAnimationFrame(() => {
-            const stage = document.querySelector('.canvas-stage');
-            if (stage) {
-              stage.style.transform = 'none'; // Resetta eventuali trasformazioni CSS
-            }
-          });
-        }
-      }}
       onDragEnd={(e) => {
         updateItemPosition(
           logo.id, 
@@ -111,55 +96,221 @@ function CanvasNews({
 }) {
   const containerRef = useRef(null);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0, scale: 1 });
-
-  // cosa stai controllando con la tastiera: 'title' | 'text' | null
   const [selectedText, setSelectedText] = useState(null);
-
-  // scala locale per titolo e testo (così puoi ridurre/aumentare con i tasti)
   const [titleScale, setTitleScale] = useState({ x: 1, y: 1 });
-  const [textScale,  setTextScale ] = useState({ x: 1, y: 1 });
+  const [textScale, setTextScale] = useState({ x: 1, y: 1 });
+  
+  // Ref per tracciare le dimensioni stabili
+  const stableDimensionsRef = useRef({ width: 0, height: 0, scale: 1 });
+  const resizeTimeoutRef = useRef(null);
+  const isCalculatingRef = useRef(false);
 
+  // Costanti
+  const ORIGINAL_WIDTH = 1440;
+  const ORIGINAL_HEIGHT = 1800;
+  const KEY_MOVE_STEP = 2;
+  const KEY_SCALE_STEP = 0.02;
+  const KEY_ROTATE_STEP = 2;
+  
+  // Canvas di misura per il testo
+  const measureCtxRef = useRef(null);
+  useEffect(() => {
+    const c = document.createElement('canvas');
+    measureCtxRef.current = c.getContext('2d');
+  }, []);
+
+  const measureWidth = useCallback((t, fontFamily, fontSize) => {
+    const ctx = measureCtxRef.current;
+    if (!ctx) return 0;
+    ctx.font = `${fontSize}px ${fontFamily}`;
+    const m = ctx.measureText(t || '');
+    return m.width || 0;
+  }, []);
 
   const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
-
   const nudgePos = (p, dx, dy) => ({ x: p.x + dx, y: p.y + dy });
+  const normalizeAngle = (a) => ((a % 360) + 360) % 360;
 
-  const handleKeyDown = (e) => {
-    const step  = KEY_MOVE_STEP;
-    const upF   = 1 + KEY_SCALE_STEP;
+  // Funzione ottimizzata per calcolare le dimensioni
+  const calculateDimensions = useCallback(() => {
+    if (!containerRef.current || isCalculatingRef.current) return;
+    
+    isCalculatingRef.current = true;
+    
+    try {
+      // Usa getBoundingClientRect per misurazioni più accurate
+      const rect = containerRef.current.getBoundingClientRect();
+      const containerWidth = rect.width || containerRef.current.clientWidth;
+      
+      // Usa visualViewport se disponibile (più stabile su mobile)
+      const viewportHeight = window.visualViewport 
+        ? window.visualViewport.height 
+        : window.innerHeight;
+      
+      // Calcola l'altezza massima con un valore fisso per evitare fluttuazioni
+      const maxHeight = Math.min(viewportHeight * 0.8, 1800);
+      
+      // Calcola la scala con protezione contro valori anomali
+      let scale = Math.min(
+        containerWidth / ORIGINAL_WIDTH, 
+        maxHeight / ORIGINAL_HEIGHT
+      );
+      
+      // Limita la scala con valori più conservativi
+      scale = Math.max(0.3, Math.min(scale, 1));
+      
+      // Arrotonda per evitare calcoli con decimali infiniti
+      scale = Math.round(scale * 100) / 100;
+      
+      const scaledWidth = Math.round(ORIGINAL_WIDTH * scale);
+      const scaledHeight = Math.round(ORIGINAL_HEIGHT * scale);
+      
+      // Verifica che i valori siano sensati prima di aggiornare
+      if (scaledWidth > 0 && scaledHeight > 0 && !isNaN(scale)) {
+        const newDimensions = {
+          width: scaledWidth,
+          height: scaledHeight,
+          scale: scale
+        };
+        
+        // Aggiorna solo se ci sono cambiamenti significativi (> 1%)
+        const prevScale = stableDimensionsRef.current.scale;
+        if (Math.abs(scale - prevScale) > 0.01 || prevScale === 1) {
+          stableDimensionsRef.current = newDimensions;
+          setDimensions(newDimensions);
+        }
+      }
+    } finally {
+      isCalculatingRef.current = false;
+    }
+  }, []);
+
+  // Debounce robusto per gestire gli eventi
+  const debouncedCalculate = useCallback(() => {
+    if (resizeTimeoutRef.current) {
+      clearTimeout(resizeTimeoutRef.current);
+    }
+    
+    resizeTimeoutRef.current = setTimeout(() => {
+      calculateDimensions();
+    }, 150); // Delay ottimizzato per mobile
+  }, [calculateDimensions]);
+
+  // Setup iniziale e gestione eventi ottimizzata
+  useEffect(() => {
+    let isMounted = true;
+    
+    // Calcolo iniziale dopo che il DOM è pronto
+    const initializeCanvas = () => {
+      if (!isMounted) return;
+      calculateDimensions();
+    };
+    
+    // Usa requestAnimationFrame per il primo calcolo
+    requestAnimationFrame(initializeCanvas);
+    
+    // Handler unificato per tutti gli eventi di resize
+    const handleResize = () => {
+      if (!isMounted) return;
+      debouncedCalculate();
+    };
+    
+    // Gestione specifica per il visual viewport (mobile)
+    const handleViewportChange = () => {
+      if (!isMounted) return;
+      // Su mobile, attendi che lo scroll si stabilizzi
+      setTimeout(() => {
+        if (isMounted) {
+          calculateDimensions();
+        }
+      }, 300);
+    };
+    
+    // Aggiungi listener con opzioni ottimizzate
+    window.addEventListener('resize', handleResize, { passive: true });
+    
+    // Listener specifico per mobile con visual viewport
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', handleViewportChange, { passive: true });
+      window.visualViewport.addEventListener('scroll', handleViewportChange, { passive: true });
+    }
+    
+    // Listener per cambio orientamento (solo mobile)
+    const mediaQuery = window.matchMedia('(orientation: portrait)');
+    const handleOrientationChange = () => {
+      if (!isMounted) return;
+      setTimeout(() => {
+        if (isMounted) {
+          calculateDimensions();
+        }
+      }, 500); // Delay maggiore per cambio orientamento
+    };
+    mediaQuery.addListener(handleOrientationChange);
+    
+    // Cleanup
+    return () => {
+      isMounted = false;
+      if (resizeTimeoutRef.current) {
+        clearTimeout(resizeTimeoutRef.current);
+      }
+      window.removeEventListener('resize', handleResize);
+      if (window.visualViewport) {
+        window.visualViewport.removeEventListener('resize', handleViewportChange);
+        window.visualViewport.removeEventListener('scroll', handleViewportChange);
+      }
+      mediaQuery.removeListener(handleOrientationChange);
+    };
+  }, [calculateDimensions, debouncedCalculate]);
+
+  // Applicazione dimensioni allo stage ottimizzata
+  useEffect(() => {
+    if (!stageRef.current || dimensions.scale <= 0) return;
+    
+    // Usa requestAnimationFrame per sincronizzare con il rendering
+    const applyDimensions = () => {
+      if (!stageRef.current) return;
+      
+      try {
+        // Blocca temporaneamente il rendering durante l'aggiornamento
+        stageRef.current.listening(false);
+        
+        // Imposta dimensioni e scala
+        stageRef.current.width(ORIGINAL_WIDTH);
+        stageRef.current.height(ORIGINAL_HEIGHT);
+        stageRef.current.scale({ x: dimensions.scale, y: dimensions.scale });
+        
+        // Riabilita il rendering e forza un ridisegno
+        stageRef.current.listening(true);
+        stageRef.current.batchDraw();
+      } catch (error) {
+        console.error('Errore applicazione dimensioni:', error);
+      }
+    };
+    
+    requestAnimationFrame(applyDimensions);
+  }, [dimensions, stageRef]);
+
+  // Handler per i tasti (invariato ma ottimizzato)
+  const handleKeyDown = useCallback((e) => {
+    const step = KEY_MOVE_STEP;
+    const upF = 1 + KEY_SCALE_STEP;
     const downF = 1 / (1 + KEY_SCALE_STEP);
-
     let handled = true;
 
-    // FRECCE = sposta a piccoli passi
-    if (
-      e.key === 'ArrowUp'   ||
-      e.key === 'ArrowDown' ||
-      e.key === 'ArrowLeft' ||
-      e.key === 'ArrowRight'
-    ) {
-      const dx = e.key === 'ArrowLeft'  ? -step : e.key === 'ArrowRight' ? step : 0;
-      const dy = e.key === 'ArrowUp'    ? -step : e.key === 'ArrowDown'  ? step : 0;
+    if (e.key === 'ArrowUp' || e.key === 'ArrowDown' || 
+        e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+      const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0;
+      const dy = e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0;
 
       if (selectedLogo) {
         const logo = logos.find(l => l.id === selectedLogo);
         if (logo) {
-          updateItemPosition(
-            selectedLogo,
-            nudgePos(logo.position, dx, dy),
-            logos,
-            setLogos
-          );
+          updateItemPosition(selectedLogo, nudgePos(logo.position, dx, dy), logos, setLogos);
         }
       } else if (selectedBackground) {
         const bg = backgroundImages.find(b => b.id === selectedBackground);
         if (bg) {
-          updateItemPosition(
-            selectedBackground,
-            nudgePos(bg.position, dx, dy),
-            backgroundImages,
-            setBackgroundImages
-          );
+          updateItemPosition(selectedBackground, nudgePos(bg.position, dx, dy), backgroundImages, setBackgroundImages);
         }
       } else if (selectedText === 'title') {
         setTitlePosition(p => nudgePos(p, dx, dy));
@@ -168,37 +319,31 @@ function CanvasNews({
       } else {
         handled = false;
       }
-    }
-
-    // + / = / NumpadAdd  => ingrandisci a piccoli passi
-    else if (e.key === '+' || e.key === '=' || e.key === 'NumpadAdd') {
+    } else if (e.key === '+' || e.key === '=' || e.key === 'NumpadAdd') {
       if (selectedLogo) {
         setLogos(ls => ls.map(l => l.id !== selectedLogo ? l : ({
           ...l,
           scale: {
-            scaleX: clamp(l.scale.scaleX * upF,   0.05, 8),
-            scaleY: clamp(l.scale.scaleY * upF,   0.05, 8),
+            scaleX: clamp(l.scale.scaleX * upF, 0.05, 8),
+            scaleY: clamp(l.scale.scaleY * upF, 0.05, 8),
           }
         })));
       } else if (selectedBackground) {
         setBackgroundImages(bs => bs.map(b => b.id !== selectedBackground ? b : ({
           ...b,
           scale: {
-            scaleX: clamp(b.scale.scaleX * upF,   0.05, 8),
-            scaleY: clamp(b.scale.scaleY * upF,   0.05, 8),
+            scaleX: clamp(b.scale.scaleX * upF, 0.05, 8),
+            scaleY: clamp(b.scale.scaleY * upF, 0.05, 8),
           }
         })));
       } else if (selectedText === 'title') {
         setTitleScale(s => ({ x: s.x * upF, y: s.y * upF }));
       } else if (selectedText === 'text') {
-        setTextScale (s => ({ x: s.x * upF, y: s.y * upF }));
+        setTextScale(s => ({ x: s.x * upF, y: s.y * upF }));
       } else {
         handled = false;
       }
-    }
-
-    // - / _ / NumpadSubtract  => rimpicciolisci a piccoli passi
-    else if (e.key === '-' || e.key === '_' || e.key === 'NumpadSubtract') {
+    } else if (e.key === '-' || e.key === '_' || e.key === 'NumpadSubtract') {
       if (selectedLogo) {
         setLogos(ls => ls.map(l => l.id !== selectedLogo ? l : ({
           ...l,
@@ -218,39 +363,24 @@ function CanvasNews({
       } else if (selectedText === 'title') {
         setTitleScale(s => ({ x: s.x * downF, y: s.y * downF }));
       } else if (selectedText === 'text') {
-        setTextScale (s => ({ x: s.x * downF, y: s.y * downF }));
+        setTextScale(s => ({ x: s.x * downF, y: s.y * downF }));
       } else {
         handled = false;
       }
-    }
-
-    // [ / ] / NumpadDivide / NumpadMultiply  => ruota i LOGHI a piccoli passi
-    else if (
-      e.key === '[' || e.key === ']' ||
-      e.key === 'NumpadDivide' || e.key === 'NumpadMultiply'
-    ) {
-      if (!selectedLogo) {
-        handled = false;
-      } else {
-        const dir   = (e.key === ']' || e.key === 'NumpadMultiply') ? 1 : -1;
+    } else if (e.key === '[' || e.key === ']' || 
+               e.key === 'NumpadDivide' || e.key === 'NumpadMultiply') {
+      if (selectedLogo) {
+        const dir = (e.key === ']' || e.key === 'NumpadMultiply') ? 1 : -1;
         const delta = KEY_ROTATE_STEP * dir;
-
         setLogos(ls => ls.map(l => {
           if (l.id !== selectedLogo) return l;
           const prev = (typeof l.rotation === 'number') ? l.rotation : 0;
           return { ...l, rotation: normalizeAngle(prev + delta) };
         }));
-        
-        // Forza un ricalcolo delle dimensioni per mantenere le proporzioni
-        requestAnimationFrame(() => {
-          if (stageRef.current) {
-            stageRef.current.batchDraw();
-          }
-        });
+      } else {
+        handled = false;
       }
-    }
-
-    else {
+    } else {
       handled = false;
     }
 
@@ -258,104 +388,68 @@ function CanvasNews({
       e.preventDefault();
       e.stopPropagation();
     }
-  };
+  }, [selectedLogo, selectedBackground, selectedText, logos, backgroundImages, 
+      updateItemPosition, setLogos, setBackgroundImages, setTitlePosition, setTextPosition]);
 
+  // Componente RichTextGroup ottimizzato
+  const RichTextGroup = useMemo(() => ({ lines, x, y, fontFamily, fontSize, defaultColor, onClick = () => {} }) => {
+    const lineHeight = Math.round(fontSize * 1);
+    let yOffset = 0;
+    const elements = [];
 
-
-    
-    
-    // Costanti per le dimensioni originali del canvas
-    const ORIGINAL_WIDTH = 1440;
-    const ORIGINAL_HEIGHT = 1800;
-
-    // 🚦 Sensibilità (passi) per i tasti
-    const KEY_MOVE_STEP  = 2;     // 2 px per pressione freccia
-    const KEY_SCALE_STEP = 0.02;  // 2% per + / -
-    const KEY_FONT_STEP  = 2;     // 2 px (se lo userai per font)
-    const KEY_ROTATE_STEP = 2;      // 🔁 2° per pressione
-    const normalizeAngle = (a) => ((a % 360) + 360) % 360;
-
-
-
-    const measureCtxRef = useRef(null);
-    useEffect(() => {
-      const c = document.createElement('canvas');
-      measureCtxRef.current = c.getContext('2d');
-    }, []);
-
-    const measureWidth = (t, fontFamily, fontSize) => {
-      const ctx = measureCtxRef.current;
-      if (!ctx) return 0;
-      ctx.font = `${fontSize}px ${fontFamily}`;
-      const m = ctx.measureText(t || '');
-      return m.width || 0;
-    };
-
-    // ✅ aggiungi onClick con default noop
-    const RichTextGroup = ({ lines, x, y, fontFamily, fontSize, defaultColor, onClick = () => {} }) => {
-      const lineHeight = Math.round(fontSize * 1);
-      let yOffset = 0;
-      const elements = [];
-
-      lines.forEach((segments, li) => {
-        if (!segments || segments.length === 0 || (segments.length === 1 && !segments[0].text)) {
-          yOffset += lineHeight;
-          return;
-        }
-        const totalWidth = segments.reduce((acc, s) => acc + measureWidth(s.text || '', fontFamily, fontSize), 0);
-        const startX = -totalWidth / 2;
-        let xOffset = 0;
-
-        segments.forEach((segment, si) => {
-          const segmentWidth = measureWidth(segment.text || '', fontFamily, fontSize);
-          const segmentColor = segment.color || defaultColor;
-
-          elements.push(
-            <Text
-              key={`rt-${li}-${si}`}
-              text={segment.text || ''}
-              fontSize={fontSize}
-              fill={segmentColor}
-              x={startX + xOffset}
-              y={yOffset}
-              align="left"
-              fontFamily={fontFamily}
-              // ❌ prima avevi listening={false}; toglilo così i click/tap funzionano
-            />
-          );
-
-          xOffset += segmentWidth;
-        });
-
+    lines.forEach((segments, li) => {
+      if (!segments || segments.length === 0 || (segments.length === 1 && !segments[0].text)) {
         yOffset += lineHeight;
+        return;
+      }
+      const totalWidth = segments.reduce((acc, s) => acc + measureWidth(s.text || '', fontFamily, fontSize), 0);
+      const startX = -totalWidth / 2;
+      let xOffset = 0;
+
+      segments.forEach((segment, si) => {
+        const segmentWidth = measureWidth(segment.text || '', fontFamily, fontSize);
+        const segmentColor = segment.color || defaultColor;
+
+        elements.push(
+          <Text
+            key={`rt-${li}-${si}`}
+            text={segment.text || ''}
+            fontSize={fontSize}
+            fill={segmentColor}
+            x={startX + xOffset}
+            y={yOffset}
+            align="left"
+            fontFamily={fontFamily}
+          />
+        );
+        xOffset += segmentWidth;
       });
+      yOffset += lineHeight;
+    });
 
-      return (
-        <Group
-          x={x + ORIGINAL_WIDTH / 2}
-          y={y}
-          draggable
-          scaleX={textScale.x}   // ✅ applica la scala del testo
-          scaleY={textScale.y}
-          onClick={onClick}
-          onTap={onClick}
-          onDragEnd={(e) => setTextPosition({ x: e.target.x() - ORIGINAL_WIDTH / 2, y: e.target.y() })}
-        >
-          {elements}
-        </Group>
-      );
-    };
+    return (
+      <Group
+        x={x + ORIGINAL_WIDTH / 2}
+        y={y}
+        draggable
+        scaleX={textScale.x}
+        scaleY={textScale.y}
+        onClick={onClick}
+        onTap={onClick}
+        onDragEnd={(e) => setTextPosition({ x: e.target.x() - ORIGINAL_WIDTH / 2, y: e.target.y() })}
+      >
+        {elements}
+      </Group>
+    );
+  }, [measureWidth, textScale, setTextPosition, ORIGINAL_WIDTH]);
 
-
-  
-  // Nuovo componente per gestire il testo normale con ritorni a capo
+  // Componente MultiLineText
   const MultiLineText = ({ text, x, y, fontFamily, fontSize, color, width }) => {
     const lineHeight = Math.round(fontSize * 1.25);
     const elements = [];
     
     if (!text) return null;
     
-    // Dividi il testo in righe
     const lines = text.split('\n');
     
     lines.forEach((line, i) => {
@@ -386,186 +480,6 @@ function CanvasNews({
       </Group>
     );
   };
-  
-  // Funzione per calcolare le dimensioni e la scala
-  const calculateDimensions = () => {
-    if (!containerRef.current) return;
-    
-    // Ottieni le dimensioni effettive del container
-    const containerWidth = containerRef.current.clientWidth;
-    // Usa una percentuale fissa dell'altezza della finestra per evitare calcoli instabili
-    const maxHeight = window.innerHeight * 0.8;
-    
-    // Calcola la scala mantenendo l'aspect ratio
-    let scale = Math.min(containerWidth / ORIGINAL_WIDTH, maxHeight / ORIGINAL_HEIGHT);
-    // Limita la scala tra 0.2 e 1 per evitare dimensioni estreme
-    scale = Math.max(0.2, Math.min(scale, 1));
-    
-    // Calcola le dimensioni scalate in modo preciso
-    const scaledWidth = Math.round(ORIGINAL_WIDTH * scale);
-    const scaledHeight = Math.round(ORIGINAL_HEIGHT * scale);
-    
-    // Aggiorna lo stato con i valori calcolati
-    setDimensions({
-      width: scaledWidth,
-      height: scaledHeight,
-      scale: scale
-    });
-  };
-  
-  // useEffect per il calcolo iniziale e il resize - versione migliorata per mobile
-  useEffect(() => {
-    // Funzione per calcolare le dimensioni in modo sicuro
-    const safeCalculateDimensions = () => {
-      // Verifica che il componente sia ancora montato
-      if (containerRef.current) {
-        calculateDimensions();
-      }
-    };
-    
-    // Calcolo iniziale con un delay più lungo per assicurarsi che il DOM sia completamente pronto
-    const initialTimer = setTimeout(safeCalculateDimensions, 200);
-    
-    // Secondo calcolo dopo un tempo maggiore per gestire eventuali ritardi nel rendering
-    const secondaryTimer = setTimeout(safeCalculateDimensions, 500);
-    
-    // Handler per il resize con debounce per evitare calcoli troppo frequenti
-    let resizeTimeout;
-    const handleResize = () => {
-      // Cancella eventuali timeout pendenti
-      clearTimeout(resizeTimeout);
-      
-      // Esegui un calcolo immediato per feedback rapido
-      safeCalculateDimensions();
-      
-      // Pianifica un secondo calcolo dopo un breve ritardo per stabilizzare
-      resizeTimeout = setTimeout(safeCalculateDimensions, 250);
-    };
-
-    // Aggiungi listener per eventi di resize
-    window.addEventListener('resize', handleResize, { passive: true });
-    
-    // Aggiungi listener specifici per dispositivi mobili
-    window.addEventListener('orientationchange', handleResize, { passive: true });
-    
-    // Aggiungi listener per scroll che potrebbe influenzare le dimensioni su mobile
-    window.addEventListener('scroll', handleResize, { passive: true });
-
-    // Cleanup function
-    return () => {
-      clearTimeout(initialTimer);
-      clearTimeout(secondaryTimer);
-      clearTimeout(resizeTimeout);
-      window.removeEventListener('resize', handleResize);
-      window.removeEventListener('orientationchange', handleResize);
-      window.removeEventListener('scroll', handleResize);
-    };
-  }, [containerRef]);
-
-  // useEffect per applicare le dimensioni al stage - versione robusta e ottimizzata per mobile
-  useEffect(() => {
-    // Verifica che lo stage e la scala siano validi
-    if (stageRef.current && dimensions.scale > 0) {
-      // Funzione per applicare le dimensioni in modo sicuro
-      const applyDimensions = () => {
-        // Verifica nuovamente che lo stage esista
-        if (stageRef.current) {
-          try {
-            // Imposta le dimensioni originali
-            stageRef.current.width(ORIGINAL_WIDTH);
-            stageRef.current.height(ORIGINAL_HEIGHT);
-            
-            // Applica la scala in modo uniforme
-            const newScale = { x: dimensions.scale, y: dimensions.scale };
-            stageRef.current.scale(newScale);
-            
-            // Forza il ridisegno completo dello stage
-            stageRef.current.batchDraw();
-            
-            // Esegui un secondo ridisegno dopo un breve ritardo per assicurarsi che tutto sia aggiornato
-            setTimeout(() => {
-              if (stageRef.current) {
-                stageRef.current.batchDraw();
-              }
-            }, 50);
-          } catch (error) {
-            console.error('Errore durante l\'applicazione delle dimensioni allo stage:', error);
-          }
-        }
-      };
-      
-      // Usa requestAnimationFrame per sincronizzare con il ciclo di rendering del browser
-      requestAnimationFrame(applyDimensions);
-    }
-  }, [dimensions, stageRef]);
-  
-  // Aggiungi un effetto per mantenere le proporzioni corrette durante la rotazione dei loghi
-  useEffect(() => {
-    // Questo effetto si attiva quando cambia un logo selezionato o la sua rotazione
-    if (selectedLogo && logos.length > 0) {
-      // Forza un ricalcolo e ridisegno del canvas
-      const stabilizeCanvas = () => {
-        if (stageRef.current) {
-          // Assicura che le dimensioni siano mantenute
-          stageRef.current.width(ORIGINAL_WIDTH);
-          stageRef.current.height(ORIGINAL_HEIGHT);
-          
-          // Riapplica la scala corrente
-          stageRef.current.scale({ x: dimensions.scale, y: dimensions.scale });
-          
-          // Forza il ridisegno
-          stageRef.current.batchDraw();
-          
-          // Assicura che lo stile CSS del canvas sia corretto
-          const canvasWrapper = document.querySelector('.canvas-wrapper');
-          const canvasStage = document.querySelector('.canvas-stage');
-          if (canvasWrapper && canvasStage) {
-            // Resetta eventuali trasformazioni CSS indesiderate
-            canvasStage.style.transform = `scale(${dimensions.scale})`;
-            canvasStage.style.transformOrigin = 'top left';
-            canvasStage.style.width = `${ORIGINAL_WIDTH}px`;
-            canvasStage.style.height = `${ORIGINAL_HEIGHT}px`;
-          }
-        }
-      };
-      
-      // Esegui immediatamente e dopo un breve ritardo per assicurare la stabilità
-      stabilizeCanvas();
-      const timer = setTimeout(stabilizeCanvas, 50);
-      // Aggiungi un altro timer con un ritardo maggiore per dispositivi più lenti
-      const secondTimer = setTimeout(stabilizeCanvas, 300);
-      
-      return () => {
-        clearTimeout(timer);
-        clearTimeout(secondTimer);
-      };
-    }
-  }, [selectedLogo, logos, dimensions.scale, stageRef]);
-  
-  // Aggiungi un effetto per stabilizzare il canvas dopo ogni ridimensionamento della finestra
-  useEffect(() => {
-    const handleOrientationChange = () => {
-      // Ricalcola le dimensioni
-      calculateDimensions();
-      
-      // Stabilizza il canvas dopo un breve ritardo
-      setTimeout(() => {
-        if (stageRef.current) {
-          stageRef.current.width(ORIGINAL_WIDTH);
-          stageRef.current.height(ORIGINAL_HEIGHT);
-          stageRef.current.scale({ x: dimensions.scale, y: dimensions.scale });
-          stageRef.current.batchDraw();
-        }
-      }, 100);
-    };
-    
-    // Aggiungi listener specifico per il cambio di orientamento su dispositivi mobili
-    window.addEventListener('orientationchange', handleOrientationChange);
-    
-    return () => {
-      window.removeEventListener('orientationchange', handleOrientationChange);
-    };
-  }, [dimensions.scale]);
 
   return (
     <div className="canvas-container" ref={containerRef}>
@@ -577,17 +491,21 @@ function CanvasNews({
           width: `${dimensions.width}px`,
           height: `${dimensions.height}px`,
           outline: 'none',
-          // Proprietà CSS migliorate per la stabilità su dispositivi mobili
           maxWidth: '100%',
-          overflow: 'hidden',
+          margin: '0 auto',
           position: 'relative',
-          margin: '0 auto',  // Centra il canvas orizzontalmente
-          touchAction: 'none',  // Previene comportamenti touch indesiderati
-          WebkitTapHighlightColor: 'transparent',  // Rimuove l'evidenziazione al tocco su iOS
-          transform: 'translateZ(0)',  // Forza l'accelerazione hardware
-          backfaceVisibility: 'hidden',  // Migliora le performance di rendering
-          willChange: 'transform',  // Suggerisce al browser di ottimizzare le trasformazioni
-          userSelect: 'none'  // Previene la selezione del testo indesiderata
+          overflow: 'hidden',
+          touchAction: 'none',
+          WebkitTapHighlightColor: 'transparent',
+          WebkitTransform: 'translateZ(0)',
+          transform: 'translateZ(0)',
+          backfaceVisibility: 'hidden',
+          perspective: 1000,
+          willChange: 'transform',
+          userSelect: 'none',
+          WebkitUserSelect: 'none',
+          MozUserSelect: 'none',
+          msUserSelect: 'none'
         }}
       >
         <Stage 
@@ -596,18 +514,14 @@ function CanvasNews({
           height={ORIGINAL_HEIGHT}
           className="canvas-stage"
           style={{
-            // Stile migliorato per lo stage
-            maxWidth: '100%',
-            height: 'auto',
-            display: 'block',  // Rimuove spazi bianchi indesiderati
-            position: 'absolute',  // Posizionamento assoluto per evitare spostamenti
-            left: '0',
-            top: '0',
-            transformOrigin: 'top left'  // Punto di origine per le trasformazioni
+            width: '100%',
+            height: '100%',
+            display: 'block',
+            transformOrigin: 'top left'
           }}
         >
           <Layer>
-            {/* Renderizza le immagini caricate dall'utente */}
+            {/* Immagini di sfondo */}
             {[...backgroundImages].reverse().map((bgImage) => (
               <BackgroundImage
                 key={bgImage.id}
@@ -621,7 +535,7 @@ function CanvasNews({
               />
             ))}
 
-            {/* Se textAboveImages è false, metti il testo sotto il template e i loghi */}
+            {/* Testo sotto le immagini se textAboveImages è false */}
             {!textAboveImages && (
               <>
                 <Text
@@ -645,8 +559,6 @@ function CanvasNews({
                   }}
                 />
 
-
-
                 {(richText && richText.length > 0) ? (
                   <RichTextGroup
                     lines={richText}
@@ -657,7 +569,6 @@ function CanvasNews({
                     defaultColor={textColor}
                     onClick={() => setSelectedText('text')}
                   />
-
                 ) : (
                   <MultiLineText
                     text={text}
@@ -672,8 +583,7 @@ function CanvasNews({
               </>
             )}
 
-            
-            {/* Renderizza lo sfondo template sopra, non interagibile */}
+            {/* Template di sfondo */}
             {background && (
               <KonvaImage 
                 image={background} 
@@ -683,7 +593,7 @@ function CanvasNews({
               />
             )}
             
-            {/* Renderizza loghi */}
+            {/* Loghi */}
             {[...logos].reverse().map((logo) => (
               <LogoImage
                 key={logo.id}
@@ -697,7 +607,7 @@ function CanvasNews({
               />
             ))}
             
-            {/* Se textAboveImages è true, metti il testo in cima a tutto */}
+            {/* Testo sopra tutto se textAboveImages è true */}
             {textAboveImages && (
               <>
                 <Text
@@ -707,11 +617,14 @@ function CanvasNews({
                   x={titlePosition.x + (ORIGINAL_WIDTH / 2)}
                   y={titlePosition.y}
                   align="center"
-                  offsetX={measureWidth(title, titleFont, titleFontSize) / 2} // Centra rispetto al punto di ancoraggio
+                  offsetX={measureWidth(title, titleFont, titleFontSize) / 2}
                   fontFamily={titleFont}
+                  scaleX={titleScale.x}
+                  scaleY={titleScale.y}
                   draggable={true}
+                  onClick={() => setSelectedText('title')}
+                  onTap={() => setSelectedText('title')}
                   onDragEnd={(e) => {
-                    // Calcola la posizione relativa al centro
                     const newX = e.target.x() - (ORIGINAL_WIDTH / 2);
                     const newY = e.target.y();
                     setTitlePosition({ x: newX, y: newY });
@@ -726,6 +639,7 @@ function CanvasNews({
                     fontFamily={textFont}
                     fontSize={textFontSize}
                     defaultColor={textColor}
+                    onClick={() => setSelectedText('text')}
                   />
                 ) : (
                   <Text
@@ -737,7 +651,11 @@ function CanvasNews({
                     align="center"
                     offsetX={measureWidth(text, textFont, textFontSize) / 2}
                     fontFamily={textFont}
+                    scaleX={textScale.x}
+                    scaleY={textScale.y}
                     draggable={true}
+                    onClick={() => setSelectedText('text')}
+                    onTap={() => setSelectedText('text')}
                     onDragEnd={(e) => {
                       const newX = e.target.x() - (ORIGINAL_WIDTH / 2);
                       const newY = e.target.y();
@@ -747,8 +665,6 @@ function CanvasNews({
                 )}
               </>
             )}
-
-
           </Layer>
         </Stage>
       </div>
