@@ -6,45 +6,6 @@ import './CanvasNews.css';
 // Componente per le immagini di sfondo
 const BackgroundImage = ({ bgImage, updateItemPosition, backgroundImages, setBackgroundImages, isSelected = false, onSelect = () => {}, showSelection = true }) => {
   const [image] = useImage(bgImage.src);
-  // Aggiungi un ref per memorizzare la posizione iniziale durante il drag
-  const initialPosition = useRef({ x: 0, y: 0 });
-  // Aggiungi un flag per tracciare se siamo in modalità touch
-  const isTouchDevice = useRef(false);
-  
-  // Funzione per gestire l'inizio del drag
-  const handleDragStart = (e) => {
-    // Memorizza la posizione iniziale
-    initialPosition.current = {
-      x: e.target.x(),
-      y: e.target.y()
-    };
-    
-    // Determina se siamo su un dispositivo touch
-    isTouchDevice.current = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-  };
-  
-  // Funzione per gestire la fine del drag con stabilizzazione
-  const handleDragEnd = (e) => {
-    // Calcola la distanza di spostamento
-    const dx = Math.abs(e.target.x() - initialPosition.current.x);
-    const dy = Math.abs(e.target.y() - initialPosition.current.y);
-    
-    // Se lo spostamento è minimo su dispositivi touch, potrebbe essere un tap accidentale
-    // In questo caso, ripristina la posizione originale
-    if (isTouchDevice.current && dx < 5 && dy < 5) {
-      e.target.position(initialPosition.current);
-      e.target.getLayer().batchDraw();
-      return;
-    }
-    
-    // Altrimenti, aggiorna normalmente la posizione
-    updateItemPosition(
-      bgImage.id, 
-      { x: e.target.x(), y: e.target.y() }, 
-      backgroundImages, 
-      setBackgroundImages
-    );
-  };
   
   return (
     <KonvaImage
@@ -60,8 +21,18 @@ const BackgroundImage = ({ bgImage, updateItemPosition, backgroundImages, setBac
       shadowBlur={(showSelection && isSelected) ? 10 : 0}
       onClick={onSelect}
       onTap={onSelect}
-      onDragStart={handleDragStart}
-      onDragEnd={handleDragEnd}
+      onDragStart={(e) => {
+        // Puoi rimuovere il moveToTop se vuoi che l'immagine non venga portata in primo piano
+        // e.target.moveToTop();
+      }}
+      onDragEnd={(e) => {
+        updateItemPosition(
+          bgImage.id, 
+          { x: e.target.x(), y: e.target.y() }, 
+          backgroundImages, 
+          setBackgroundImages
+        );
+      }}
     />
   );
 };
@@ -69,45 +40,6 @@ const BackgroundImage = ({ bgImage, updateItemPosition, backgroundImages, setBac
 // Componente per i loghi
 const LogoImage = ({ logo, updateItemPosition, logos, setLogos, isSelected = false, onSelect = () => {} , showSelection = true }) => {
   const [image] = useImage(logo.src);
-  // Aggiungi un ref per memorizzare la posizione iniziale durante il drag
-  const initialPosition = useRef({ x: 0, y: 0 });
-  // Aggiungi un flag per tracciare se siamo in modalità touch
-  const isTouchDevice = useRef(false);
-  
-  // Funzione per gestire l'inizio del drag
-  const handleDragStart = (e) => {
-    // Memorizza la posizione iniziale
-    initialPosition.current = {
-      x: e.target.x(),
-      y: e.target.y()
-    };
-    
-    // Determina se siamo su un dispositivo touch
-    isTouchDevice.current = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-  };
-  
-  // Funzione per gestire la fine del drag con stabilizzazione
-  const handleDragEnd = (e) => {
-    // Calcola la distanza di spostamento
-    const dx = Math.abs(e.target.x() - initialPosition.current.x);
-    const dy = Math.abs(e.target.y() - initialPosition.current.y);
-    
-    // Se lo spostamento è minimo su dispositivi touch, potrebbe essere un tap accidentale
-    // In questo caso, ripristina la posizione originale
-    if (isTouchDevice.current && dx < 5 && dy < 5) {
-      e.target.position(initialPosition.current);
-      e.target.getLayer().batchDraw();
-      return;
-    }
-    
-    // Altrimenti, aggiorna normalmente la posizione
-    updateItemPosition(
-      logo.id, 
-      { x: e.target.x(), y: e.target.y() }, 
-      logos, 
-      setLogos
-    );
-  };
   
   return (
     <KonvaImage
@@ -126,8 +58,14 @@ const LogoImage = ({ logo, updateItemPosition, logos, setLogos, isSelected = fal
       shadowBlur={(showSelection && isSelected) ? 10 : 0}
       onClick={onSelect}
       onTap={onSelect}
-      onDragStart={handleDragStart}
-      onDragEnd={handleDragEnd}
+      onDragEnd={(e) => {
+        updateItemPosition(
+          logo.id, 
+          { x: e.target.x(), y: e.target.y() }, 
+          logos, 
+          setLogos
+        );
+      }}
     />
   );
 };
@@ -435,38 +373,32 @@ function CanvasNews({
   const calculateDimensions = () => {
     if (!containerRef.current) return;
     
-    // Ottieni le dimensioni effettive del container con un minimo garantito
-    // per evitare valori troppo piccoli che potrebbero causare problemi
-    const containerWidth = Math.max(containerRef.current.clientWidth, 320); // minimo 320px
-    
-    // Calcola l'altezza massima disponibile in modo più stabile
-    // Usa una percentuale più conservativa dell'altezza della finestra
-    const maxHeight = Math.max(window.innerHeight * 0.7, 480); // minimo 480px
+    // Ottieni le dimensioni effettive del container
+    const containerWidth = containerRef.current.clientWidth;
+    // Usa una percentuale fissa dell'altezza della finestra per evitare calcoli instabili
+    const maxHeight = window.innerHeight * 0.8;
     
     // Calcola la scala mantenendo l'aspect ratio
     let scale = Math.min(containerWidth / ORIGINAL_WIDTH, maxHeight / ORIGINAL_HEIGHT);
+    // Limita la scala tra 0.2 e 1 per evitare dimensioni estreme
+    scale = Math.max(0.2, Math.min(scale, 1));
     
-    // Limita la scala tra 0.25 e 1 per evitare dimensioni troppo piccole
-    // Aumentiamo il minimo da 0.2 a 0.25 per evitare che diventi troppo piccolo su mobile
-    scale = Math.max(0.25, Math.min(scale, 1));
-    
-    // Arrotonda la scala a 3 decimali per evitare calcoli imprecisi
-    scale = Math.round(scale * 1000) / 1000;
+    // Arrotonda la scala a 4 decimali per evitare fluttuazioni minime che causano instabilità
+    scale = Math.round(scale * 10000) / 10000;
     
     // Calcola le dimensioni scalate in modo preciso
     const scaledWidth = Math.round(ORIGINAL_WIDTH * scale);
     const scaledHeight = Math.round(ORIGINAL_HEIGHT * scale);
     
     // Aggiorna lo stato con i valori calcolati solo se sono effettivamente cambiati
-    // per evitare re-render inutili che potrebbero causare instabilità
-    setDimensions(prev => {
-      // Se le dimensioni sono quasi identiche (entro 1px e 0.001 di scala), non aggiornare
+    // per evitare re-render inutili che possono causare instabilità
+    setDimensions(prevDimensions => {
       if (
-        Math.abs(prev.width - scaledWidth) <= 1 && 
-        Math.abs(prev.height - scaledHeight) <= 1 &&
-        Math.abs(prev.scale - scale) <= 0.001
+        Math.abs(prevDimensions.scale - scale) < 0.0001 &&
+        prevDimensions.width === scaledWidth &&
+        prevDimensions.height === scaledHeight
       ) {
-        return prev;
+        return prevDimensions; // Nessun cambiamento significativo, mantieni lo stato precedente
       }
       
       return {
@@ -477,7 +409,7 @@ function CanvasNews({
     });
   };
   
-  // useEffect per il calcolo iniziale e il resize - versione migliorata per stabilità mobile
+  // useEffect per il calcolo iniziale e il resize - versione ottimizzata per stabilità mobile
   useEffect(() => {
     // Flag per tracciare se il componente è montato
     let isMounted = true;
@@ -496,181 +428,136 @@ function CanvasNews({
     // Secondo calcolo dopo un tempo maggiore per gestire eventuali ritardi nel rendering
     const secondaryTimer = setTimeout(safeCalculateDimensions, 500);
     
-    // Terzo calcolo ancora più ritardato per catturare eventuali cambiamenti tardivi
-    // Particolarmente utile su dispositivi mobili dove il rendering può essere più lento
+    // Terzo calcolo ancora più ritardato per dispositivi più lenti
     const tertiaryTimer = setTimeout(safeCalculateDimensions, 1000);
     
-    // Variabile per tenere traccia dell'ultimo timestamp di resize
-    // per limitare la frequenza degli aggiornamenti
-    let lastResizeTime = 0;
-    const RESIZE_THROTTLE = 100; // ms tra un calcolo e l'altro
-    
-    // Handler per il resize con throttling e debounce combinati
-    // per massima stabilità su dispositivi mobili
+    // Handler per il resize con debounce per evitare calcoli troppo frequenti
     let resizeTimeout;
     const handleResize = () => {
-      // Throttling: limita la frequenza dei calcoli immediati
-      const now = Date.now();
-      if (now - lastResizeTime > RESIZE_THROTTLE) {
-        lastResizeTime = now;
-        safeCalculateDimensions();
-      }
-      
-      // Debounce: cancella eventuali timeout pendenti
+      // Cancella eventuali timeout pendenti
       clearTimeout(resizeTimeout);
       
-      // Pianifica un calcolo finale dopo che l'utente ha smesso di ridimensionare
-      resizeTimeout = setTimeout(safeCalculateDimensions, 300);
+      // Pianifica un calcolo dopo un breve ritardo per stabilizzare
+      // Evita calcoli immediati che possono causare instabilità su mobile
+      resizeTimeout = setTimeout(safeCalculateDimensions, 100);
+    };
+    
+    // Funzione per gestire specificamente i cambiamenti di orientamento
+    const handleOrientationChange = () => {
+      // Sui dispositivi mobili, l'orientationchange richiede più tempo per stabilizzarsi
+      // Esegui calcoli multipli a intervalli crescenti
+      setTimeout(safeCalculateDimensions, 100);
+      setTimeout(safeCalculateDimensions, 300);
+      setTimeout(safeCalculateDimensions, 600);
     };
 
     // Aggiungi listener per eventi di resize
     window.addEventListener('resize', handleResize, { passive: true });
     
     // Aggiungi listener specifici per dispositivi mobili
-    window.addEventListener('orientationchange', () => {
-      // Per orientationchange, esegui calcoli multipli a intervalli crescenti
-      // poiché questo evento può richiedere più tempo per stabilizzarsi
-      setTimeout(safeCalculateDimensions, 100);
-      setTimeout(safeCalculateDimensions, 500);
-      setTimeout(safeCalculateDimensions, 1000);
-    }, { passive: true });
+    window.addEventListener('orientationchange', handleOrientationChange, { passive: true });
     
-    // Rimuovi l'event listener per scroll che potrebbe causare troppi ricalcoli
-    // e sostituiscilo con un listener più specifico per touchmove/touchend
-    // che è più rilevante per i dispositivi mobili
-    let touchTimeout;
-    const handleTouchEnd = () => {
-      clearTimeout(touchTimeout);
-      touchTimeout = setTimeout(safeCalculateDimensions, 300);
-    };
+    // Rimuovi l'evento scroll che può causare troppi ricalcoli e instabilità
+    // window.addEventListener('scroll', handleResize, { passive: true });
     
-    window.addEventListener('touchend', handleTouchEnd, { passive: true });
+    // Aggiungi listener per visibilitychange per ricalcolare quando l'app torna in primo piano
+    document.addEventListener('visibilitychange', safeCalculateDimensions);
 
-    // Cleanup function migliorata
+    // Cleanup function
     return () => {
-      // Imposta il flag di montaggio a false per evitare aggiornamenti di stato
-      // dopo lo smontaggio del componente
       isMounted = false;
-      
-      // Pulisci tutti i timer
       clearTimeout(initialTimer);
       clearTimeout(secondaryTimer);
       clearTimeout(tertiaryTimer);
       clearTimeout(resizeTimeout);
-      clearTimeout(touchTimeout);
-      
-      // Rimuovi tutti gli event listener
       window.removeEventListener('resize', handleResize);
-      window.removeEventListener('orientationchange', handleResize);
-      window.removeEventListener('touchend', handleTouchEnd);
+      window.removeEventListener('orientationchange', handleOrientationChange);
+      // window.removeEventListener('scroll', handleResize);
+      document.removeEventListener('visibilitychange', safeCalculateDimensions);
     };
-  }, []);  // Rimuovi containerRef dalle dipendenze per evitare ricreazioni inutili
+  }, []);  // Rimuovi containerRef dalle dipendenze per evitare re-render non necessari
 
   // useEffect per applicare le dimensioni al stage - versione ultra-stabile per mobile
   useEffect(() => {
     // Verifica che lo stage e la scala siano validi
     if (stageRef.current && dimensions.scale > 0) {
-      // Flag per evitare aggiornamenti simultanei che potrebbero causare instabilità
-      let isUpdating = false;
-      
       // Funzione per applicare le dimensioni in modo sicuro
       const applyDimensions = () => {
-        // Evita aggiornamenti simultanei
-        if (isUpdating) return;
-        isUpdating = true;
-        
         // Verifica nuovamente che lo stage esista
         if (stageRef.current) {
           try {
+            // Memorizza la posizione attuale dello stage
+            const currentPos = stageRef.current.position();
+            
             // Imposta le dimensioni originali
             stageRef.current.width(ORIGINAL_WIDTH);
             stageRef.current.height(ORIGINAL_HEIGHT);
             
-            // Applica la scala in modo uniforme, arrotondando a 3 decimali per stabilità
-            const scale = Math.round(dimensions.scale * 1000) / 1000;
-            const newScale = { x: scale, y: scale };
-            stageRef.current.scale(newScale);
-            
-            // Assicurati che la posizione sia esattamente 0,0 per evitare spostamenti
+            // Assicurati che la posizione rimanga a 0,0 (questo è cruciale per la stabilità)
             stageRef.current.position({ x: 0, y: 0 });
+            
+            // Applica la scala in modo uniforme
+            const newScale = { x: dimensions.scale, y: dimensions.scale };
+            stageRef.current.scale(newScale);
             
             // Forza il ridisegno completo dello stage
             stageRef.current.batchDraw();
             
-            // Esegui una serie di ridisegni a intervalli crescenti
-            // per assicurarsi che tutto sia aggiornato correttamente
-            const redrawTimes = [50, 200, 500];
-            redrawTimes.forEach(delay => {
-              setTimeout(() => {
-                if (stageRef.current) {
-                  // Riapplica posizione e scala per sicurezza
+            // Esegui un secondo ridisegno dopo un breve ritardo per assicurarsi che tutto sia aggiornato
+            setTimeout(() => {
+              if (stageRef.current) {
+                // Verifica nuovamente che la posizione sia corretta
+                const pos = stageRef.current.position();
+                if (pos.x !== 0 || pos.y !== 0) {
                   stageRef.current.position({ x: 0, y: 0 });
-                  stageRef.current.scale(newScale);
-                  stageRef.current.batchDraw();
                 }
-                // Sblocca gli aggiornamenti solo dopo l'ultimo ridisegno
-                if (delay === redrawTimes[redrawTimes.length - 1]) {
-                  isUpdating = false;
-                }
-              }, delay);
-            });
+                stageRef.current.batchDraw();
+              }
+            }, 50);
           } catch (error) {
             console.error('Errore durante l\'applicazione delle dimensioni allo stage:', error);
-            isUpdating = false;
           }
-        } else {
-          isUpdating = false;
         }
       };
       
       // Usa requestAnimationFrame per sincronizzare con il ciclo di rendering del browser
-      // e aggiungi un piccolo ritardo per assicurarsi che il DOM sia pronto
-      setTimeout(() => requestAnimationFrame(applyDimensions), 10);
+      requestAnimationFrame(applyDimensions);
+      
+      // Aggiungi un secondo requestAnimationFrame ritardato per assicurarsi che tutto sia stabile
+      setTimeout(() => {
+        requestAnimationFrame(applyDimensions);
+      }, 100);
     }
-  }, [dimensions]);  // Rimuovi stageRef dalle dipendenze per evitare ricreazioni inutili
-
-  // Previeni eventi touch indesiderati che potrebbero causare problemi di rendering
-  const preventTouchDefault = (e) => {
-    // Previeni solo gli eventi che potrebbero causare zoom o scroll indesiderato
-    if (e.touches && e.touches.length > 1) {
-      e.preventDefault();
-    }
-  };
+  }, [dimensions]);  // Rimuovi stageRef dalle dipendenze per evitare re-render non necessari
 
   return (
-    <div 
-      className="canvas-container" 
-      ref={containerRef}
-      // Aggiungi event listener per prevenire zoom pinch su iOS
-      onTouchStart={preventTouchDefault}
-    >
+    <div className="canvas-container" ref={containerRef}>
       <div 
         className="canvas-wrapper"
         tabIndex={0}
         onKeyDown={handleKeyDown}
-        // Aggiungi event listener per prevenire comportamenti touch indesiderati
-        onTouchMove={preventTouchDefault}
         style={{
           width: `${dimensions.width}px`,
           height: `${dimensions.height}px`,
           outline: 'none',
-          // Proprietà CSS ottimizzate per la stabilità e performance su dispositivi mobili
+          // Proprietà CSS migliorate per la stabilità su dispositivi mobili
           maxWidth: '100%',
           overflow: 'hidden',
           position: 'relative',
           margin: '0 auto',  // Centra il canvas orizzontalmente
-          touchAction: 'pan-x pan-y',  // Consenti solo pan, non zoom
+          touchAction: 'none',  // Previene comportamenti touch indesiderati
           WebkitTapHighlightColor: 'transparent',  // Rimuove l'evidenziazione al tocco su iOS
-          transform: 'translate3d(0,0,0)',  // Forza l'accelerazione hardware in modo più efficace
+          transform: 'translateZ(0)',  // Forza l'accelerazione hardware
           backfaceVisibility: 'hidden',  // Migliora le performance di rendering
           willChange: 'transform',  // Suggerisce al browser di ottimizzare le trasformazioni
           userSelect: 'none',  // Previene la selezione del testo indesiderata
-          WebkitOverflowScrolling: 'touch',  // Migliora lo scrolling su iOS
-          WebkitUserSelect: 'none',  // Versione specifica per Safari
-          MozUserSelect: 'none',  // Versione specifica per Firefox
-          msUserSelect: 'none',  // Versione specifica per IE/Edge
-          perspective: '1000px',  // Migliora la qualità delle trasformazioni 3D
-          transformStyle: 'preserve-3d'  // Mantiene le trasformazioni 3D
+          // Aggiungi proprietà per prevenire lo zoom su iOS
+          WebkitUserSelect: 'none',
+          WebkitTouchCallout: 'none',
+          // Previeni il ridimensionamento automatico del testo su iOS
+          WebkitTextSizeAdjust: '100%',
+          // Stabilizza il rendering su dispositivi mobili
+          perspective: '1000px'
         }}
       >
         <Stage 
@@ -678,11 +565,8 @@ function CanvasNews({
           width={ORIGINAL_WIDTH}
           height={ORIGINAL_HEIGHT}
           className="canvas-stage"
-          // Aggiungi proprietà per migliorare la performance di Konva su mobile
-          perfectDrawEnabled={false}  // Disabilita il perfect drawing per migliorare le performance
-          listening={true}  // Assicurati che gli eventi siano catturati
           style={{
-            // Stile ottimizzato per lo stage
+            // Stile migliorato per lo stage
             maxWidth: '100%',
             height: 'auto',
             display: 'block',  // Rimuove spazi bianchi indesiderati
@@ -690,10 +574,18 @@ function CanvasNews({
             left: '0',
             top: '0',
             transformOrigin: 'top left',  // Punto di origine per le trasformazioni
-            transform: 'translate3d(0,0,0)',  // Forza l'accelerazione hardware
-            WebkitTransform: 'translate3d(0,0,0)',  // Versione specifica per Safari
-            backfaceVisibility: 'hidden'  // Migliora le performance di rendering
+            // Aggiungi proprietà per migliorare la stabilità su mobile
+            transform: 'translate3d(0,0,0)',  // Forza l'accelerazione hardware in modo più efficace
+            WebkitTransform: 'translate3d(0,0,0)',  // Per Safari
+            // Previeni il ridimensionamento automatico del testo su iOS
+            WebkitTextSizeAdjust: '100%',
+            // Stabilizza il rendering su dispositivi mobili
+            perspective: '1000px',
+            // Assicura che il canvas non venga ridimensionato in modo imprevisto
+            touchAction: 'none'
           }}
+          // Aggiungi gestori eventi per prevenire comportamenti indesiderati su mobile
+          onTouchStart={e => e.evt.preventDefault()}
         >
           <Layer>
             {/* Renderizza le immagini caricate dall'utente */}
