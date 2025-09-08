@@ -41,9 +41,6 @@ const BackgroundImage = ({ bgImage, updateItemPosition, backgroundImages, setBac
 const LogoImage = ({ logo, updateItemPosition, logos, setLogos, isSelected = false, onSelect = () => {} , showSelection = true }) => {
   const [image] = useImage(logo.src);
   
-  // Assicurati che la rotazione sia un numero valido
-  const safeRotation = (typeof logo.rotation === 'number') ? logo.rotation : 0;
-  
   return (
     <KonvaImage
       key={logo.id}
@@ -52,7 +49,7 @@ const LogoImage = ({ logo, updateItemPosition, logos, setLogos, isSelected = fal
       y={logo.position.y}
       scaleX={logo.scale.scaleX}
       scaleY={logo.scale.scaleY}
-      rotation={safeRotation} 
+      rotation={logo.rotation || 0} 
       offsetX={image ? image.width / 2 : 0}
       offsetY={image ? image.height / 2 : 0}
       draggable={true}
@@ -61,24 +58,24 @@ const LogoImage = ({ logo, updateItemPosition, logos, setLogos, isSelected = fal
       shadowBlur={(showSelection && isSelected) ? 10 : 0}
       onClick={onSelect}
       onTap={onSelect}
-      onDragStart={(e) => {
-        // Previene comportamenti indesiderati durante il trascinamento
-        e.cancelBubble = true;
+      onTransform={() => {
+        // Forza il ridisegno del canvas quando il logo viene trasformato (inclusa la rotazione)
+        if (window.requestAnimationFrame) {
+          window.requestAnimationFrame(() => {
+            const stage = document.querySelector('.canvas-stage');
+            if (stage) {
+              stage.style.transform = 'none'; // Resetta eventuali trasformazioni CSS
+            }
+          });
+        }
       }}
       onDragEnd={(e) => {
-        // Previene comportamenti indesiderati durante il rilascio
-        e.cancelBubble = true;
-        
         updateItemPosition(
           logo.id, 
           { x: e.target.x(), y: e.target.y() }, 
           logos, 
           setLogos
         );
-      }}
-      onTransformEnd={(e) => {
-        // Gestisce la fine della trasformazione (se implementata)
-        e.cancelBubble = true;
       }}
     />
   );
@@ -238,68 +235,18 @@ function CanvasNews({
         const dir   = (e.key === ']' || e.key === 'NumpadMultiply') ? 1 : -1;
         const delta = KEY_ROTATE_STEP * dir;
 
-        // Previene il ricalcolo delle dimensioni durante la rotazione
-        // che potrebbe causare il ridimensionamento imprevisto del canvas
-        e.preventDefault();
-        e.stopPropagation();
-        
-        // Salva la scala corrente prima della rotazione
-        let currentScale = null;
-        if (stageRef.current) {
-          try {
-            currentScale = { ...stageRef.current.scale() };
-          } catch (error) {
-            console.error('Errore nel salvare la scala corrente:', error);
-          }
-        }
-        
-        // Aggiorna la rotazione del logo selezionato
         setLogos(ls => ls.map(l => {
           if (l.id !== selectedLogo) return l;
           const prev = (typeof l.rotation === 'number') ? l.rotation : 0;
-          const newRotation = normalizeAngle(prev + delta);
-          return { ...l, rotation: newRotation };
+          return { ...l, rotation: normalizeAngle(prev + delta) };
         }));
         
-        // Sequenza di ridisegni per garantire la stabilità su iOS
-        if (stageRef.current) {
-          // Ridisegno immediato
-          try {
+        // Forza un ricalcolo delle dimensioni per mantenere le proporzioni
+        requestAnimationFrame(() => {
+          if (stageRef.current) {
             stageRef.current.batchDraw();
-          } catch (error) {
-            console.error('Errore durante il ridisegno immediato:', error);
           }
-          
-          // Ripristina la scala originale se necessario dopo un breve ritardo
-          setTimeout(() => {
-            if (stageRef.current && currentScale) {
-              try {
-                // Verifica se la scala è cambiata
-                const newScale = stageRef.current.scale();
-                if (Math.abs(newScale.x - currentScale.x) > 0.0001 || 
-                    Math.abs(newScale.y - currentScale.y) > 0.0001) {
-                  // Ripristina la scala originale
-                  stageRef.current.scale(currentScale);
-                  console.log('Scala ripristinata dopo rotazione');
-                }
-                stageRef.current.batchDraw();
-              } catch (error) {
-                console.error('Errore durante il ripristino della scala:', error);
-              }
-            }
-          }, 10);
-          
-          // Secondo ridisegno dopo un ritardo più lungo
-          setTimeout(() => {
-            if (stageRef.current) {
-              try {
-                stageRef.current.batchDraw();
-              } catch (error) {
-                console.error('Errore durante il ridisegno ritardato:', error);
-              }
-            }
-          }, 100);
-        }
+        });
       }
     }
 
@@ -441,7 +388,6 @@ function CanvasNews({
   };
   
   // Funzione per calcolare le dimensioni e la scala
-  // Questa funzione è critica per la stabilità del canvas, specialmente su mobile
   const calculateDimensions = () => {
     if (!containerRef.current) return;
     
@@ -455,10 +401,7 @@ function CanvasNews({
     // Limita la scala tra 0.2 e 1 per evitare dimensioni estreme
     scale = Math.max(0.2, Math.min(scale, 1));
     
-    // Arrotonda la scala a 4 decimali per evitare calcoli imprecisi
-    scale = Math.round(scale * 10000) / 10000;
-    
-    // Calcola le dimensioni scalate in modo preciso con arrotondamento
+    // Calcola le dimensioni scalate in modo preciso
     const scaledWidth = Math.round(ORIGINAL_WIDTH * scale);
     const scaledHeight = Math.round(ORIGINAL_HEIGHT * scale);
     
@@ -481,29 +424,22 @@ function CanvasNews({
     };
     
     // Calcolo iniziale con un delay più lungo per assicurarsi che il DOM sia completamente pronto
-    // Aumentato a 300ms per garantire che il DOM sia completamente caricato
-    const initialTimer = setTimeout(safeCalculateDimensions, 300);
+    const initialTimer = setTimeout(safeCalculateDimensions, 200);
     
     // Secondo calcolo dopo un tempo maggiore per gestire eventuali ritardi nel rendering
-    // Aumentato a 800ms per catturare eventuali ritardi nel rendering su dispositivi più lenti
-    const secondaryTimer = setTimeout(safeCalculateDimensions, 800);
-    
-    // Terzo calcolo per assicurarsi che tutto sia stabile dopo eventuali animazioni o transizioni
-    const tertiaryTimer = setTimeout(safeCalculateDimensions, 1500);
+    const secondaryTimer = setTimeout(safeCalculateDimensions, 500);
     
     // Handler per il resize con debounce per evitare calcoli troppo frequenti
     let resizeTimeout;
-    let immediateTimeout;
     const handleResize = () => {
       // Cancella eventuali timeout pendenti
       clearTimeout(resizeTimeout);
-      clearTimeout(immediateTimeout);
       
-      // Piccolo ritardo prima del calcolo immediato per evitare calcoli durante l'animazione
-      immediateTimeout = setTimeout(safeCalculateDimensions, 50);
+      // Esegui un calcolo immediato per feedback rapido
+      safeCalculateDimensions();
       
-      // Pianifica un secondo calcolo dopo un ritardo più lungo per stabilizzare
-      resizeTimeout = setTimeout(safeCalculateDimensions, 350);
+      // Pianifica un secondo calcolo dopo un breve ritardo per stabilizzare
+      resizeTimeout = setTimeout(safeCalculateDimensions, 250);
     };
 
     // Aggiungi listener per eventi di resize
@@ -514,29 +450,19 @@ function CanvasNews({
     
     // Aggiungi listener per scroll che potrebbe influenzare le dimensioni su mobile
     window.addEventListener('scroll', handleResize, { passive: true });
-    
-    // Aggiungi listener per touchmove che potrebbe influenzare le dimensioni su mobile
-    window.addEventListener('touchmove', handleResize, { passive: true });
-    
-    // Aggiungi listener per touchend che potrebbe influenzare le dimensioni su mobile
-    window.addEventListener('touchend', handleResize, { passive: true });
 
     // Cleanup function
     return () => {
       clearTimeout(initialTimer);
       clearTimeout(secondaryTimer);
-      clearTimeout(tertiaryTimer);
       clearTimeout(resizeTimeout);
-      clearTimeout(immediateTimeout);
       window.removeEventListener('resize', handleResize);
       window.removeEventListener('orientationchange', handleResize);
       window.removeEventListener('scroll', handleResize);
-      window.removeEventListener('touchmove', handleResize);
-      window.removeEventListener('touchend', handleResize);
     };
   }, [containerRef]);
 
-  // useEffect per applicare le dimensioni al stage - versione robusta
+  // useEffect per applicare le dimensioni al stage - versione robusta e ottimizzata per mobile
   useEffect(() => {
     // Verifica che lo stage e la scala siano validi
     if (stageRef.current && dimensions.scale > 0) {
@@ -549,9 +475,8 @@ function CanvasNews({
             stageRef.current.width(ORIGINAL_WIDTH);
             stageRef.current.height(ORIGINAL_HEIGHT);
             
-            // Applica la scala in modo uniforme con valori arrotondati per maggiore stabilità
-            const scale = Math.round(dimensions.scale * 10000) / 10000; // Arrotonda a 4 decimali
-            const newScale = { x: scale, y: scale };
+            // Applica la scala in modo uniforme
+            const newScale = { x: dimensions.scale, y: dimensions.scale };
             stageRef.current.scale(newScale);
             
             // Forza il ridisegno completo dello stage
@@ -560,36 +485,9 @@ function CanvasNews({
             // Esegui un secondo ridisegno dopo un breve ritardo per assicurarsi che tutto sia aggiornato
             setTimeout(() => {
               if (stageRef.current) {
-                try {
-                  // Verifica che la scala sia ancora corretta
-                  const currentScale = stageRef.current.scale();
-                  if (Math.abs(currentScale.x - scale) > 0.0001 || Math.abs(currentScale.y - scale) > 0.0001) {
-                    // Se la scala è cambiata, riapplicala
-                    stageRef.current.scale({ x: scale, y: scale });
-                  }
-                  stageRef.current.batchDraw();
-                } catch (innerError) {
-                  console.error('Errore durante il ridisegno ritardato:', innerError);
-                }
+                stageRef.current.batchDraw();
               }
             }, 50);
-            
-            // Esegui un terzo ridisegno dopo un ritardo più lungo per catturare eventuali aggiornamenti tardivi
-            setTimeout(() => {
-              if (stageRef.current) {
-                try {
-                  // Verifica che la scala sia ancora corretta
-                  const currentScale = stageRef.current.scale();
-                  if (Math.abs(currentScale.x - scale) > 0.0001 || Math.abs(currentScale.y - scale) > 0.0001) {
-                    // Se la scala è cambiata, riapplicala
-                    stageRef.current.scale({ x: scale, y: scale });
-                  }
-                  stageRef.current.batchDraw();
-                } catch (innerError) {
-                  console.error('Errore durante il ridisegno finale:', innerError);
-                }
-              }
-            }, 200);
           } catch (error) {
             console.error('Errore durante l\'applicazione delle dimensioni allo stage:', error);
           }
@@ -601,73 +499,73 @@ function CanvasNews({
     }
   }, [dimensions, stageRef]);
   
-  // useEffect aggiuntivo per stabilizzare il canvas dopo la rotazione dei loghi
+  // Aggiungi un effetto per mantenere le proporzioni corrette durante la rotazione dei loghi
   useEffect(() => {
-    // Questo effetto si attiva quando cambia logos (inclusa la rotazione)
-    if (stageRef.current && dimensions.scale > 0) {
-      // Sequenza di ridisegni per garantire la stabilità su iOS
-      // Primo ridisegno immediato
-      try {
-        stageRef.current.batchDraw();
-      } catch (error) {
-        console.error('Errore durante il ridisegno immediato:', error);
-      }
-      
-      // Secondo ridisegno dopo un breve ritardo
-      const stabilizeTimer1 = setTimeout(() => {
+    // Questo effetto si attiva quando cambia un logo selezionato o la sua rotazione
+    if (selectedLogo && logos.length > 0) {
+      // Forza un ricalcolo e ridisegno del canvas
+      const stabilizeCanvas = () => {
         if (stageRef.current) {
-          try {
-            // Verifica che la scala sia ancora corretta
-            const scale = Math.round(dimensions.scale * 10000) / 10000;
-            const currentScale = stageRef.current.scale();
-            if (Math.abs(currentScale.x - scale) > 0.0001 || Math.abs(currentScale.y - scale) > 0.0001) {
-              // Se la scala è cambiata, riapplicala
-              stageRef.current.scale({ x: scale, y: scale });
-            }
-            stageRef.current.batchDraw();
-          } catch (error) {
-            console.error('Errore durante la stabilizzazione dopo rotazione:', error);
+          // Assicura che le dimensioni siano mantenute
+          stageRef.current.width(ORIGINAL_WIDTH);
+          stageRef.current.height(ORIGINAL_HEIGHT);
+          
+          // Riapplica la scala corrente
+          stageRef.current.scale({ x: dimensions.scale, y: dimensions.scale });
+          
+          // Forza il ridisegno
+          stageRef.current.batchDraw();
+          
+          // Assicura che lo stile CSS del canvas sia corretto
+          const canvasWrapper = document.querySelector('.canvas-wrapper');
+          const canvasStage = document.querySelector('.canvas-stage');
+          if (canvasWrapper && canvasStage) {
+            // Resetta eventuali trasformazioni CSS indesiderate
+            canvasStage.style.transform = `scale(${dimensions.scale})`;
+            canvasStage.style.transformOrigin = 'top left';
+            canvasStage.style.width = `${ORIGINAL_WIDTH}px`;
+            canvasStage.style.height = `${ORIGINAL_HEIGHT}px`;
           }
         }
-      }, 50);
+      };
       
-      // Terzo ridisegno dopo un ritardo più lungo per iOS
-      const stabilizeTimer2 = setTimeout(() => {
-        if (stageRef.current) {
-          try {
-            // Verifica che la scala sia ancora corretta
-            const scale = Math.round(dimensions.scale * 10000) / 10000;
-            const currentScale = stageRef.current.scale();
-            if (Math.abs(currentScale.x - scale) > 0.0001 || Math.abs(currentScale.y - scale) > 0.0001) {
-              // Se la scala è cambiata, riapplicala
-              stageRef.current.scale({ x: scale, y: scale });
-            }
-            stageRef.current.batchDraw();
-          } catch (error) {
-            console.error('Errore durante la stabilizzazione finale:', error);
-          }
-        }
-      }, 200);
-      
-      // Quarto ridisegno specifico per iOS dopo un ritardo ancora più lungo
-      const stabilizeTimer3 = setTimeout(() => {
-        if (stageRef.current) {
-          try {
-            // Forza un ridisegno finale per assicurarsi che tutto sia correttamente visualizzato
-            stageRef.current.batchDraw();
-          } catch (error) {
-            console.error('Errore durante la stabilizzazione iOS:', error);
-          }
-        }
-      }, 500);
+      // Esegui immediatamente e dopo un breve ritardo per assicurare la stabilità
+      stabilizeCanvas();
+      const timer = setTimeout(stabilizeCanvas, 50);
+      // Aggiungi un altro timer con un ritardo maggiore per dispositivi più lenti
+      const secondTimer = setTimeout(stabilizeCanvas, 300);
       
       return () => {
-        clearTimeout(stabilizeTimer1);
-        clearTimeout(stabilizeTimer2);
-        clearTimeout(stabilizeTimer3);
+        clearTimeout(timer);
+        clearTimeout(secondTimer);
       };
     }
-  }, [logos, stageRef, dimensions.scale]);
+  }, [selectedLogo, logos, dimensions.scale, stageRef]);
+  
+  // Aggiungi un effetto per stabilizzare il canvas dopo ogni ridimensionamento della finestra
+  useEffect(() => {
+    const handleOrientationChange = () => {
+      // Ricalcola le dimensioni
+      calculateDimensions();
+      
+      // Stabilizza il canvas dopo un breve ritardo
+      setTimeout(() => {
+        if (stageRef.current) {
+          stageRef.current.width(ORIGINAL_WIDTH);
+          stageRef.current.height(ORIGINAL_HEIGHT);
+          stageRef.current.scale({ x: dimensions.scale, y: dimensions.scale });
+          stageRef.current.batchDraw();
+        }
+      }, 100);
+    };
+    
+    // Aggiungi listener specifico per il cambio di orientamento su dispositivi mobili
+    window.addEventListener('orientationchange', handleOrientationChange);
+    
+    return () => {
+      window.removeEventListener('orientationchange', handleOrientationChange);
+    };
+  }, [dimensions.scale]);
 
   return (
     <div className="canvas-container" ref={containerRef}>
@@ -689,14 +587,7 @@ function CanvasNews({
           transform: 'translateZ(0)',  // Forza l'accelerazione hardware
           backfaceVisibility: 'hidden',  // Migliora le performance di rendering
           willChange: 'transform',  // Suggerisce al browser di ottimizzare le trasformazioni
-          userSelect: 'none',  // Previene la selezione del testo indesiderata
-          WebkitOverflowScrolling: 'touch',  // Migliora lo scrolling su iOS
-          WebkitTransformStyle: 'preserve-3d',  // Migliora la stabilità 3D su iOS
-          WebkitPerspective: '1000',  // Migliora la stabilità 3D su iOS
-          WebkitBackfaceVisibility: 'hidden',  // Versione specifica per WebKit
-          MozBackfaceVisibility: 'hidden',  // Versione specifica per Mozilla
-          msBackfaceVisibility: 'hidden',  // Versione specifica per Microsoft
-          transformStyle: 'preserve-3d'  // Migliora la stabilità 3D
+          userSelect: 'none'  // Previene la selezione del testo indesiderata
         }}
       >
         <Stage 
@@ -712,34 +603,7 @@ function CanvasNews({
             position: 'absolute',  // Posizionamento assoluto per evitare spostamenti
             left: '0',
             top: '0',
-            transformOrigin: 'top left',  // Punto di origine per le trasformazioni
-            touchAction: 'none',  // Previene comportamenti touch indesiderati
-            transform: 'translateZ(0)',  // Forza l'accelerazione hardware
-            WebkitTransform: 'translateZ(0)',  // Versione specifica per WebKit
-            MozTransform: 'translateZ(0)',  // Versione specifica per Mozilla
-            msTransform: 'translateZ(0)',  // Versione specifica per Microsoft
-            WebkitTransformOrigin: 'top left',  // Versione specifica per WebKit
-            MozTransformOrigin: 'top left',  // Versione specifica per Mozilla
-            msTransformOrigin: 'top left',  // Versione specifica per Microsoft
-            WebkitPerspective: '1000',  // Migliora la stabilità 3D su iOS
-            perspective: '1000',  // Migliora la stabilità 3D
-            WebkitOverflowScrolling: 'touch', // Migliora lo scrolling su iOS
-            WebkitUserSelect: 'none', // Previene la selezione del testo
-            userSelect: 'none', // Previene la selezione del testo
-            WebkitTouchCallout: 'none', // Disabilita il menu contestuale su iOS
-            willChange: 'transform', // Ottimizza le trasformazioni
-            WebkitFontSmoothing: 'antialiased', // Migliora il rendering del testo
-            MozOsxFontSmoothing: 'grayscale' // Migliora il rendering del testo su Firefox
-          }}
-          onContentMousedown={(e) => {
-            // Previene comportamenti indesiderati durante il click
-            e.evt.preventDefault();
-            e.evt.stopPropagation();
-          }}
-          onContentTouchstart={(e) => {
-            // Previene comportamenti indesiderati durante il touch
-            e.evt.preventDefault();
-            e.evt.stopPropagation();
+            transformOrigin: 'top left'  // Punto di origine per le trasformazioni
           }}
         >
           <Layer>
