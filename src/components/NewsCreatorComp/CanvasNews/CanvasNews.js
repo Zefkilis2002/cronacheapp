@@ -371,130 +371,162 @@ function CanvasNews({
   
   // Funzione per calcolare le dimensioni e la scala
   const calculateDimensions = () => {
-    if (!containerRef.current) return;
-    
-    // Ottieni le dimensioni effettive del container
-    const containerWidth = containerRef.current.clientWidth;
-    
-    // Utilizziamo document.documentElement.clientHeight invece di window.innerHeight
-    const viewportHeight = document.documentElement.clientHeight;
-    
-    // Usa una percentuale fissa dell'altezza della viewport per evitare calcoli instabili
-    const maxHeight = viewportHeight * 0.8;
-    
-    // Calcola la scala mantenendo l'aspect ratio
-    let scale = Math.min(containerWidth / ORIGINAL_WIDTH, maxHeight / ORIGINAL_HEIGHT);
-    
-    // Limita la scala tra 0.2 e 1 per evitare dimensioni estreme
-    scale = Math.max(0.2, Math.min(scale, 1));
-    
-    // Calcola le dimensioni scalate in modo preciso
-    const scaledWidth = Math.round(ORIGINAL_WIDTH * scale);
-    const scaledHeight = Math.round(ORIGINAL_HEIGHT * scale);
-    
-    // ✅ AGGIUNTA: Verifica se le nuove dimensioni sono significativamente diverse
-    if (dimensions.width && dimensions.height) {
-      const widthDiff = Math.abs(dimensions.width - scaledWidth);
-      const heightDiff = Math.abs(dimensions.height - scaledHeight);
-      
-      // Se la differenza è minore di 5px, non aggiornare le dimensioni
-      if (widthDiff < 5 && heightDiff < 5) {
-        return;
-      }
-    }
-    
-    // Aggiorna lo stato con i valori calcolati
+  if (!containerRef.current) return;
+  
+  // Get container dimensions
+  const containerWidth = containerRef.current.clientWidth;
+  
+  // FIX: Use visualViewport API where available for more stable mobile dimensions
+  const viewportHeight = 'visualViewport' in window ? 
+    window.visualViewport.height : 
+    window.innerHeight;
+  
+  // FIX: Add a small buffer to avoid rapid oscillations between values
+  const maxHeight = viewportHeight * 0.85;
+  
+  // Calculate scale while maintaining aspect ratio
+  let scale = Math.min(containerWidth / ORIGINAL_WIDTH, maxHeight / ORIGINAL_HEIGHT);
+  
+  // FIX: Add a small hysteresis to prevent tiny fluctuations from causing layout shifts
+  const currentScale = dimensions.scale || 0;
+  if (Math.abs(scale - currentScale) < 0.01 && currentScale > 0) {
+    scale = currentScale; // Keep the current scale if the change is negligible
+  }
+  
+  // Limit scale to reasonable values
+  scale = Math.max(0.2, Math.min(scale, 1.5)); // Slightly increased max scale for flexibility
+  
+  // Calculate scaled dimensions
+  const scaledWidth = Math.round(ORIGINAL_WIDTH * scale);
+  const scaledHeight = Math.round(ORIGINAL_HEIGHT * scale);
+  
+  // FIX: Only update if dimensions changed significantly
+  if (
+    Math.abs(scaledWidth - (dimensions.width || 0)) > 1 || 
+    Math.abs(scaledHeight - (dimensions.height || 0)) > 1
+  ) {
     setDimensions({
       width: scaledWidth,
       height: scaledHeight,
       scale: scale
     });
-  };
+  }
+};
   
   // useEffect per il calcolo iniziale e il resize - versione migliorata per mobile
   useEffect(() => {
-  // Funzione per calcolare le dimensioni in modo sicuro
-  const safeCalculateDimensions = () => {
-    // Verifica che il componente sia ancora montato
-    if (containerRef.current) {
-      calculateDimensions();
-    }
-  };
-  
-  // Calcolo iniziale con un delay più lungo per assicurarsi che il DOM sia completamente pronto
-  const initialTimer = setTimeout(safeCalculateDimensions, 200);
-  
-  // Secondo calcolo dopo un tempo maggiore per gestire eventuali ritardi nel rendering
-  const secondaryTimer = setTimeout(safeCalculateDimensions, 500);
-  
-  // Handler per il resize con debounce migliorato
-  let resizeTimeout;
-  const handleResize = () => {
-    // Cancella eventuali timeout pendenti
-    clearTimeout(resizeTimeout);
-    
-    // Esegui un calcolo dopo un breve ritardo
-    resizeTimeout = setTimeout(safeCalculateDimensions, 300);
-  };
+    const safeCalculateDimensions = () => {
+      if (containerRef.current) {
+        calculateDimensions();
+      }
+    };
 
-  // Aggiungi listener per eventi di resize
-  window.addEventListener('resize', handleResize, { passive: true });
-  
-  // Aggiungi listener specifici per dispositivi mobili
-  window.addEventListener('orientationchange', handleResize, { passive: true });
-  
-  // Cleanup function
-  return () => {
-    clearTimeout(initialTimer);
-    clearTimeout(secondaryTimer);
-    clearTimeout(resizeTimeout);
-    window.removeEventListener('resize', handleResize);
-    window.removeEventListener('orientationchange', handleResize);
-  };
-}, [containerRef]);
+    // FIX: Use a more sophisticated debounce with leading edge execution
+    let resizeTimeout;
+    let lastExecution = 0;
+    const DEBOUNCE_TIME = 100;
+    const MIN_EXECUTION_INTERVAL = 50;
+    
+    const handleResize = () => {
+      const now = Date.now();
+      // Only process if enough time has passed since last execution
+      if (now - lastExecution > MIN_EXECUTION_INTERVAL) {
+        safeCalculateDimensions();
+        lastExecution = now;
+      }
+      
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(() => {
+        safeCalculateDimensions();
+        lastExecution = Date.now();
+      }, DEBOUNCE_TIME);
+    };
+
+    // FIX: Remove scroll listener - it causes unnecessary recalculations during interaction
+    window.addEventListener('resize', handleResize, { passive: true });
+    window.addEventListener('orientationchange', handleResize, { passive: true });
+    
+    // FIX: Add iOS-specific handling for viewport changes
+    if ('visualViewport' in window) {
+      window.visualViewport.addEventListener('resize', handleResize);
+      window.visualViewport.addEventListener('scroll', handleResize);
+    }
+
+    // Initial calculation with proper timing
+    const initialCalculation = () => {
+      // Use requestAnimationFrame for smoother initial layout
+      requestAnimationFrame(() => {
+        if (containerRef.current) {
+          calculateDimensions();
+          
+          // Additional calculation after images might have loaded
+          setTimeout(calculateDimensions, 300);
+        }
+      });
+    };
+    
+    // FIX: Use multiple timing strategies for reliable initialization
+    initialCalculation();
+    setTimeout(initialCalculation, 100);
+    setTimeout(initialCalculation, 500);
+
+    return () => {
+      clearTimeout(resizeTimeout);
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('orientationchange', handleResize);
+      
+      if ('visualViewport' in window) {
+        window.visualViewport.removeEventListener('resize', handleResize);
+        window.visualViewport.removeEventListener('scroll', handleResize);
+      }
+    };
+  }, [containerRef, dimensions.scale]);
 
   // useEffect per applicare le dimensioni al stage - versione robusta
   useEffect(() => {
-    // Verifica che lo stage e la scala siano validi
-    if (stageRef.current && dimensions.scale > 0) {
-      // ✅ AGGIUNTA: Evita scale estremamente piccole che potrebbero causare problemi
-      if (dimensions.scale < 0.15) {
-        console.warn('Scala troppo piccola, ignorata:', dimensions.scale);
-        return;
-      }
+  if (stageRef.current && dimensions.scale > 0) {
+    const applyDimensions = () => {
+      if (!stageRef.current) return;
       
-      // Funzione per applicare le dimensioni in modo sicuro
-      const applyDimensions = () => {
-        // Verifica nuovamente che lo stage esista
-        if (stageRef.current) {
-          try {
-            // Imposta le dimensioni originali
-            stageRef.current.width(ORIGINAL_WIDTH);
-            stageRef.current.height(ORIGINAL_HEIGHT);
-            
-            // Applica la scala in modo uniforme
-            const newScale = { x: dimensions.scale, y: dimensions.scale };
-            stageRef.current.scale(newScale);
-            
-            // Forza il ridisegno completo dello stage
-            stageRef.current.batchDraw();
-            
-            // Esegui un secondo ridisegno dopo un breve ritardo per assicurarsi che tutto sia aggiornato
-            setTimeout(() => {
-              if (stageRef.current) {
-                stageRef.current.batchDraw();
-              }
-            }, 50);
-          } catch (error) {
-            console.error('Errore durante l\'applicazione delle dimensioni allo stage:', error);
-          }
+      try {
+        // FIX: Only update if dimensions actually changed
+        const currentWidth = stageRef.current.width();
+        const currentHeight = stageRef.current.height();
+        const currentScale = stageRef.current.scaleX();
+        
+        if (
+          Math.abs(currentWidth - ORIGINAL_WIDTH) > 1 ||
+          Math.abs(currentHeight - ORIGINAL_HEIGHT) > 1 ||
+          Math.abs(currentScale - dimensions.scale) > 0.01
+        ) {
+          // Set dimensions
+          stageRef.current.width(ORIGINAL_WIDTH);
+          stageRef.current.height(ORIGINAL_HEIGHT);
+          
+          // Apply scale
+          const newScale = { x: dimensions.scale, y: dimensions.scale };
+          stageRef.current.scale(newScale);
+          
+          // FIX: Only one batchDraw is needed - the second one was causing flickering
+          stageRef.current.batchDraw();
         }
-      };
-      
-      // Usa requestAnimationFrame per sincronizzare con il ciclo di rendering del browser
-      requestAnimationFrame(applyDimensions);
-    }
-  }, [dimensions, stageRef]);
+      } catch (error) {
+        console.error('Error applying dimensions to stage:', error);
+      }
+    };
+    
+    // FIX: Use a more reliable timing approach
+    const applyWithRetry = (attempts = 0) => {
+      if (stageRef.current && dimensions.scale > 0) {
+        applyDimensions();
+      } else if (attempts < 3) {
+        setTimeout(() => applyWithRetry(attempts + 1), 50);
+      }
+    };
+    
+    applyWithRetry();
+  }
+}, [dimensions, stageRef]);
 
   return (
     <div className="canvas-container" ref={containerRef}>
