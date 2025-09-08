@@ -371,35 +371,29 @@ function CanvasNews({
   
   // Funzione per calcolare le dimensioni e la scala
   const calculateDimensions = () => {
-  if (!containerRef.current) return;
-  
-  // Use getBoundingClientRect for more accurate dimensions
-  const containerRect = containerRef.current.getBoundingClientRect();
-  const containerWidth = containerRect.width;
-  
-  // Use a more reliable height calculation
-  const maxHeight = Math.min(window.innerHeight, window.screen.height) * 0.8;
-  
-  // Calculate scale with more precise constraints
-  let scale = Math.min(
-    containerWidth / ORIGINAL_WIDTH, 
-    maxHeight / ORIGINAL_HEIGHT
-  );
-  
-  // Add more restrictive scaling limits for mobile
-  scale = Math.max(0.3, Math.min(scale, 1));
-  
-  // Calculate scaled dimensions
-  const scaledWidth = Math.round(ORIGINAL_WIDTH * scale);
-  const scaledHeight = Math.round(ORIGINAL_HEIGHT * scale);
-  
-  // Update dimensions state
-  setDimensions({
-    width: scaledWidth,
-    height: scaledHeight,
-    scale: scale
-  });
-};
+    if (!containerRef.current) return;
+    
+    // Ottieni le dimensioni effettive del container
+    const containerWidth = containerRef.current.clientWidth;
+    // Usa una percentuale fissa dell'altezza della finestra per evitare calcoli instabili
+    const maxHeight = window.innerHeight * 0.8;
+    
+    // Calcola la scala mantenendo l'aspect ratio
+    let scale = Math.min(containerWidth / ORIGINAL_WIDTH, maxHeight / ORIGINAL_HEIGHT);
+    // Limita la scala tra 0.2 e 1 per evitare dimensioni estreme
+    scale = Math.max(0.2, Math.min(scale, 1));
+    
+    // Calcola le dimensioni scalate in modo preciso
+    const scaledWidth = Math.round(ORIGINAL_WIDTH * scale);
+    const scaledHeight = Math.round(ORIGINAL_HEIGHT * scale);
+    
+    // Aggiorna lo stato con i valori calcolati
+    setDimensions({
+      width: scaledWidth,
+      height: scaledHeight,
+      scale: scale
+    });
+  };
   
   // useEffect per il calcolo iniziale e il resize - versione migliorata per mobile
   useEffect(() => {
