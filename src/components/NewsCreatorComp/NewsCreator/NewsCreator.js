@@ -77,11 +77,11 @@ function NewsCreator({
             <option value="Kenyan Coffee Bold">Kenyan Coffee Bold</option>
             <option value="Kenyan Coffee Regular Italic">Kenyan Coffee Regular Italic</option>
             <option value="Kenyan Coffee Bold Italic">Kenyan Coffee Bold Italic</option>
-            <option value="Benzin-Bold.ttf">Benzin Bold</option>
-            <option value="Benzin-ExtraBold.ttf">Benzin Extra Bold</option>
-            <option value="Benzin-Medium.ttf">Benzin Medium</option>
-            <option value="Benzin-Regular.ttf">Benzin Regular</option>
-            <option value="Benzin-SemiBold.ttf">Benzin Semi Bold</option>
+            <option value="Benzin-Bold">Benzin Bold</option>
+            <option value="Benzin-ExtraBold">Benzin Extra Bold</option>
+            <option value="Benzin-Medium">Benzin Medium</option>
+            <option value="Benzin-Regular">Benzin Regular</option>
+            <option value="Benzin-Semibold">Benzin Semi Bold</option>
           </select>
         </div>
       </div>
@@ -182,11 +182,9 @@ function NewsCreator({
             <option value="Kenyan Coffee Bold">Kenyan Coffee Bold</option>
             <option value="Kenyan Coffee Regular Italic">Kenyan Coffee Regular Italic</option>
             <option value="Kenyan Coffee Bold Italic">Kenyan Coffee Bold Italic</option>
-            <option value="Benzin-Bold.ttf">Benzin Bold</option>
-            <option value="Benzin-ExtraBold.ttf">Benzin Extra Bold</option>
-            <option value="Benzin-Medium.ttf">Benzin Medium</option>
-            <option value="Benzin-Regular.ttf">Benzin Regular</option>
-            <option value="Benzin-SemiBold.ttf">Benzin Semi Bold</option>
+            <option value="Benzin-Regular">Benzin Regular</option>
+            <option value="Benzin-Medium">Benzin Medium</option>
+            <option value="Benzin-Semibold">Benzin Semi Bold</option>
           </select>
         </div>
       </div>

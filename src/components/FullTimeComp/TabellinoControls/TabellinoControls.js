@@ -1,5 +1,7 @@
 // TabellinoControls.js - Versione migliorata per immagini complete
-import React, { useState } from 'react';
+
+import React, { useState, useRef } from 'react';
+import { applyAcrSportFilterToSrc } from '../../../filters/acrSport'; 
 import axios from 'axios';
 import './TabellinoControls.css';
 
@@ -24,6 +26,13 @@ function TabellinoControls({
   const [showCarouselSelector, setShowCarouselSelector] = useState(false);
   const [selectedCarouselIndex, setSelectedCarouselIndex] = useState(0);
   const [imageQualityInfo, setImageQualityInfo] = useState(null);
+  // Stato filtro RAW
+  const [isFiltering, setIsFiltering] = useState(false);
+  const [filterApplied, setFilterApplied] = useState(false);
+  const originalUserImageRef = useRef(null);
+  const originalInstagramImageRef = useRef(null);
+  const filteredUrlRef = useRef(null);
+  const currentSourceRef = useRef(null); // 'instagram' | 'user'
 
   // Funzione migliorata per gestire l'upload dell'immagine
   const handleImageUpload = (e) => {
@@ -33,7 +42,12 @@ function TabellinoControls({
     const reader = new FileReader();
     reader.onload = (ev) => {
       const imageUrl = ev.target.result;
-      
+      // Memorizza l’originale e la sorgente
+      originalUserImageRef.current = imageUrl;
+      currentSourceRef.current = 'user';
+      setFilterApplied(false);
+      if (filteredUrlRef.current) { try { URL.revokeObjectURL(filteredUrlRef.current); } catch(_) {} filteredUrlRef.current = null; }
+        
       // Verifica le dimensioni dell'immagine caricata
       const img = new Image();
       img.onload = () => {
@@ -175,6 +189,11 @@ function TabellinoControls({
         throw new Error('Immagine non accessibile');
       }
       
+      // Memorizza l’originale e la sorgente
+      originalUserImageRef.current = imageUrl;
+      currentSourceRef.current = 'user';
+      setFilterApplied(false);
+      if (filteredUrlRef.current) { try { URL.revokeObjectURL(filteredUrlRef.current); } catch(_) {} filteredUrlRef.current = null; } 
       console.log(`Immagine selezionata: ${imageInfo.width}x${imageInfo.height}`);
       
       setImageQualityInfo({
@@ -250,7 +269,10 @@ function TabellinoControls({
         alert(`Carosello con ${imageCount} immagini caricato in qualità ${quality}. Dimensioni: ${firstImageInfo.width}x${firstImageInfo.height}`);
       } else if (imageUrl) {
         const imageInfo = await getImageInfo(imageUrl);
-  
+        originalInstagramImageRef.current = imageUrl;
+        currentSourceRef.current = 'instagram';
+        setFilterApplied(false);
+        if (filteredUrlRef.current) { try { URL.revokeObjectURL(filteredUrlRef.current); } catch(_) {} filteredUrlRef.current = null; }
         setImageQualityInfo({
           width: imageInfo.width,
           height: imageInfo.height,
@@ -320,6 +342,62 @@ function TabellinoControls({
     });
   };
 
+
+  // Applica filtro RAW allo sfondo attivo (instagram > upload)
+  const applyRawFilter = async () => {
+    const srcType = currentSourceRef.current;
+    let srcUrl = null;
+    if (srcType === 'instagram' && originalInstagramImageRef.current) {
+      // usa lo stesso proxy del Canvas per garantire CORS
+      srcUrl = `http://localhost:5000/proxy-image?url=${encodeURIComponent(originalInstagramImageRef.current)}`;
+    } else if (srcType === 'user' && originalUserImageRef.current) {
+      srcUrl = originalUserImageRef.current;
+    } else {
+      alert('Nessuna immagine da filtrare.');
+      return;
+    }
+    setIsFiltering(true);
+    try {
+      const { url } = await applyAcrSportFilterToSrc(srcUrl);
+      // libera eventuale blob precedente
+      if (filteredUrlRef.current) { try { URL.revokeObjectURL(filteredUrlRef.current); } catch(_) {} }
+      filteredUrlRef.current = url;
+      // Per Instagram sposta il risultato su userImage e svuota instagramImage (il Canvas usa il proxy su instagramImage)
+      if (srcType === 'instagram') {
+        setInstagramImage(null);
+        setUserImage(url);
+      } else {
+        setUserImage(url);
+      }
+      setFilterApplied(true);
+    } catch (err) {
+      console.error('Errore filtro RAW:', err);
+      alert('Errore durante l’applicazione del filtro RAW.');
+    } finally {
+      setIsFiltering(false);
+    }
+  };
+
+  // Rimuovi filtro e ripristina la sorgente originale
+  const removeRawFilter = () => {
+    try {
+      if (filteredUrlRef.current) { URL.revokeObjectURL(filteredUrlRef.current); }
+    } catch(_) {}
+    filteredUrlRef.current = null;
+    setFilterApplied(false);
+    const srcType = currentSourceRef.current;
+    if (srcType === 'instagram') {
+      // ripristina instagram e libera l'upload visuale
+      setUserImage(null);
+      setInstagramImage(originalInstagramImageRef.current || null);
+    } else if (srcType === 'user') {
+      setUserImage(originalUserImageRef.current || null);
+    } else {
+      // nessuna sorgente tracciata
+    }
+  };
+
+
   return (
     <div className="controls-top">
       
@@ -378,6 +456,27 @@ function TabellinoControls({
           onChange={handleImageUpload}
           style={{ display: 'none' }}
         />
+
+        
+        {/* Nuovi pulsanti filtro */}
+        <button
+          className="instagramButton"
+         style={{ marginLeft: 8 }}
+          onClick={applyRawFilter}
+          disabled={isLoading || isFiltering || (!originalUserImageRef.current && !originalInstagramImageRef.current)}
+          title="Applica il filtro Camera Raw allo sfondo corrente"
+        >
+          {isFiltering ? 'Elaborazione...' : 'Applica filtro RAW'}
+        </button>
+        <button
+          className="customFileUpload"
+          style={{ marginLeft: 8 }}
+          onClick={removeRawFilter}
+          disabled={isLoading || !filterApplied}
+          title="Rimuovi il filtro e ripristina l'immagine originale"
+        >
+          Rimuovi filtro
+        </button>
       </div>
 
       {/* Informazioni qualità immagine */}

@@ -3,6 +3,7 @@ import NewsCreator from '../components/NewsCreatorComp/NewsCreator/NewsCreator';
 import ImagesSelector from '../components/NewsCreatorComp/ImagesSelector/ImagesSelector';
 import CanvasNews from '../components/NewsCreatorComp/CanvasNews/CanvasNews';
 import ToolbarNews from '../components/NewsCreatorComp/ToolbarNews/ToolbarNews';
+import CameraRawSportFilter, { applyAcrSportFilterToSrc } from '../filters/acrSport';
 import useImage from 'use-image';
 import '../fonts.css';
 import './News.css';
@@ -31,6 +32,8 @@ function NewsEditor() {
   const [backgroundImage, setBackgroundImage] = useState('/sfondoNotizie/sfumatura.png');  
   const [background] = useImage(backgroundImage);
   const [showSelection, setShowSelection] = useState(true);
+
+  const [busyFilter, setBusyFilter] = useState(false);
 
   
   // States for logos
@@ -289,6 +292,51 @@ function NewsEditor() {
     setter(updatedItems);
   };
 
+
+// Cache per risultati filtrati per ogni immagine (evita ricalcoli)
+const filteredCacheRef = useRef(new Map());
+
+  const applyAcrSportToSelectedBackground = async () => {
+    if (!selectedBackground) return;
+    const idx = backgroundImages.findIndex(i => i.id === selectedBackground);
+    if (idx < 0) return;
+    const item = backgroundImages[idx];
+    const cacheKey = item.src; // se cambi file cambia key
+    try {
+      setBusyFilter(true);
+      // usa cache se presente
+      let cached = filteredCacheRef.current.get(cacheKey);
+      if (!cached) {
+        cached = await applyAcrSportFilterToSrc(item.src, '/filters/Camera Raw Sport.xmp');
+        filteredCacheRef.current.set(cacheKey, cached);
+      }
+      const updated = [...backgroundImages];
+      updated[idx] = { ...item, originalSrc: item.originalSrc || item.src, src: cached.url, _revoke: cached._revoke, _acr: 'sport' };
+      setBackgroundImages(updated);
+    } finally {
+      setBusyFilter(false);
+    }
+  };
+
+  const removeFilterFromSelectedBackground = () => {
+    if (!selectedBackground) return;
+    const idx = backgroundImages.findIndex(i => i.id === selectedBackground);
+    if (idx < 0) return;
+    const item = backgroundImages[idx];
+    // ripristina la sorgente originale e libera l’URL blob
+    if (item._revoke && item.src && item.src.startsWith('blob:')) {
+      try { item._revoke(); } catch(_) {}
+    }
+    const updated = [...backgroundImages];
+    updated[idx] = { 
+      ...item, 
+      src: item.originalSrc || item.src, 
+      _revoke: undefined, 
+      _acr: undefined 
+    };
+    setBackgroundImages(updated);
+  };
+
   /*
   // Keyboard shortcuts: arrows to move selected, +/- to resize, Delete to remove
   useEffect(() => {
@@ -448,6 +496,9 @@ function NewsEditor() {
             selectedLogo={selectedLogo}
             setSelectedBackground={setSelectedBackground}
             setSelectedLogo={setSelectedLogo}
+            onApplyAcrSport={applyAcrSportToSelectedBackground}
+            onRemoveAcrSport={removeFilterFromSelectedBackground}
+            busyFilter={busyFilter}
           />
         </div>
         

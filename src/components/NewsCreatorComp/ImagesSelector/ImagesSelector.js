@@ -14,7 +14,10 @@ function ImagesSelector({
   setSelectedBackground,
   setSelectedLogo,
   selectedBackground,
-  selectedLogo
+  selectedLogo,
+  onApplyAcrSport,
+  onRemoveAcrSport,
+  busyFilter
 }) {
   const dragItem = useRef(null);
   const dragOverItem = useRef(null);
@@ -65,6 +68,24 @@ function ImagesSelector({
       {/* Sezione immagini di sfondo */}
       <div className="image-upload-section">
         <h3>Immagini di sfondo (max 5):</h3>
+        <div style={{ display:'flex', gap:8, alignItems:'center', margin:'6px 0 10px' }}>
+         <button 
+            className="file-input"
+            disabled={!selectedBackground || busyFilter}
+            onClick={onApplyAcrSport}
+            title="Applica il filtro Camera Raw Sport allo sfondo selezionato"
+          >
+            {busyFilter ? 'Elaborazione...' : 'Applica filtro RAW'}
+          </button>
+          <button 
+            className="logo-selector"
+            disabled={!selectedBackground || busyFilter}
+            onClick={onRemoveAcrSport}
+            title="Rimuovi il filtro dallo sfondo selezionato"
+          >
+            Rimuovi filtro
+          </button>
+        </div>
         <div className="upload-control-row">
           <input
             type="file"
