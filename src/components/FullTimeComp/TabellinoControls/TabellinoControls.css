@@ -25,6 +25,13 @@
     margin-top: -1rem;
   }
 
+  .upload-button {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-top: 1rem;
+  }
+
 
   /* Stile specifico per i due bottoni */
   .instagramButton,
@@ -39,9 +46,9 @@
     cursor: pointer;
     transition: all 0.3s ease;
     box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.3);
-    display: inline-block;
     text-align: center;
-    margin-right: 1.5rem;
+    flex: 1 1 auto;
+    min-width: 160px;
   }
 
   /* Effetto hover */
@@ -115,16 +122,25 @@
       gap: 1rem;
     }
   
+    .upload-button {
+      gap: 0.8rem;
+      row-gap: 1rem;
+      column-gap: 1rem;
+    }
+
     .result-inputs {
       flex-direction: row;
     }
 
     .download-button {
-      margin-left: auto; /* Spinge il bottone verso il margine destro */
+      margin-left: auto;
     }
     
+    .instagramButton,
     .customFileUpload {
-      margin-top: 10px;
+      margin: 0;
+      flex: 1 1 45%;
+      min-width: 160px;
     }
   }
   

@@ -461,7 +461,6 @@ function TabellinoControls({
         {/* Nuovi pulsanti filtro */}
         <button
           className="instagramButton"
-         style={{ marginLeft: 8 }}
           onClick={applyRawFilter}
           disabled={isLoading || isFiltering || (!originalUserImageRef.current && !originalInstagramImageRef.current)}
           title="Applica il filtro Camera Raw allo sfondo corrente"
@@ -470,7 +469,6 @@ function TabellinoControls({
         </button>
         <button
           className="customFileUpload"
-          style={{ marginLeft: 8 }}
           onClick={removeRawFilter}
           disabled={isLoading || !filterApplied}
           title="Rimuovi il filtro e ripristina l'immagine originale"
