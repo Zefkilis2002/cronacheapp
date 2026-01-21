@@ -11,6 +11,7 @@ const Canva = ({
   instagramImage,
   imagePosition,
   imageScale,
+  setImageScale,
   handleDragEnd,
   handleTransform,
   selectedLogo1,
@@ -32,6 +33,46 @@ const Canva = ({
   const [uploadedImg] = useImage(userImage);
   const [logo1] = useImage(uploadedLogo1 || `${window.location.origin}${selectedLogo1}`);
   const [logo2] = useImage(uploadedLogo2 || `${window.location.origin}${selectedLogo2}`);
+
+  // 🔧 PINCH ZOOM LOGIC
+  const lastDistRef = React.useRef(0);
+
+  const getDistance = (p1, p2) => {
+    return Math.sqrt(Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2));
+  };
+
+  const handleTouchMove = (e) => {
+    const touch1 = e.evt.touches[0];
+    const touch2 = e.evt.touches[1];
+
+    if (touch1 && touch2) {
+      const dist = getDistance(
+        { x: touch1.clientX, y: touch1.clientY },
+        { x: touch2.clientX, y: touch2.clientY }
+      );
+
+      if (lastDistRef.current === 0) {
+        lastDistRef.current = dist;
+        return;
+      }
+
+      const scaleFactor = dist / lastDistRef.current;
+      
+      // Applica lo zoom all'immagine principale se esiste
+      if (setImageScale && (userImage || instagramImage)) {
+        setImageScale(prev => ({
+          scaleX: prev.scaleX * scaleFactor,
+          scaleY: prev.scaleY * scaleFactor
+        }));
+      }
+
+      lastDistRef.current = dist;
+    }
+  };
+
+  const handleTouchEnd = () => {
+    lastDistRef.current = 0;
+  };
 
   const proxyUrl = instagramImage && instagramImage !== 'null'
     ? `http://localhost:5000/proxy-image?url=${encodeURIComponent(instagramImage)}`
@@ -67,7 +108,7 @@ const Canva = ({
         container.style.height = `${scaledHeight}px`;
         container.style.margin = '0 auto';
         container.style.position = 'relative';
-        container.style.touchAction = 'none';
+        container.style.touchAction = 'none'; // Importante per disabilitare zoom browser
         container.style.userSelect = 'none';
         container.style.webkitUserSelect = 'none';
       }
@@ -121,7 +162,13 @@ const Canva = ({
 
   return (
     <div className="canvas-container">
-      <Stage ref={stageRef} width={1440} height={1800}>
+      <Stage 
+        ref={stageRef} 
+        width={1440} 
+        height={1800}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
         <Layer clipX={0} clipY={0} clipWidth={1440} clipHeight={1800}>
           {uploadedImg && (
             <KonvaImage

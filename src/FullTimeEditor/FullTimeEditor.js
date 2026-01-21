@@ -27,6 +27,7 @@ const FullTimeEditor = () => {
   const [score2Y, setScore2Y] = useState(1280);
   const [imagePosition, setImagePosition] = useState({ x: 100, y: 100 });
   const [imageScale, setImageScale] = useState({ scaleX: 1, scaleY: 1 });
+  const [activeTab, setActiveTab] = useState('general');
 
   const stageRef = useRef(null);
   const borderRef = useRef(null);
@@ -59,28 +60,7 @@ const FullTimeEditor = () => {
   return (
     <div className="App">
       <h1>CRONACHE ELLENICHE <br /> FULL TIME</h1>
-      <TabellinoControls
-        stageRef={stageRef}
-        borderRef={borderRef}
-        selectedTabellino={selectedTabellino}
-        setSelectedTabellino={setSelectedTabellino}
-        instagramLink={instagramLink}
-        setInstagramLink={setInstagramLink}
-        setInstagramImage={setInstagramImage}
-        score1={score1}
-        setScore1={setScore1}
-        score2={score2}
-        setScore2={setScore2}
-        setUserImage={setUserImage}
-      />
-      <SetTeamOne
-        selectedLogo1={selectedLogo1}
-        setSelectedLogo1={setSelectedLogo1}
-        uploadedLogo1={uploadedLogo1}
-        setUploadedLogo1={setUploadedLogo1}
-        scorersTeam1={scorersTeam1}
-        setScorersTeam1={setScorersTeam1}
-      />
+      
       <Canva
         stageRef={stageRef}
         borderRef={borderRef}
@@ -89,6 +69,7 @@ const FullTimeEditor = () => {
         instagramImage={instagramImage}
         imagePosition={imagePosition}
         imageScale={imageScale}
+        setImageScale={setImageScale} // Passato per pinch zoom
         handleDragEnd={handleDragEnd}
         handleTransform={handleTransform}
         selectedLogo1={selectedLogo1}
@@ -106,14 +87,69 @@ const FullTimeEditor = () => {
         scorersTeam1={scorersTeam1}
         scorersTeam2={scorersTeam2}
       />
-      <SetTeamTwo
-        selectedLogo2={selectedLogo2}
-        setSelectedLogo2={setSelectedLogo2}
-        uploadedLogo2={uploadedLogo2}
-        setUploadedLogo2={setUploadedLogo2}
-        scorersTeam2={scorersTeam2}
-        setScorersTeam2={setScorersTeam2}
-      />
+
+      <div className="tab-header">
+        <button 
+          className={`tab-button ${activeTab === 'general' ? 'active' : ''}`}
+          onClick={() => setActiveTab('general')}
+        >
+          Generale
+        </button>
+        <button 
+          className={`tab-button ${activeTab === 'team1' ? 'active' : ''}`}
+          onClick={() => setActiveTab('team1')}
+        >
+          Squadra 1
+        </button>
+        <button 
+          className={`tab-button ${activeTab === 'team2' ? 'active' : ''}`}
+          onClick={() => setActiveTab('team2')}
+        >
+          Squadra 2
+        </button>
+      </div>
+
+      <div className="tab-content">
+        {activeTab === 'general' && (
+          <TabellinoControls
+            stageRef={stageRef}
+            borderRef={borderRef}
+            selectedTabellino={selectedTabellino}
+            setSelectedTabellino={setSelectedTabellino}
+            instagramLink={instagramLink}
+            setInstagramLink={setInstagramLink}
+            setInstagramImage={setInstagramImage}
+            score1={score1}
+            setScore1={setScore1}
+            score2={score2}
+            setScore2={setScore2}
+            setUserImage={setUserImage}
+          />
+        )}
+
+        {activeTab === 'team1' && (
+          <SetTeamOne
+            selectedLogo1={selectedLogo1}
+            setSelectedLogo1={setSelectedLogo1}
+            uploadedLogo1={uploadedLogo1}
+            setUploadedLogo1={setUploadedLogo1}
+            scorersTeam1={scorersTeam1}
+            setScorersTeam1={setScorersTeam1}
+          />
+        )}
+
+        {activeTab === 'team2' && (
+          <SetTeamTwo
+            selectedLogo2={selectedLogo2}
+            setSelectedLogo2={setSelectedLogo2}
+            uploadedLogo2={uploadedLogo2}
+            setUploadedLogo2={setUploadedLogo2}
+            scorersTeam2={scorersTeam2}
+            setScorersTeam2={setScorersTeam2}
+          />
+        )}
+      </div>
+
       <Toolbar
         moveLogo={moveLogo}
         resizeLogo={resizeLogo}

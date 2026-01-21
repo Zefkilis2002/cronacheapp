@@ -3,7 +3,7 @@ import NewsCreator from '../components/NewsCreatorComp/NewsCreator/NewsCreator';
 import ImagesSelector from '../components/NewsCreatorComp/ImagesSelector/ImagesSelector';
 import CanvasNews from '../components/NewsCreatorComp/CanvasNews/CanvasNews';
 import ToolbarNews from '../components/NewsCreatorComp/ToolbarNews/ToolbarNews';
-import CameraRawSportFilter, { applyAcrSportFilterToSrc } from '../filters/acrSport';
+import CameraRawSportFilter, { applyAcrSportFilterToSrc, applyUpscaleFilterToSrc } from '../filters/acrSport';
 import useImage from 'use-image';
 import '../fonts.css';
 import './News.css';
@@ -49,6 +49,7 @@ function NewsEditor() {
 
   // Layering
   const [textAboveImages, setTextAboveImages] = useState(true);
+  const [activeTab, setActiveTab] = useState('text');
 
   // Passi unificati per controlli UI
   const MOVE_STEP  = 2;    // px
@@ -318,6 +319,33 @@ const filteredCacheRef = useRef(new Map());
     }
   };
 
+  const applyUpscaleToSelectedBackground = async () => {
+    if (!selectedBackground) return;
+    const idx = backgroundImages.findIndex(i => i.id === selectedBackground);
+    if (idx < 0) return;
+    const item = backgroundImages[idx];
+    
+    try {
+      setBusyFilter(true);
+      const cached = await applyUpscaleFilterToSrc(item.originalSrc || item.src);
+      
+      const updated = [...backgroundImages];
+      updated[idx] = { 
+        ...item, 
+        originalSrc: item.originalSrc || item.src, 
+        src: cached.url, 
+        _revoke: cached._revoke, 
+        _acr: 'hd' 
+      };
+      setBackgroundImages(updated);
+    } catch (err) {
+      console.error('Errore upscale:', err);
+      alert('Errore durante il miglioramento HD.');
+    } finally {
+      setBusyFilter(false);
+    }
+  };
+
   const removeFilterFromSelectedBackground = () => {
     if (!selectedBackground) return;
     const idx = backgroundImages.findIndex(i => i.id === selectedBackground);
@@ -461,46 +489,6 @@ const filteredCacheRef = useRef(new Map());
     <div className="App">
       <h1>CRONACHE ELLENICHE NEWS</h1>
       <div className="editor-container">
-        <div className="controls-container">
-          <NewsCreator 
-            title={title}
-            setTitle={setTitle}
-            titleColor={titleColor}
-            setTitleColor={setTitleColor}
-            titleFont={titleFont}
-            setTitleFont={setTitleFont}
-            textColor={textColor}
-            setTextColor={setTextColor}
-            textFont={textFont}
-            setTextFont={setTextFont}
-            textContainerRef={textContainerRef}
-            handleTextChange={handleTextChange}
-            backgroundImage={backgroundImage}
-            handleBackgroundChange={handleBackgroundChange}
-            textAboveImages={textAboveImages}
-            setTextAboveImages={setTextAboveImages}
-            downloadImage={downloadImage}
-          />
-          
-          <ImagesSelector 
-            handleBackgroundUpload={handleBackgroundUpload}
-            handleLogoUpload={handleLogoUpload}
-            backgroundImages={backgroundImages}
-            logos={logos}
-            removeBackgroundImage={removeBackgroundImage}
-            removeLogo={removeLogo}
-            reorderItems={reorderItems}
-            setBackgroundImages={setBackgroundImages}
-            setLogos={setLogos}
-            selectedBackground={selectedBackground}
-            selectedLogo={selectedLogo}
-            setSelectedBackground={setSelectedBackground}
-            setSelectedLogo={setSelectedLogo}
-            onApplyAcrSport={applyAcrSportToSelectedBackground}
-            onRemoveAcrSport={removeFilterFromSelectedBackground}
-            busyFilter={busyFilter}
-          />
-        </div>
         
         <CanvasNews 
           stageRef={stageRef}
@@ -531,6 +519,66 @@ const filteredCacheRef = useRef(new Map());
           richText={richText}
         />
 
+        <div className="news-tab-header">
+          <button 
+            className={`news-tab-button ${activeTab === 'text' ? 'active' : ''}`}
+            onClick={() => setActiveTab('text')}
+          >
+            Testi
+          </button>
+          <button 
+            className={`news-tab-button ${activeTab === 'images' ? 'active' : ''}`}
+            onClick={() => setActiveTab('images')}
+          >
+            Immagini & Sfondi
+          </button>
+        </div>
+
+        <div className="controls-container">
+          {activeTab === 'text' && (
+            <NewsCreator 
+              title={title}
+              setTitle={setTitle}
+              titleColor={titleColor}
+              setTitleColor={setTitleColor}
+              titleFont={titleFont}
+              setTitleFont={setTitleFont}
+              textColor={textColor}
+              setTextColor={setTextColor}
+              textFont={textFont}
+              setTextFont={setTextFont}
+              textContainerRef={textContainerRef}
+              handleTextChange={handleTextChange}
+              backgroundImage={backgroundImage}
+              handleBackgroundChange={handleBackgroundChange}
+              textAboveImages={textAboveImages}
+              setTextAboveImages={setTextAboveImages}
+              downloadImage={downloadImage}
+            />
+          )}
+          
+          {activeTab === 'images' && (
+            <ImagesSelector 
+              handleBackgroundUpload={handleBackgroundUpload}
+              handleLogoUpload={handleLogoUpload}
+              backgroundImages={backgroundImages}
+              logos={logos}
+              removeBackgroundImage={removeBackgroundImage}
+              removeLogo={removeLogo}
+              reorderItems={reorderItems}
+              setBackgroundImages={setBackgroundImages}
+              setLogos={setLogos}
+              selectedBackground={selectedBackground}
+              selectedLogo={selectedLogo}
+              setSelectedBackground={setSelectedBackground}
+              setSelectedLogo={setSelectedLogo}
+              onApplyAcrSport={applyAcrSportToSelectedBackground}
+              onApplyUpscale={applyUpscaleToSelectedBackground}
+              onRemoveAcrSport={removeFilterFromSelectedBackground}
+              busyFilter={busyFilter}
+            />
+          )}
+        </div>
         
         <ToolbarNews 
           moveElement={moveElement}

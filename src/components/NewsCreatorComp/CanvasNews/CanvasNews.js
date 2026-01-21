@@ -549,6 +549,63 @@ function CanvasNews({
     );
   };
 
+  // 🔧 MULTI-TOUCH PINCH ZOOM LOGIC
+  const lastDistRef = useRef(0);
+
+  const getDistance = (p1, p2) => {
+    return Math.sqrt(Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2));
+  };
+
+  const handleTouchMove = (e) => {
+    const touch1 = e.evt.touches[0];
+    const touch2 = e.evt.touches[1];
+
+    if (touch1 && touch2) {
+      // e.evt.preventDefault(); // Spesso gestito da touch-action CSS, ma utile qui se non blocca lo scroll
+      const dist = getDistance(
+        { x: touch1.clientX, y: touch1.clientY },
+        { x: touch2.clientX, y: touch2.clientY }
+      );
+
+      if (lastDistRef.current === 0) {
+        lastDistRef.current = dist;
+        return;
+      }
+
+      const scale = dist / lastDistRef.current;
+      
+      if (selectedLogo) {
+        setLogos(ls => ls.map(l => {
+          if (l.id !== selectedLogo) return l;
+          return {
+            ...l,
+            scale: {
+              scaleX: l.scale.scaleX * scale,
+              scaleY: l.scale.scaleY * scale
+            }
+          };
+        }));
+      } else if (selectedBackground) {
+        setBackgroundImages(bs => bs.map(b => {
+          if (b.id !== selectedBackground) return b;
+          return {
+            ...b,
+            scale: {
+              scaleX: b.scale.scaleX * scale,
+              scaleY: b.scale.scaleY * scale
+            }
+          };
+        }));
+      }
+
+      lastDistRef.current = dist;
+    }
+  };
+
+  const handleTouchEnd = () => {
+    lastDistRef.current = 0;
+  };
+
   return (
     <div className="canvas-container" ref={containerRef}>
       <div 
@@ -564,7 +621,7 @@ function CanvasNews({
           position: 'relative',
           margin: '0 auto',
           // 🔧 OTTIMIZZAZIONI MOBILE SPECIFICHE
-          touchAction: 'pan-x pan-y',
+          touchAction: 'none', // IMPORTANTE: Disabilita pan/zoom browser
           WebkitTapHighlightColor: 'transparent',
           transform: 'translateZ(0)',
           backfaceVisibility: 'hidden',
@@ -584,6 +641,8 @@ function CanvasNews({
           width={ORIGINAL_WIDTH}
           height={ORIGINAL_HEIGHT}
           className="canvas-stage"
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
           style={{
             maxWidth: '100%',
             height: 'auto',

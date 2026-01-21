@@ -16,6 +16,7 @@ function ImagesSelector({
   selectedBackground,
   selectedLogo,
   onApplyAcrSport,
+  onApplyUpscale,
   onRemoveAcrSport,
   busyFilter
 }) {
@@ -69,14 +70,15 @@ function ImagesSelector({
       <div className="image-upload-section">
         <h3>Immagini di sfondo (max 5):</h3>
         <div style={{ display:'flex', gap:8, alignItems:'center', margin:'6px 0 10px' }}>
-         <button 
+          <button 
             className="file-input"
             disabled={!selectedBackground || busyFilter}
             onClick={onApplyAcrSport}
             title="Applica il filtro Camera Raw Sport allo sfondo selezionato"
           >
-            {busyFilter ? 'Elaborazione...' : 'Applica filtro RAW'}
+            {busyFilter ? '...' : 'Filtro RAW'}
           </button>
+
           <button 
             className="logo-selector"
             disabled={!selectedBackground || busyFilter}
@@ -84,6 +86,16 @@ function ImagesSelector({
             title="Rimuovi il filtro dallo sfondo selezionato"
           >
             Rimuovi filtro
+          </button>
+
+          <button 
+            className="file-input"
+            disabled={!selectedBackground || busyFilter}
+            onClick={onApplyUpscale}
+            title="Raddoppia risoluzione e nitidezza"
+            style={{ borderColor: '#00ccff', color: '#00ccff' }}
+          >
+            {busyFilter ? '...' : 'Migliora HD'}
           </button>
         </div>
         <div className="upload-control-row">

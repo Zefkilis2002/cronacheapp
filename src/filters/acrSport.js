@@ -27,6 +27,81 @@ async function loadAcrXmp() {
   return xmpSettings;
 }
 
+// --------------------- UPSCALE / ENHANCE LOGIC ---------------------
+// Simulated "Smart Enhance" using sharpening convolution + canvas upscaling
+export async function applyUpscaleFilter(imageElement) {
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  
+  // 1. Determine new size (max 2x, limit to reasonable 4k dimensions to prevent crash)
+  const MAX_DIM = 3840;
+  let w = imageElement.naturalWidth;
+  let h = imageElement.naturalHeight;
+  
+  // Only upscale if not already huge
+  if (w < MAX_DIM && h < MAX_DIM) {
+    w *= 2;
+    h *= 2;
+  }
+  
+  canvas.width = w;
+  canvas.height = h;
+
+  // 2. High-quality scaling (bicubic smoother in modern browsers)
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(imageElement, 0, 0, w, h);
+
+  // 3. Apply Unsharp Mask via Convolution
+  // Simple sharpen kernel
+  // [  0, -1,  0 ]
+  // [ -1,  5, -1 ]
+  // [  0, -1,  0 ]
+  
+  // Get pixel data
+  const imageData = ctx.getImageData(0, 0, w, h);
+  const data = imageData.data;
+  const buff = new Uint8ClampedArray(data); // copy for reading
+
+  const sharpenAmount = 0.5; // Adjustable strength (0.0 - 1.0)
+  
+  // Kernel weights for center and neighbors
+  const wCenter = 1 + 4 * sharpenAmount;
+  const wNeighbor = -sharpenAmount;
+
+  for (let y = 1; y < h - 1; y++) {
+    for (let x = 1; x < w - 1; x++) {
+      const idx = (y * w + x) * 4;
+      
+      // Offsets
+      const up    = ((y - 1) * w + x) * 4;
+      const down  = ((y + 1) * w + x) * 4;
+      const left  = (y * w + (x - 1)) * 4;
+      const right = (y * w + (x + 1)) * 4;
+
+      // Apply convolution to RGB
+      for (let c = 0; c < 3; c++) {
+        const val = 
+          buff[idx + c] * wCenter +
+          (buff[up + c] + buff[down + c] + buff[left + c] + buff[right + c]) * wNeighbor;
+        
+        data[idx + c] = Math.min(255, Math.max(0, val));
+      }
+      // Alpha remains same
+    }
+  }
+
+  ctx.putImageData(imageData, 0, 0);
+
+  // 4. Return URL
+  return new Promise(resolve => {
+    canvas.toBlob(blob => {
+      const url = URL.createObjectURL(blob);
+      resolve({ url, blob, _revoke: () => URL.revokeObjectURL(url) });
+    }, 'image/jpeg', 0.95);
+  });
+}
+
 // --------------------- MATH UTILS ---------------------
 const M_RGB2XYZ = new Float32Array([
   0.4124564, 0.3575761, 0.1804375,
@@ -802,6 +877,21 @@ function CameraRawSportFilter() {
       </div>
     </div>
   );
+}
+
+
+// Wrapper compatibile con NewsEditor per Upscale
+export async function applyUpscaleFilterToSrc(srcUrl) {
+  const img = new Image();
+  img.crossOrigin = 'anonymous';
+  await new Promise((resolve, reject) => {
+    img.onload = resolve;
+    img.onerror = reject;
+    img.src = srcUrl;
+  });
+
+  const { url, _revoke } = await applyUpscaleFilter(img);
+  return { url, _revoke };
 }
 
 

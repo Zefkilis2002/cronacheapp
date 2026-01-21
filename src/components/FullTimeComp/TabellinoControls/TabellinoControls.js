@@ -1,7 +1,7 @@
 // TabellinoControls.js - Versione migliorata per immagini complete
 
 import React, { useState, useRef } from 'react';
-import { applyAcrSportFilterToSrc } from '../../../filters/acrSport'; 
+import { applyAcrSportFilterToSrc, applyUpscaleFilterToSrc } from '../../../filters/acrSport'; 
 import axios from 'axios';
 import './TabellinoControls.css';
 
@@ -190,8 +190,8 @@ function TabellinoControls({
       }
       
       // Memorizza l’originale e la sorgente
-      originalUserImageRef.current = imageUrl;
-      currentSourceRef.current = 'user';
+      originalInstagramImageRef.current = imageUrl; // Usa il ref corretto per Instagram
+      currentSourceRef.current = 'instagram'; // Imposta la sorgente corretta
       setFilterApplied(false);
       if (filteredUrlRef.current) { try { URL.revokeObjectURL(filteredUrlRef.current); } catch(_) {} filteredUrlRef.current = null; } 
       console.log(`Immagine selezionata: ${imageInfo.width}x${imageInfo.height}`);
@@ -204,8 +204,10 @@ function TabellinoControls({
         url: imageUrl
       });
       
+      // Pulisci l'immagine utente precedente per evitare sovrapposizioni
+      setUserImage(null);
       setInstagramImage(imageUrl);
-      setShowCarouselSelector(false);
+      setShowCarouselSelector(false); // Chiudi il selettore (opzionale, ma pulisce la UI)
       
     } catch (error) {
       console.error("Errore nel caricamento dell'immagine:", error);
@@ -252,21 +254,13 @@ function TabellinoControls({
       if (carousel && carousel.length > 1) {
         setCarouselImages(carousel);
         setShowCarouselSelector(true);
-  
-        const firstImageInfo = await getImageInfo(carousel[0]);
-  
-        setImageQualityInfo({
-          width: firstImageInfo.width,
-          height: firstImageInfo.height,
-          source: 'instagram',
-          aspectRatio: firstImageInfo.aspectRatio,
-          quality: quality,
-          isCarousel: true,
-          totalImages: imageCount
-        });
-  
-        setInstagramImage(carousel[0]);
-        alert(`Carosello con ${imageCount} immagini caricato in qualità ${quality}. Dimensioni: ${firstImageInfo.width}x${firstImageInfo.height}`);
+        
+        // Non caricare automaticamente la prima immagine.
+        // Pulisci l'immagine corrente per forzare la selezione
+        setInstagramImage(null);
+        setUserImage(null);
+        
+        alert(`Carosello trovato con ${imageCount} immagini. Seleziona l'immagine che vuoi usare.`);
       } else if (imageUrl) {
         const imageInfo = await getImageInfo(imageUrl);
         originalInstagramImageRef.current = imageUrl;
@@ -378,6 +372,39 @@ function TabellinoControls({
     }
   };
 
+  // Applica filtro HD Upscale
+  const applyUpscale = async () => {
+    const srcType = currentSourceRef.current;
+    let srcUrl = null;
+    if (srcType === 'instagram' && originalInstagramImageRef.current) {
+      srcUrl = `http://localhost:5000/proxy-image?url=${encodeURIComponent(originalInstagramImageRef.current)}`;
+    } else if (srcType === 'user' && originalUserImageRef.current) {
+      srcUrl = originalUserImageRef.current;
+    } else {
+      alert('Nessuna immagine da migliorare.');
+      return;
+    }
+    setIsFiltering(true);
+    try {
+      const { url } = await applyUpscaleFilterToSrc(srcUrl);
+      if (filteredUrlRef.current) { try { URL.revokeObjectURL(filteredUrlRef.current); } catch(_) {} }
+      filteredUrlRef.current = url;
+      
+      if (srcType === 'instagram') {
+        setInstagramImage(null);
+        setUserImage(url);
+      } else {
+        setUserImage(url);
+      }
+      setFilterApplied(true);
+    } catch (err) {
+      console.error('Errore Upscale:', err);
+      alert('Errore durante il miglioramento HD.');
+    } finally {
+      setIsFiltering(false);
+    }
+  };
+
   // Rimuovi filtro e ripristina la sorgente originale
   const removeRawFilter = () => {
     try {
@@ -467,6 +494,7 @@ function TabellinoControls({
         >
           {isFiltering ? 'Elaborazione...' : 'Applica filtro RAW'}
         </button>
+
         <button
           className="customFileUpload"
           onClick={removeRawFilter}
@@ -474,6 +502,16 @@ function TabellinoControls({
           title="Rimuovi il filtro e ripristina l'immagine originale"
         >
           Rimuovi filtro
+        </button>
+
+        <button
+          className="instagramButton"
+          onClick={applyUpscale}
+          disabled={isLoading || isFiltering || (!originalUserImageRef.current && !originalInstagramImageRef.current)}
+          title="Raddoppia la risoluzione e applica nitidezza"
+          style={{ borderColor: '#00ccff', color: '#00ccff' }}
+        >
+          {isFiltering ? '...' : 'Migliora HD'}
         </button>
       </div>
 

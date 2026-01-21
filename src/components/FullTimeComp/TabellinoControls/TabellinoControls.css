@@ -177,13 +177,32 @@
 
   .carousel-images {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap; /* Imposta lo scroll orizzontale */
+    overflow-x: auto;
     gap: 10px;
     margin-top: 10px;
-    justify-content: center;
+    padding-bottom: 10px; /* Spazio per la scrollbar */
+    justify-content: flex-start; /* Allinea a sinistra per lo scroll */
+    -webkit-overflow-scrolling: touch; /* Scroll fluido su iOS */
+  }
+
+  /* Scrollbar personalizzata per il carosello */
+  .carousel-images::-webkit-scrollbar {
+    height: 8px;
+  }
+  
+  .carousel-images::-webkit-scrollbar-track {
+    background: #1e1e2d; 
+    border-radius: 4px;
+  }
+  
+  .carousel-images::-webkit-scrollbar-thumb {
+    background: #b4ff00; 
+    border-radius: 4px;
   }
 
   .carousel-image-item {
+    flex: 0 0 auto; /* Impedisce il restringimento */
     cursor: pointer;
     border: 2px solid #ccc;
     padding: 2px;

@@ -194,4 +194,13 @@ h1 {
     font-size: 0.8rem;
     line-height: 1.6;
   }
+
+  .bio-creator-container {
+    grid-template-columns: 1rem 1fr 1rem;
+  }
+
+  h1 {
+    text-align: center;
+    font-size: 1.8rem;
+  }
 }

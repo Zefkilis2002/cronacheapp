@@ -4,7 +4,7 @@
     gap: 1.5rem;
     /* Larghezza massima per centrarlo e non allargare troppo su schermi grandi */
     width: 100%; /* O un valore diverso, se preferisci */
-    max-width: none;
+    max-width: 900px;
     /* Centra orizzontalmente se vuoi che stia al centro */
     margin: 2rem auto; 
     /* Spazio interno */
@@ -13,9 +13,10 @@
     background-color: #1e1e2d; 
     /* Angoli arrotondati */
     border-radius: 25px;
-    /* Ombra simile all’immagine */
+    /* Ombra simile all'immagine */
     box-shadow: 0 0 10px rgba(0, 0, 0, 0.7);
     margin-top: 0.5rem;
+    box-sizing: border-box;
   }
   
   /* Stili per i label */
@@ -39,6 +40,7 @@
     color: #b4ff00;
     margin-bottom: 0.1rem;
     height: 50px; /* Altezza fissa */
+    box-sizing: border-box;
 }
 
   .sfondo-selector{
@@ -49,6 +51,7 @@
     background-color: #2a2a3c;
     color: #b4ff00;
     margin-bottom: 0.1rem;
+    box-sizing: border-box;
   }
   
   .news-controls input[type="color"],
@@ -57,6 +60,7 @@
     border-radius: 25px;
     background-color: #2a2a3c;
     color: #b4ff00;
+    box-sizing: border-box;
     margin-bottom: 0.1rem;
   }
 
@@ -71,6 +75,7 @@
     min-height: 200px; /* Aumentato da 100px */
     font-size: 1.1rem; /* Aggiunta dimensione carattere */
     width: 100%; /* Occupa tutta la larghezza */
+    box-sizing: border-box;
 }
   
   /* Bottone in stile neon */
@@ -97,7 +102,7 @@
     display: flex;
     flex-direction: row;
     gap: 1.5rem;  /* Spazio orizzontale tra i gruppi (Titolo, Colore, Font) */
-    align-items: flex-start; /* Allinea in alto (o center, se preferisci) */
+    flex-wrap: wrap;
   }
   
   /* Se vuoi che ogni "gruppo" di label+input stia in una colonnina, 
@@ -105,17 +110,19 @@
   .row > div {
     display: flex;
     flex-direction: column;
+    flex: 1 1 auto;
+    min-width: 250px;
   }
 
   .news-controls input[type="text"] {
-    min-width: 400px; /* Larghezza fissa per desktop */
+    width: 100%;
     height: 50px;
     box-sizing: border-box;
 }
 
 .news-controls [contenteditable="true"] {
-    width: 400px; /* Larghezza fissa per desktop */
-    height: 150px;
+    width: 100%;
+    min-height: 150px;
     box-sizing: border-box;
 }
 

@@ -1,0 +1,59 @@
+/* News Editor Tabs */
+.news-tab-header {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  margin: 1rem 0;
+  flex-wrap: wrap;
+}
+
+.news-tab-button {
+  background-color: #1e1e2d;
+  color: #ffffff;
+  border: 2px solid #b4ff00;
+  padding: 0.8rem 1.5rem;
+  font-size: 1rem;
+  font-weight: bold;
+  border-radius: 25px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  min-width: 120px;
+}
+
+.news-tab-button:hover {
+  background-color: rgba(180, 255, 0, 0.1);
+}
+
+.news-tab-button.active {
+  background-color: #b4ff00;
+  color: #00061b;
+  box-shadow: 0 0 10px rgba(180, 255, 0, 0.6);
+}
+
+/* Ensure controls container fits the single tab content */
+.controls-container {
+  display: block; /* Override flex if needed, or keep flex but with single child */
+  width: 100%;
+  max-width: 800px; /* Limit width for readability */
+  margin: 0 auto;
+}
+
+.editor-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+
+/* Mobile Adjustments */
+@media (max-width: 768px) {
+  .news-tab-header {
+    gap: 0.5rem;
+  }
+  
+  .news-tab-button {
+    padding: 0.6rem 1rem;
+    font-size: 0.9rem;
+    min-width: 100px;
+  }
+}
