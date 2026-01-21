@@ -68,6 +68,7 @@ const FullTimeEditor = () => {
         userImage={userImage}
         instagramImage={instagramImage}
         imagePosition={imagePosition}
+        setImagePosition={setImagePosition}
         imageScale={imageScale}
         setImageScale={setImageScale} // Passato per pinch zoom
         handleDragEnd={handleDragEnd}

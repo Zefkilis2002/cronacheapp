@@ -10,6 +10,7 @@ const Canva = ({
   userImage,
   instagramImage,
   imagePosition,
+  setImagePosition,
   imageScale,
   setImageScale,
   handleDragEnd,
@@ -34,9 +35,11 @@ const Canva = ({
   const [logo1] = useImage(uploadedLogo1 || `${window.location.origin}${selectedLogo1}`);
   const [logo2] = useImage(uploadedLogo2 || `${window.location.origin}${selectedLogo2}`);
 
-  // 🔧 PINCH ZOOM LOGIC
+  // 🔧 PINCH ZOOM LOGIC (IMAGE ONLY)
   const lastDistRef = React.useRef(0);
   const lastCenterRef = React.useRef(null);
+  const animationFrameRef = React.useRef(null);
+  const isPinchingRef = React.useRef(false);
 
   const getDistance = (p1, p2) => {
     return Math.sqrt(Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2));
@@ -49,56 +52,124 @@ const Canva = ({
     };
   };
 
+  const handleTouchStart = (e) => {
+    const touch1 = e.evt.touches[0];
+    const touch2 = e.evt.touches[1];
+    
+    if (touch1 && touch2) {
+      isPinchingRef.current = true;
+      const p1 = { x: touch1.clientX, y: touch1.clientY };
+      const p2 = { x: touch2.clientX, y: touch2.clientY };
+      
+      lastDistRef.current = getDistance(p1, p2);
+      lastCenterRef.current = getCenter(p1, p2);
+    }
+  };
+
   const handleTouchMove = (e) => {
     const touch1 = e.evt.touches[0];
     const touch2 = e.evt.touches[1];
     const stage = stageRef.current;
 
-    if (touch1 && touch2 && stage) {
-      // Evita lo zoom nativo del browser se necessario, ma spesso gestito da touch-action css
-      e.evt.preventDefault();
+    if (touch1 && touch2 && stage && (userImage || instagramImage)) {
+      e.evt.preventDefault(); // Blocca lo zoom/pan della pagina
 
-      const p1 = { x: touch1.clientX, y: touch1.clientY };
-      const p2 = { x: touch2.clientX, y: touch2.clientY };
-
-      const dist = getDistance(p1, p2);
-      const center = getCenter(p1, p2);
-
-      if (!lastDistRef.current) {
-        lastDistRef.current = dist;
-        lastCenterRef.current = center;
+      if (!isPinchingRef.current) {
+        // Se inizia il pinch durante il move senza aver intercettato il start (raro ma possibile)
+        isPinchingRef.current = true;
+        const p1 = { x: touch1.clientX, y: touch1.clientY };
+        const p2 = { x: touch2.clientX, y: touch2.clientY };
+        lastDistRef.current = getDistance(p1, p2);
+        lastCenterRef.current = getCenter(p1, p2);
         return;
       }
 
-      const scaleBy = dist / lastDistRef.current;
-      const oldScale = stage.scaleX();
-      const newScale = oldScale * scaleBy;
-
-      // Limiti min/max per lo zoom
-      const MIN_SCALE = 0.1;
-      const MAX_SCALE = 5;
-
-      if (newScale >= MIN_SCALE && newScale <= MAX_SCALE) {
-        // Calcolo nuova posizione per centrare lo zoom sul punto medio delle dita
-        // Formula che gestisce sia zoom che pan simultaneo
-        const newPos = {
-          x: center.x - (lastCenterRef.current.x - stage.x()) * scaleBy,
-          y: center.y - (lastCenterRef.current.y - stage.y()) * scaleBy,
-        };
-
-        stage.scale({ x: newScale, y: newScale });
-        stage.position(newPos);
-        stage.batchDraw();
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
       }
 
-      lastDistRef.current = dist;
-      lastCenterRef.current = center;
+      animationFrameRef.current = requestAnimationFrame(() => {
+        const p1 = { x: touch1.clientX, y: touch1.clientY };
+        const p2 = { x: touch2.clientX, y: touch2.clientY };
+
+        const currentDist = getDistance(p1, p2);
+        const currentCenter = getCenter(p1, p2);
+
+        if (!lastDistRef.current || lastDistRef.current === 0) {
+          lastDistRef.current = currentDist;
+          lastCenterRef.current = currentCenter;
+          return;
+        }
+
+        const scaleBy = currentDist / lastDistRef.current;
+
+        // Recupera stato corrente dai props (o refs se vogliamo evitare chiusure vecchie, ma qui è gestito da react render loop)
+        // Nota: imageScale e imagePosition vengono aggiornati ad ogni render.
+        
+        const oldScaleX = imageScale.scaleX;
+        const oldScaleY = imageScale.scaleY;
+        
+        const newScaleX = oldScaleX * scaleBy;
+        const newScaleY = oldScaleY * scaleBy;
+
+        // Limiti min/max
+        const MIN_SCALE = 0.1;
+        const MAX_SCALE = 5;
+
+        if (newScaleX >= MIN_SCALE && newScaleX <= MAX_SCALE) {
+          // Calcolo del punto sullo stage (in coordinate locali del canvas non scalato, ma stage stesso è scalato dal responsive logic)
+          // La logica responsive scala tutto lo stage. Noi dobbiamo ragionare in coordinate relative allo stage.
+          // stage.getPointerPosition() potrebbe essere utile, ma qui abbiamo clientX/Y.
+          // Trasformiamo clientX/Y in coordinate dello Stage "virtuale" (1440x1800)
+          
+          const stageTransform = stage.getAbsoluteTransform().copy().invert();
+          const centerInStage = stageTransform.point(currentCenter);
+          const lastCenterInStage = stageTransform.point(lastCenterRef.current);
+
+          // Calcolo zoom centrato sull'immagine
+          // L'immagine è a (imagePosition.x, imagePosition.y)
+          // Il punto sotto il dito (centerInStage) deve rimanere sotto il dito.
+          // Formula: newPos = mousePoint - (mousePoint - oldPos) * scaleFactor
+          // Ma qui abbiamo anche un movimento (pan) delle dita (currentCenter vs lastCenter).
+          
+          // Delta spostamento dita (pan)
+          const dx = centerInStage.x - lastCenterInStage.x;
+          const dy = centerInStage.y - lastCenterInStage.y;
+
+          // Punto relativo all'immagine prima dello zoom
+          const imgX = imagePosition.x || centeredX; // Fallback se undefined
+          const imgY = imagePosition.y || centeredY;
+
+          const mousePointToImg = {
+            x: centerInStage.x - imgX,
+            y: centerInStage.y - imgY,
+          };
+
+          // Nuova posizione calcolata:
+          // 1. Applica Pan
+          // 2. Applica Zoom compensando lo spostamento del punto di interesse
+          const newPos = {
+             x: imgX + dx - (mousePointToImg.x * (scaleBy - 1)),
+             y: imgY + dy - (mousePointToImg.y * (scaleBy - 1))
+          };
+
+          setImageScale({ scaleX: newScaleX, scaleY: newScaleY });
+          setImagePosition(newPos);
+          
+          lastDistRef.current = currentDist;
+          lastCenterRef.current = currentCenter;
+        }
+      });
     }
   };
 
   const handleTouchEnd = () => {
+    isPinchingRef.current = false;
     lastDistRef.current = 0;
     lastCenterRef.current = null;
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+    }
   };
 
   const proxyUrl = instagramImage && instagramImage !== 'null'
@@ -193,6 +264,7 @@ const Canva = ({
         ref={stageRef} 
         width={1440} 
         height={1800}
+        onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
       >
