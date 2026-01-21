@@ -57,6 +57,12 @@ const Canva = ({
     const touch2 = e.evt.touches[1];
     
     if (touch1 && touch2) {
+      e.evt.preventDefault();
+      // Ferma il drag nativo di Konva se attivo, per dare priorità al pinch
+      if (e.target.isDragging()) {
+        e.target.stopDrag();
+      }
+      
       isPinchingRef.current = true;
       const p1 = { x: touch1.clientX, y: touch1.clientY };
       const p2 = { x: touch2.clientX, y: touch2.clientY };
@@ -71,8 +77,12 @@ const Canva = ({
     const touch2 = e.evt.touches[1];
     const stage = stageRef.current;
 
-    if (touch1 && touch2 && stage && (userImage || instagramImage)) {
-      e.evt.preventDefault(); // Blocca lo zoom/pan della pagina
+    if (touch1 && touch2 && stage) {
+      e.evt.preventDefault();
+      
+      if (e.target.isDragging()) {
+        e.target.stopDrag();
+      }
 
       if (!isPinchingRef.current) {
         // Se inizia il pinch durante il move senza aver intercettato il start (raro ma possibile)
@@ -264,9 +274,6 @@ const Canva = ({
         ref={stageRef} 
         width={1440} 
         height={1800}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
       >
         <Layer clipX={0} clipY={0} clipWidth={1440} clipHeight={1800}>
           {uploadedImg && (
@@ -281,6 +288,9 @@ const Canva = ({
               draggable
               onDragEnd={handleDragEnd}
               onTransformEnd={handleTransform}
+              onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
             />
           )}
           {proxyUrl && status === 'loaded' && instaImg && (
@@ -295,6 +305,9 @@ const Canva = ({
               draggable
               onDragEnd={handleDragEnd}
               onTransformEnd={handleTransform}
+              onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
             />
           )}
           {background && (
