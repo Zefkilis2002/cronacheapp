@@ -36,42 +36,69 @@ const Canva = ({
 
   // 🔧 PINCH ZOOM LOGIC
   const lastDistRef = React.useRef(0);
+  const lastCenterRef = React.useRef(null);
 
   const getDistance = (p1, p2) => {
     return Math.sqrt(Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2));
   };
 
+  const getCenter = (p1, p2) => {
+    return {
+      x: (p1.x + p2.x) / 2,
+      y: (p1.y + p2.y) / 2,
+    };
+  };
+
   const handleTouchMove = (e) => {
     const touch1 = e.evt.touches[0];
     const touch2 = e.evt.touches[1];
+    const stage = stageRef.current;
 
-    if (touch1 && touch2) {
-      const dist = getDistance(
-        { x: touch1.clientX, y: touch1.clientY },
-        { x: touch2.clientX, y: touch2.clientY }
-      );
+    if (touch1 && touch2 && stage) {
+      // Evita lo zoom nativo del browser se necessario, ma spesso gestito da touch-action css
+      e.evt.preventDefault();
 
-      if (lastDistRef.current === 0) {
+      const p1 = { x: touch1.clientX, y: touch1.clientY };
+      const p2 = { x: touch2.clientX, y: touch2.clientY };
+
+      const dist = getDistance(p1, p2);
+      const center = getCenter(p1, p2);
+
+      if (!lastDistRef.current) {
         lastDistRef.current = dist;
+        lastCenterRef.current = center;
         return;
       }
 
-      const scaleFactor = dist / lastDistRef.current;
-      
-      // Applica lo zoom all'immagine principale se esiste
-      if (setImageScale && (userImage || instagramImage)) {
-        setImageScale(prev => ({
-          scaleX: prev.scaleX * scaleFactor,
-          scaleY: prev.scaleY * scaleFactor
-        }));
+      const scaleBy = dist / lastDistRef.current;
+      const oldScale = stage.scaleX();
+      const newScale = oldScale * scaleBy;
+
+      // Limiti min/max per lo zoom
+      const MIN_SCALE = 0.1;
+      const MAX_SCALE = 5;
+
+      if (newScale >= MIN_SCALE && newScale <= MAX_SCALE) {
+        // Calcolo nuova posizione per centrare lo zoom sul punto medio delle dita
+        // Formula che gestisce sia zoom che pan simultaneo
+        const newPos = {
+          x: center.x - (lastCenterRef.current.x - stage.x()) * scaleBy,
+          y: center.y - (lastCenterRef.current.y - stage.y()) * scaleBy,
+        };
+
+        stage.scale({ x: newScale, y: newScale });
+        stage.position(newPos);
+        stage.batchDraw();
       }
 
       lastDistRef.current = dist;
+      lastCenterRef.current = center;
     }
   };
 
   const handleTouchEnd = () => {
     lastDistRef.current = 0;
+    lastCenterRef.current = null;
   };
 
   const proxyUrl = instagramImage && instagramImage !== 'null'
