@@ -144,219 +144,58 @@ function CanvasNews({
     return m.width || 0;
   };
 
-  // 🔧 CALCOLO DIMENSIONI ULTRA-STABILIZZATO
   const calculateDimensions = useCallback(() => {
-    const state = stableStateRef.current;
+    if (!containerRef.current) return;
+
+    const containerWidth = containerRef.current.clientWidth;
+    const maxHeight = window.innerHeight * 0.8;
+    let scale = Math.min(containerWidth / ORIGINAL_WIDTH, maxHeight / ORIGINAL_HEIGHT);
+    scale = Math.max(0.2, Math.min(scale, 1));
+    const scaledWidth = ORIGINAL_WIDTH * scale;
+    const scaledHeight = ORIGINAL_HEIGHT * scale;
     
-    // Previeni calcoli concorrenti
-    if (state.isCalculating) {
-      return;
-    }
-    
-    if (!containerRef.current) {
-      return;
-    }
-
-    state.isCalculating = true;
-
-    try {
-      // 🔧 STABILIZZAZIONE VIEWPORT: Usa valori stabili
-      const rect = containerRef.current.getBoundingClientRect();
-      let containerWidth = rect.width || containerRef.current.clientWidth || containerRef.current.offsetWidth;
-      
-      // Fallback sicuro se il container non ha ancora dimensioni
-      if (containerWidth <= 0) {
-        containerWidth = window.innerWidth * 0.9; // 90% della viewport come fallback
-      }
-      
-      // 🔧 ALTEZZA STABILE: Evita cambi improvvisi
-      let viewportHeight = window.innerHeight;
-      
-      // Su mobile, usa visualViewport se disponibile per gestire la tastiera virtuale
-      if (window.visualViewport) {
-        viewportHeight = Math.max(window.visualViewport.height, window.innerHeight * 0.6);
-      }
-      
-      const maxHeight = viewportHeight * 0.8;
-
-      // 🔧 CONTROLLO STABILITÀ: Evita calcoli se i valori sono troppo simili
-      const widthChange = Math.abs(containerWidth - state.lastContainerWidth);
-      const heightChange = Math.abs(viewportHeight - state.lastViewportHeight);
-      
-      if (!state.forceUpdate && widthChange < 5 && heightChange < 10 && state.isInitialized) {
-        state.isCalculating = false;
-        return;
-      }
-
-      // 🔧 CALCOLO SCALA STABILE
-      let scale = Math.min(containerWidth / ORIGINAL_WIDTH, maxHeight / ORIGINAL_HEIGHT);
-      
-      // Limiti più stretti per evitare scale estreme
-      scale = Math.max(0.15, Math.min(scale, 1.2));
-      
-      // Arrotonda la scala per evitare micro-variazioni
-      scale = Math.round(scale * 1000) / 1000;
-
-      const scaledWidth = Math.round(ORIGINAL_WIDTH * scale);
-      const scaledHeight = Math.round(ORIGINAL_HEIGHT * scale);
-
-      // 🔧 CONTROLLO VALIDITÀ
-      if (scaledWidth <= 0 || scaledHeight <= 0 || scale <= 0) {
-        state.isCalculating = false;
-        return;
-      }
-
-      // 🔧 AGGIORNAMENTO SOLO SE SIGNIFICATIVO
-      const lastDims = state.lastValidDimensions;
-      const scaleChange = Math.abs(lastDims.scale - scale);
-      const wChange = Math.abs(lastDims.width - scaledWidth);
-      const hChange = Math.abs(lastDims.height - scaledHeight);
-
-      if (state.forceUpdate || scaleChange > 0.005 || wChange > 3 || hChange > 3) {
-        const newDimensions = {
-          width: scaledWidth,
-          height: scaledHeight,
-          scale: scale
-        };
-
-        // Salva i valori stabili
-        state.lastValidDimensions = newDimensions;
-        state.lastContainerWidth = containerWidth;
-        state.lastViewportHeight = viewportHeight;
-        state.forceUpdate = false;
-
-        setDimensions(newDimensions);
-      }
-
-    } catch (error) {
-      console.error('Errore calcolo dimensioni:', error);
-    } finally {
-      state.isCalculating = false;
-    }
+    setDimensions({
+      width: scaledWidth,
+      height: scaledHeight,
+      scale: scale
+    });
   }, []);
 
-  // 🔧 GESTIONE EVENTI ULTRA-STABILIZZATA
+  // useEffect per il calcolo iniziale e il resize - versione sicura per mobile
   useEffect(() => {
-    const state = stableStateRef.current;
-
-    // 🔧 INIZIALIZZAZIONE PROGRESSIVA
-    if (!state.isInitialized) {
-      state.isInitialized = true;
-      state.forceUpdate = true;
-      
-      // Calcoli scaglionati per garantire stabilità
-      setTimeout(() => calculateDimensions(), 50);
-      setTimeout(() => {
-        state.forceUpdate = true;
-        calculateDimensions();
-      }, 200);
-      setTimeout(() => {
-        state.forceUpdate = true;
-        calculateDimensions();
-      }, 500);
-    }
-
-    // 🔧 RESIZE HANDLER ULTRA-DEBOUNCED
+    const timer = setTimeout(() => {
+      calculateDimensions();
+    }, 100);
+    
+    let resizeTimeout;
     const handleResize = () => {
-      if (state.resizeTimer) {
-        clearTimeout(state.resizeTimer);
-      }
-
-      // Calcolo immediato solo per feedback rapido
-      state.resizeTimer = setTimeout(() => {
-        state.forceUpdate = true;
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(() => {
         calculateDimensions();
       }, 150);
     };
-
-    // 🔧 ORIENTATIONCHANGE HANDLER SPECIALIZZATO
-    const handleOrientationChange = () => {
-      if (state.orientationTimer) {
-        clearTimeout(state.orientationTimer);
-      }
-
-      // Su mobile, l'orientationchange richiede tempo per stabilizzarsi
-      state.orientationTimer = setTimeout(() => {
-        state.forceUpdate = true;
-        calculateDimensions();
-        
-        // Calcolo di conferma dopo che il viewport si è stabilizzato
-        setTimeout(() => {
-          state.forceUpdate = true;
-          calculateDimensions();
-        }, 400);
-      }, 300);
-    };
-
-    // 🔧 GESTIONE VISUALVIEWPORT (mobile keyboard)
-    const handleVisualViewportChange = () => {
-      if (state.resizeTimer) {
-        clearTimeout(state.resizeTimer);
-      }
-      
-      state.resizeTimer = setTimeout(() => {
-        state.forceUpdate = true;
-        calculateDimensions();
-      }, 200);
-    };
-
-    // Event listeners
-    window.addEventListener('resize', handleResize, { passive: true });
-    window.addEventListener('orientationchange', handleOrientationChange, { passive: true });
-    
-    // Gestione speciale per mobile viewport
-    if (window.visualViewport) {
-      window.visualViewport.addEventListener('resize', handleVisualViewportChange, { passive: true });
-    }
-
+    window.addEventListener('resize', handleResize);
+    window.addEventListener('orientationchange', handleResize);
     return () => {
-      if (state.resizeTimer) clearTimeout(state.resizeTimer);
-      if (state.orientationTimer) clearTimeout(state.orientationTimer);
-      
+      clearTimeout(timer);
+      clearTimeout(resizeTimeout);
       window.removeEventListener('resize', handleResize);
-      window.removeEventListener('orientationchange', handleOrientationChange);
-      
-      if (window.visualViewport) {
-        window.visualViewport.removeEventListener('resize', handleVisualViewportChange);
-      }
+      window.removeEventListener('orientationchange', handleResize);
     };
-  }, [calculateDimensions]);
+  }, [containerRef, calculateDimensions]);
 
-  // 🔧 APPLICAZIONE STAGE - DIMENSIONI FISSE GARANTITE
   useEffect(() => {
-    if (!stageRef.current || dimensions.scale <= 0) {
-      return;
+    if (stageRef.current && dimensions.scale > 0) {
+      requestAnimationFrame(() => {
+        if (stageRef.current) {
+          stageRef.current.width(ORIGINAL_WIDTH);
+          stageRef.current.height(ORIGINAL_HEIGHT);
+          stageRef.current.scale({ x: dimensions.scale, y: dimensions.scale });
+          stageRef.current.batchDraw();
+        }
+      });
     }
-
-    const applyStageSettings = () => {
-      if (!stageRef.current) return;
-
-      try {
-        // 🔧 DIMENSIONI ASSOLUTAMENTE FISSE
-        stageRef.current.width(ORIGINAL_WIDTH);
-        stageRef.current.height(ORIGINAL_HEIGHT);
-        
-        // 🔧 POSIZIONE E SCALA STABILI
-        stageRef.current.position({ x: 0, y: 0 });
-        stageRef.current.scale({ x: dimensions.scale, y: dimensions.scale });
-        
-        // 🔧 OFFSET E ROTAZIONE SEMPRE AZZERATI
-        stageRef.current.offset({ x: 0, y: 0 });
-        stageRef.current.rotation(0);
-        
-        stageRef.current.batchDraw();
-        
-      } catch (error) {
-        console.error('Errore applicazione stage:', error);
-      }
-    };
-
-    // Doppio requestAnimationFrame per maggiore stabilità
-    requestAnimationFrame(() => {
-      requestAnimationFrame(applyStageSettings);
-    });
-
-  }, [dimensions]);
+  }, [dimensions, stageRef]);
 
   // Gestione tastiera
   const handleKeyDown = (e) => {
