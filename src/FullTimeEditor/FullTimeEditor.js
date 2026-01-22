@@ -13,8 +13,8 @@ const FullTimeEditor = () => {
   const [instagramLink, setInstagramLink] = useState('');
   const [score1, setScore1] = useState(0);
   const [score2, setScore2] = useState(0);
-  const [scorersTeam1, setScorersTeam1] = useState(Array(5).fill(''));
-  const [scorersTeam2, setScorersTeam2] = useState(Array(5).fill(''));
+  const [scorersTeam1, setScorersTeam1] = useState(Array(7).fill(''));
+  const [scorersTeam2, setScorersTeam2] = useState(Array(7).fill(''));
   const [selectedLogo1, setSelectedLogo1] = useState('/loghi/panathinaikos.png');
   const [selectedLogo2, setSelectedLogo2] = useState('/loghi/olympiakos.png');
   const [uploadedLogo1, setUploadedLogo1] = useState(null);
@@ -23,8 +23,8 @@ const FullTimeEditor = () => {
   const [logo2Position, setLogo2Position] = useState({ x: 1052, y: 1274 });
   const [logo1Scale, setLogo1Scale] = useState({ scaleX: 0.90, scaleY: 0.90 });
   const [logo2Scale, setLogo2Scale] = useState({ scaleX: 0.90, scaleY: 0.90 });
-  const [score1Y, setScore1Y] = useState(1280);
-  const [score2Y, setScore2Y] = useState(1280);
+  const [score1Y, setScore1Y] = useState(1298);
+  const [score2Y, setScore2Y] = useState(1298);
   const [imagePosition, setImagePosition] = useState({ x: 100, y: 100 });
   const [imageScale, setImageScale] = useState({ scaleX: 1, scaleY: 1 });
   const [activeTab, setActiveTab] = useState('general');

@@ -337,22 +337,20 @@ const Canva = ({
           )}
           <Text
             text={String(score1)}
-            fontSize={210}
-            fontFamily="Kenyan Coffee Bold Italic"
+            fontSize={160}
+            fontFamily="BBTorsosPro-Ultra"
             fill="white"
-            stroke="black"
-            strokeWidth={1}
-            x={480}
+            x={485}
+            scaleX={0.8}
             y={score1Y}
           />
           <Text
             text={String(score2)}
-            fontSize={210}
-            fontFamily="Kenyan Coffee Bold Italic"
+            fontSize={160}
+            fontFamily="BBTorsosPro-Ultra"
             fill="white"
-            stroke="black"
-            strokeWidth={1}
-            x={835}
+            x={848}
+            scaleX={0.8}
             y={score2Y}
           />
           {scorersTeam1.map((scorer, index) => (
@@ -362,25 +360,23 @@ const Canva = ({
               fontSize={30}
               fontFamily="Benzin-Medium"
               fill="white"
+              letterSpacing={0.2}
               x={180}
               y={1510 + index * 40}
             />
           ))}
           {scorersTeam2.map((scorer, index) => {
-            const maxLength = 30;
-            const displayText = scorer.length > maxLength
-              ? scorer.substring(0, maxLength) + '...'
-              : scorer;
             return (
               <Text
                 key={index}
-                text={displayText}
+                text={scorer}
                 fontSize={30}
-                fontFamily="Benzin-Medium"
+                fontFamily="Benzin-SemiBold"
                 fill="white"
                 align="right"
-                width={400}
-                x={880}
+                letterSpacing={0.2}
+                width={600}
+                x={680}
                 y={1510 + index * 40}
                 wrap="none"
                 listening={false}

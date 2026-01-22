@@ -1,52 +1,71 @@
 @font-face {
-    font-family: 'Kenyan Coffee Bold Italic';
-    src: url('./fonts/kenyan\ coffee\ bd\ it.otf') format('opentype');
-    font-weight: bold;
-    font-style: italic;
-  }
+  font-family: 'BBTorsosPro-Ultra';
+  src: url('./fonts/bbtorsospro-ultra.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+}
 
-  @font-face {
-    font-family: 'Kenyan Coffee Bold';
-    src: url('./fonts/kenyan\ coffee\ bd.otf') format('opentype');
-    font-weight: bold;
-    font-style: normal;
-  }
+@font-face {
+  font-family: 'Kenyan Coffee Bold Italic';
+  src: url('./fonts/kenyan\ coffee\ bd\ it.otf') format('opentype');
+  font-weight: bold;
+  font-style: italic;
+}
 
-  @font-face {
-    font-family: 'Kenyan Coffee Regular Italic';
-    src: url('./fonts/kenyan\ coffee\ rg\ it.otf') format('opentype');
-    font-weight: normal;
-    font-style: italic;
-  }
+@font-face {
+  font-family: 'Kenyan Coffee Bold';
+  src: url('./fonts/kenyan\ coffee\ bd.otf') format('opentype');
+  font-weight: bold;
+  font-style: normal;
+}
 
-    @font-face {
-        font-family: 'Kenyan Coffee Regular';
-        src: url('./fonts/kenyan\ coffee\ rg.otf') format('opentype');
-        font-weight: normal;
-        font-style: normal;
-    }
-  /* Aggiungi tutte le varianti del font seguendo lo stesso schema */
+@font-face {
+  font-family: 'Kenyan Coffee Regular Italic';
+  src: url('./fonts/kenyan\ coffee\ rg\ it.otf') format('opentype');
+  font-weight: normal;
+  font-style: italic;
+}
 
-  /* Benzin Font Family */
-  @font-face {
-    font-family: 'Benzin-Regular';
-    src: url('./fonts/Benzin-Regular.otf') format('opentype');
-    font-weight: normal;
-    font-style: normal;
-  }
+@font-face {
+  font-family: 'Kenyan Coffee Regular';
+  src: url('./fonts/kenyan\ coffee\ rg.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+}
 
-  @font-face {
-    font-family: 'Benzin-Medium';
-    src: url('./fonts/Benzin-Medium.otf') format('opentype');
-    font-weight: 500;
-    font-style: normal;
-  }
+/* Benzin Font Family - Updated to TTF */
 
-  @font-face {
-    font-family: 'Benzin-Semibold';
-    src: url('./fonts/Benzin-Semibold.otf') format('opentype');
-    font-weight: 600;
-    font-style: normal;
-  }
+@font-face {
+  font-family: 'Benzin-Regular';
+  src: url('./fonts/Benzin-Regular.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
 
-  
+@font-face {
+  font-family: 'Benzin-Medium';
+  src: url('./fonts/Benzin-Medium.ttf') format('truetype');
+  font-weight: 500;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Benzin-Semibold';
+  src: url('./fonts/Benzin-Semibold.ttf') format('truetype');
+  font-weight: 600;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Benzin-Bold';
+  src: url('./fonts/Benzin-Bold.ttf') format('truetype');
+  font-weight: bold;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Benzin-ExtraBold';
+  src: url('./fonts/Benzin-ExtraBold.ttf') format('truetype');
+  font-weight: 800;
+  font-style: normal;
+}

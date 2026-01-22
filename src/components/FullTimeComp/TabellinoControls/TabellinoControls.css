@@ -20,16 +20,80 @@
     margin-top: -1rem;
   }
 
-  .instagramInput {
-    border-radius: 25px;
-    margin-top: -1rem;
+  /* Gruppo Input Instagram + Load */
+  .instagram-container {
+    position: relative;
+    display: flex;
+    align-items: center;
+    width: 100%;
+    margin-top: 0.5rem;
   }
 
-  .upload-button {
+  .instagramInput {
+    flex: 1;
+    border: 2px solid #b4ff00;
+    border-radius: 25px;
+    padding: 0.8rem 3.5rem 0.8rem 1rem; /* Spazio a destra per il pallino */
+    background: #00061b;
+    color: white;
+    font-size: 1rem;
+    outline: none;
+    margin: 0;
+  }
+
+  .load-btn-circle {
+    position: absolute;
+    right: 8px;
+    width: 38px;
+    height: 38px;
+    border-radius: 50% !important;
+    background-color: #b4ff00 !important;
+    border: none !important;
     display: flex;
-    flex-wrap: wrap;
-    gap: 1rem;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    padding: 0 !important;
+    margin: 0 !important;
+    min-width: 0 !important;
+    box-shadow: 0px 2px 5px rgba(0,0,0,0.3) !important;
+  }
+
+  .load-btn-circle:hover {
+    background-color: #99d600 !important;
+    transform: scale(1.1);
+  }
+
+  .send-icon-img {
+    width: 20px;
+    height: 20px;
+    object-fit: contain;
+    filter: brightness(0); /* Rende l'icona nera */
+  }
+
+  /* Riga bottoni azioni */
+  .action-buttons-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    width: 100%;
     margin-top: 1rem;
+  }
+
+  .action-buttons-row > button, 
+  .action-buttons-row > .customFileUpload {
+    flex: 1;
+    white-space: nowrap;
+    font-size: 0.85rem;
+    padding: 0.6rem 0.2rem;
+    min-width: 0 !important;
+    margin: 0 !important;
+    display: flex;
+    justify-content: center;
+    align-items: center;
   }
 
 

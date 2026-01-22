@@ -3,6 +3,7 @@
 import React, { useState, useRef } from 'react';
 import { applyAcrSportFilterToSrc, applyUpscaleFilterToSrc } from '../../../filters/acrSport'; 
 import axios from 'axios';
+import sendIcon from '../../../BioCreator/send.png';
 import './TabellinoControls.css';
 
 function TabellinoControls({
@@ -449,31 +450,33 @@ function TabellinoControls({
 
       {/* Caricamento immagine */}
       <h3>Carica sfondo:</h3>
-      <input 
-        className='instagramInput'
-        type="text"
-        placeholder="Enter Instagram Post Link"
-        value={instagramLink}
-        onChange={(e) => setInstagramLink(e.target.value)}
-        disabled={isLoading}
-      />
-
-      {/* Pulsanti caricamento */}
-      <div className="upload-button">
+      
+      <div className="instagram-container">
+        <input 
+          className='instagramInput'
+          type="text"
+          placeholder="Enter Instagram Post Link"
+          value={instagramLink}
+          onChange={(e) => setInstagramLink(e.target.value)}
+          disabled={isLoading}
+        />
         <button
-          className="instagramButton"
+          className="instagramButton load-btn-circle"
           onClick={fetchInstagramPost}
           disabled={isLoading}
         >
-          {isLoading ? 'Caricamento...' : 'Load Instagram Post'}
+          {isLoading ? '...' : <img src={sendIcon} alt="Send" className="send-icon-img" />}
         </button>
+      </div>
 
+      {/* Pulsanti azioni */}
+      <div className="action-buttons-row">
         <button
           className="customFileUpload"
           onClick={() => document.getElementById('fileUpload').click()}
           disabled={isLoading}
         >
-          Scegli il file
+          File
         </button>
         
         <input
@@ -492,7 +495,7 @@ function TabellinoControls({
           disabled={isLoading || isFiltering || (!originalUserImageRef.current && !originalInstagramImageRef.current)}
           title="Applica il filtro Camera Raw allo sfondo corrente"
         >
-          {isFiltering ? 'Elaborazione...' : 'Applica filtro RAW'}
+          {isFiltering ? '...' : 'Filtro'}
         </button>
 
         <button
@@ -501,7 +504,7 @@ function TabellinoControls({
           disabled={isLoading || !filterApplied}
           title="Rimuovi il filtro e ripristina l'immagine originale"
         >
-          Rimuovi filtro
+          ❌ filtro
         </button>
 
         <button
@@ -511,7 +514,7 @@ function TabellinoControls({
           title="Raddoppia la risoluzione e applica nitidezza"
           style={{ borderColor: '#00ccff', color: '#00ccff' }}
         >
-          {isFiltering ? '...' : 'Migliora HD'}
+          {isFiltering ? '...' : 'Upscale'}
         </button>
       </div>
 
