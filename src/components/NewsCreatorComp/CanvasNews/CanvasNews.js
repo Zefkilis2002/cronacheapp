@@ -188,8 +188,9 @@ function CanvasNews({
     if (stageRef.current && dimensions.scale > 0) {
       requestAnimationFrame(() => {
         if (stageRef.current) {
-          stageRef.current.width(ORIGINAL_WIDTH);
-          stageRef.current.height(ORIGINAL_HEIGHT);
+          // Usa le dimensioni calcolate (scalate) per il canvas viewport
+          stageRef.current.width(dimensions.width);
+          stageRef.current.height(dimensions.height);
           stageRef.current.scale({ x: dimensions.scale, y: dimensions.scale });
           stageRef.current.batchDraw();
         }
