@@ -38,8 +38,8 @@ const FullTimeEditor = () => {
   const moveLogo = (logo, direction) => {
     const setter = logo === 1 ? setLogo1Position : setLogo2Position;
     setter(prev => ({
-      x: direction === 'left' ? prev.x - 10 : direction === 'right' ? prev.x + 10 : prev.x,
-      y: direction === 'up' ? prev.y - 10 : direction === 'down' ? prev.y + 10 : prev.y,
+      x: direction === 'left' ? prev.x - 4 : direction === 'right' ? prev.x + 4 : prev.x,
+      y: direction === 'up' ? prev.y - 4 : direction === 'down' ? prev.y + 4 : prev.y,
     }));
   };
 
