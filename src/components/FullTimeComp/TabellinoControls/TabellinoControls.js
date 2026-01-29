@@ -1,6 +1,7 @@
 // TabellinoControls.js - Versione migliorata per immagini complete
 
 import React, { useState, useRef } from 'react';
+import config from '../../../config';
 import { applyAcrSportFilterToSrc, applyUpscaleFilterToSrc } from '../../../filters/acrSport'; 
 import axios from 'axios';
 import sendIcon from '../../../BioCreator/send.png';
@@ -237,7 +238,7 @@ function TabellinoControls({
   
       console.log("Recupero immagine da:", instagramUrl);
   
-      const response = await axios.get('http://localhost:5000/api/instagram-image', {
+      const response = await axios.get(`${config.API_BASE_URL}/api/instagram-image`, {
         params: {
           url: encodeURIComponent(instagramUrl),
           getCarouselImages: true,
@@ -344,7 +345,7 @@ function TabellinoControls({
     let srcUrl = null;
     if (srcType === 'instagram' && originalInstagramImageRef.current) {
       // usa lo stesso proxy del Canvas per garantire CORS
-      srcUrl = `http://localhost:5000/proxy-image?url=${encodeURIComponent(originalInstagramImageRef.current)}`;
+      srcUrl = `${config.API_BASE_URL}/proxy-image?url=${encodeURIComponent(originalInstagramImageRef.current)}`;
     } else if (srcType === 'user' && originalUserImageRef.current) {
       srcUrl = originalUserImageRef.current;
     } else {
@@ -378,7 +379,7 @@ function TabellinoControls({
     const srcType = currentSourceRef.current;
     let srcUrl = null;
     if (srcType === 'instagram' && originalInstagramImageRef.current) {
-      srcUrl = `http://localhost:5000/proxy-image?url=${encodeURIComponent(originalInstagramImageRef.current)}`;
+      srcUrl = `${config.API_BASE_URL}/proxy-image?url=${encodeURIComponent(originalInstagramImageRef.current)}`;
     } else if (srcType === 'user' && originalUserImageRef.current) {
       srcUrl = originalUserImageRef.current;
     } else {

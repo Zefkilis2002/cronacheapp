@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import config from '../../../config';
 import './LogoFetcher.css';
 
 const LogoFetcher = ({ onLogoSelect, onClose }) => {
@@ -45,7 +46,7 @@ const LogoFetcher = ({ onLogoSelect, onClose }) => {
   const searchAndFetchGoogle = async (query) => {
     try {
       const searchUrl = `https://www.google.com/search?q=site:football-logos.cc+${encodeURIComponent(query)}&gbv=1`;
-      const proxyUrl = `http://localhost:5000/proxy-image?url=${encodeURIComponent(searchUrl)}`;
+      const proxyUrl = `${config.API_BASE_URL}/proxy-image?url=${encodeURIComponent(searchUrl)}`;
       
       const res = await fetch(proxyUrl);
       if (!res.ok) throw new Error('Google search failed');
@@ -75,7 +76,7 @@ const LogoFetcher = ({ onLogoSelect, onClose }) => {
 
   // --- PAGE EXTRACTOR ---
   const extractImageFromPage = async (pageUrl) => {
-    const proxyUrl = `http://localhost:5000/proxy-image?url=${encodeURIComponent(pageUrl)}`;
+    const proxyUrl = `${config.API_BASE_URL}/proxy-image?url=${encodeURIComponent(pageUrl)}`;
     const res = await fetch(proxyUrl);
     if (!res.ok) throw new Error('Page 404');
     

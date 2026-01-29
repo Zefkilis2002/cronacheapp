@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import config from '../../../config';
 import { Stage, Layer, Image as KonvaImage, Text, Rect } from 'react-konva';
 import useImage from 'use-image';
 import './Canva.css';
@@ -183,7 +184,7 @@ const Canva = ({
   };
 
   const proxyUrl = instagramImage && instagramImage !== 'null'
-    ? `http://localhost:5000/proxy-image?url=${encodeURIComponent(instagramImage)}`
+    ? `${config.API_BASE_URL}/proxy-image?url=${encodeURIComponent(instagramImage)}`
     : null;
   const [instaImg, status] = useImage(proxyUrl, 'anonymous');
 
