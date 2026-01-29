@@ -1,6 +1,7 @@
 // SetTeamOne.js
-import React from 'react';
+import React, { useState } from 'react';
 import './SetTeam.css';
+import LogoFetcher from '../LogoFetcher/LogoFetcher';
 
 // Se il padre non passa l'array di loghi, puoi definirlo come default:
 const defaultLogos = [
@@ -35,6 +36,7 @@ const SetTeamOne = ({
   scorersTeam1,
   setScorersTeam1
 }) => {
+  const [showFetcher, setShowFetcher] = useState(false);
 
   // Funzione per gestire il caricamento del logo da PC
   const handleLogoUpload1 = (e) => {
@@ -69,6 +71,9 @@ const SetTeamOne = ({
         <button className="upload-logo" onClick={() => document.getElementById('logoUpload1').click()}>
           Carica Logo
         </button>
+        <button className="upload-logo" style={{backgroundColor: '#007bff'}} onClick={() => setShowFetcher(true)}>
+          Cerca Web
+        </button>
         <input
           type="file"
           id="logoUpload1"
@@ -77,6 +82,12 @@ const SetTeamOne = ({
           style={{ display: 'none' }}
         />
       </div>
+      {showFetcher && (
+        <LogoFetcher 
+          onLogoSelect={setUploadedLogo1} 
+          onClose={() => setShowFetcher(false)} 
+        />
+      )}
       <div className="scorer-section">
         <h4 className='text-marcatori'>Marcatori Squadra 1</h4>
         {scorersTeam1.map((scorer, index) => (
