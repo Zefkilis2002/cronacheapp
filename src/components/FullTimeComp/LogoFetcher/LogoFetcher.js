@@ -5,194 +5,184 @@ const LogoFetcher = ({ onLogoSelect, onClose }) => {
   const [inputValue, setInputValue] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [statusMessage, setStatusMessage] = useState('');
+  const [debugLog, setDebugLog] = useState(''); // Per vedere cosa succede
 
-  // --- 1. OVERRIDES MANUALI (Per casi disperati) ---
-  const MANUAL_OVERRIDES = {
-    'inter': 'italy/inter',
-    'milan': 'italy/milan',
-    'juve': 'italy/juventus',
-    'real madrid': 'spain/real-madrid',
-    'man utd': 'england/manchester-united',
-    'man city': 'england/manchester-city',
-    'bayern': 'germany/bayern-munchen',
-    'slavia': 'czech-republic/slavia-praha',
-    'pescara': 'italy/pescara', 
-    'kairat': 'kazakhstan/kairat'
-  };
-
+  // Funzione di pulizia stringhe (slug)
   const slugify = (text) => {
     return text
       .toString()
       .toLowerCase()
-      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // via accenti
       .replace(/'/g, '')
-      .replace(/\s+/g, '-')
+      .replace(/\s+/g, '-') // spazi -> trattini
       .replace(/[^\w-]+/g, '')
       .replace(/--+/g, '-')
       .trim();
   };
 
-  // --- 2. VALIDATORE PAGINA (Il cuore della correzione) ---
-  const validateAndExtractLogo = (html, teamSlug) => {
-    const doc = new DOMParser().parseFromString(html, 'text/html');
-    
-    // A. PROTEZIONE HOME PAGE / CATEGORIE
-    // Se il titolo è generico o non contiene il nome cercato (circa), è un redirect errato.
-    const pageTitle = doc.querySelector('title')?.innerText.toLowerCase() || "";
-    const isHomePage = pageTitle === "football logos" || pageTitle.includes("all leagues");
-    
-    // Se siamo finiti sulla home o su una pagina lista, scartare.
-    if (isHomePage) return null;
-
-    // B. ESTRAZIONE
-    // 1. Cerca og:image (massima qualità)
-    let imgUrl = doc.querySelector('meta[property="og:image"]')?.content;
-    
-    // 2. Fallback su div logo
-    if (!imgUrl) {
-      const img = doc.querySelector('.logo img') || doc.querySelector('#logo img');
-      if (img) imgUrl = img.getAttribute('src');
-    }
-
-    if (imgUrl) {
-      if (imgUrl.startsWith('/')) imgUrl = 'https://football-logos.cc' + imgUrl;
-      
-      // Controllo finale: se l'immagine è il banner del sito ("logo.png" generico), scarta.
-      if (imgUrl.includes('site-logo') || imgUrl.endsWith('/logo.png')) return null;
-      
-      return imgUrl;
-    }
-    return null;
-  };
-
-  // --- 3. FETCH CONCORRENTE (Per la velocità) ---
-  const checkUrl = async (path, teamSlug) => {
+  // --- 1. ESTRAZIONE DIRETTA (Logic Semplificata) ---
+  const fetchPageAndExtract = async (path) => {
     const targetUrl = `https://football-logos.cc/${path}/`;
-    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
+    // Usa AllOrigins come proxy (è il più affidabile per l'HTML testuale)
+    const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`;
 
     try {
       const response = await fetch(proxyUrl);
-      if (!response.ok) throw new Error('404');
-      const html = await response.text();
+      const data = await response.json();
       
-      // Validazione rigorosa
-      const logo = validateAndExtractLogo(html, teamSlug);
-      if (logo) return logo;
-      throw new Error('No logo in page');
+      // Se il proxy dice che c'è stato un errore HTTP (es. 404)
+      if (!data.contents) return null;
+
+      const html = data.contents;
+      const doc = new DOMParser().parseFromString(html, 'text/html');
+
+      // --- PUNTO CRITICO: RICONOSCERE LA PAGINA SQUADRA ---
+      // Le pagine squadra hanno SEMPRE un div con id="logo" o class="logo" che contiene l'immagine principale.
+      // Le pagine "griglia" (quelle sbagliate) hanno tanti loghi ma non un #logo principale univoco in quel modo.
+      
+      let imgNode = doc.querySelector('#logo img') || doc.querySelector('.logo img');
+      
+      if (!imgNode) {
+        // Ultimo tentativo: OpenGraph image
+        const ogImage = doc.querySelector('meta[property="og:image"]');
+        if (ogImage) return ogImage.content;
+        return null;
+      }
+
+      let imgUrl = imgNode.getAttribute('src');
+
+      // Se l'immagine è relativa, aggiungi il dominio
+      if (imgUrl.startsWith('/')) {
+        imgUrl = 'https://football-logos.cc' + imgUrl;
+      }
+
+      // Filtro Anti-Spazzatura:
+      // Se l'immagine si chiama "logo.png" (generico del sito) o è il banner, scartala.
+      if (imgUrl.includes('site-logo') || imgUrl.endsWith('/logo.png')) return null;
+
+      return imgUrl;
+
     } catch (e) {
-      throw e; // Rilancia errore per Promise.any
+      console.warn(`Fallito tentativo su: ${path}`, e);
+      return null;
     }
   };
 
-  const fetchTeamData = async (teamName) => {
+  // --- 2. RECUPERO DATI NAZIONE (API ESTERNA) ---
+  const getTeamDetails = async (query) => {
     try {
-      const res = await fetch(`https://www.thesportsdb.com/api/v1/json/3/searchteams.php?t=${encodeURIComponent(teamName)}`);
+      // TheSportsDB è ottimo per capire che "Kairat" è in "Kazakhstan"
+      const res = await fetch(`https://www.thesportsdb.com/api/v1/json/3/searchteams.php?t=${encodeURIComponent(query)}`);
       const data = await res.json();
-      if (data.teams?.[0]) {
+      
+      if (data.teams && data.teams.length > 0) {
         return {
           country: slugify(data.teams[0].strCountry),
           team: slugify(data.teams[0].strTeam),
           alt: slugify(data.teams[0].strTeamShort || '')
         };
       }
-    } catch (_) {}
+    } catch (e) {
+      console.error("Errore API SportsDB", e);
+    }
     return null;
   };
 
-  // --- 4. LOGICA PRINCIPALE ---
-  const fetchLogo = async () => {
+  // --- 3. FUNZIONE PRINCIPALE ---
+  const startSearch = async () => {
     if (!inputValue) return;
     setLoading(true);
     setError('');
-    setStatusMessage('Ricerca ultra-veloce...');
+    setDebugLog('Analisi in corso...');
 
     const rawInput = inputValue.toLowerCase().trim();
-    let candidates = [];
+    const inputSlug = slugify(rawInput);
+    const parts = rawInput.split(' ');
 
-    // 1. Override manuale
-    if (MANUAL_OVERRIDES[rawInput]) {
-      candidates.push(MANUAL_OVERRIDES[rawInput]);
+    let attempts = [];
+
+    // A. COSTRUZIONE LISTA TENTATIVI
+    
+    // 1. Se l'utente ha scritto "Nazione Squadra" (es. "Italy Pescara")
+    if (parts.length > 1) {
+      const country = slugify(parts[0]);
+      const team = slugify(parts.slice(1).join(' '));
+      attempts.push(`${country}/${team}`); // italy/pescara
     }
 
-    const parts = rawInput.split(' ');
-    const term = slugify(rawInput);
-
-    // 2. Generazione Strategie URL
-    if (parts.length === 1) {
-        // Solo nome (es. "Pescara")
-        // Strategia API (trova il paese)
-        const apiData = await fetchTeamData(rawInput);
-        if (apiData) {
-            candidates.push(`${apiData.country}/${apiData.team}`);       // italy/pescara
-            if (apiData.alt) candidates.push(`${apiData.country}/${apiData.alt}`);
-        }
-        
-        // Strategia Nazionale
-        candidates.push(`${term}/${term}-national-team`); // italy/italy-national-team
+    // 2. Chiediamo all'API di dirci la nazione (es. input "Kairat" -> API dice Kazakhstan)
+    const apiData = await getTeamDetails(rawInput);
+    
+    if (apiData) {
+      // Tentativo API preciso (es. kazakhstan/kairat)
+      attempts.push(`${apiData.country}/${apiData.team}`);
+      // Tentativo con nome corto API
+      if (apiData.alt) attempts.push(`${apiData.country}/${apiData.alt}`);
+      // Tentativo ibrido: Nazione API + Input Utente (es. kazakhstan/kairat-almaty)
+      if (inputSlug !== apiData.team) attempts.push(`${apiData.country}/${inputSlug}`);
     } else {
-        // Nome + Paese o Nome Lungo (es. "Italy Pescara" o "Real Madrid")
-        const country = slugify(parts[0]);
-        const team = slugify(parts.slice(1).join(' '));
-        
-        // Se l'utente ha scritto "Italy Pescara"
-        candidates.push(`${country}/${team}`); 
-        
-        // Se l'utente ha scritto "Real Madrid" (senza paese)
-        const apiData = await fetchTeamData(rawInput);
-        if (apiData) {
-            candidates.push(`${apiData.country}/${apiData.team}`);
-        }
+      // Se l'API fallisce, proviamo l'input come se fosse una nazionale
+      attempts.push(`${inputSlug}/${inputSlug}-national-team`);
+    }
+
+    // 3. Fallback "Disperato": Se l'utente ha scritto solo "Pescara" e l'API ha fallito
+    // Proviamo a indovinare nazioni calcistiche comuni se non abbiamo info
+    if (parts.length === 1 && !apiData) {
+       attempts.push(`italy/${inputSlug}`);
+       attempts.push(`england/${inputSlug}`);
+       attempts.push(`spain/${inputSlug}`);
     }
 
     // Rimuovi duplicati
-    candidates = [...new Set(candidates)];
+    attempts = [...new Set(attempts)];
+    setDebugLog(`Provo URL: ${attempts.join(', ')}`);
+
+    // B. ESECUZIONE (Sequenziale veloce per fermarsi al primo successo)
+    let foundUrl = null;
     
-    // --- ESECUZIONE PARALLELA ---
-    try {
-      // Crea un array di promesse (tutti i tentativi partono insieme)
-      const promises = candidates.map(path => checkUrl(path, term));
-      
-      // Promise.any aspetta IL PRIMO che ha successo e ignora i fallimenti (se ce n'è almeno uno buono)
-      const foundLogo = await Promise.any(promises);
-      
-      onLogoSelect(foundLogo);
-      onClose();
-    } catch (err) {
-      // Se arriviamo qui, TUTTE le promesse sono fallite
-      console.error("Nessun logo trovato:", err);
-      setError(`Nessun logo trovato per "${inputValue}". Prova "Nazione Squadra" (es. Italy Pescara).`);
-    } finally {
-      setLoading(false);
-      setStatusMessage('');
+    for (const path of attempts) {
+      foundUrl = await fetchPageAndExtract(path);
+      if (foundUrl) {
+        console.log("Logo trovato su:", path);
+        break; // Trovato! Interrompi il ciclo.
+      }
     }
+
+    if (foundUrl) {
+      onLogoSelect(foundUrl);
+      onClose();
+    } else {
+      setError(`Logo non trovato. Prova a scrivere "Nazione Squadra" (es. Italy Pescara).`);
+    }
+    
+    setLoading(false);
   };
 
   return (
     <div className="logo-fetcher-overlay">
       <div className="logo-fetcher-modal simple-mode">
-        <h3>Trova Logo</h3>
+        <h3>Carica Logo</h3>
         <p className="instruction">
-          Scrivi il nome della squadra (o <i>Nazione Squadra</i> per sicurezza).
+          Inserisci il nome (es. <i>Pescara, Kairat</i>) o <i>Nazione Squadra</i>.
         </p>
         
         <input 
           type="text" 
           value={inputValue} 
           onChange={(e) => setInputValue(e.target.value)} 
-          placeholder="Es. Pescara, Kairat, Brazil..."
+          placeholder="Es. Pescara"
           className="simple-input"
-          onKeyDown={(e) => e.key === 'Enter' && fetchLogo()}
+          onKeyDown={(e) => e.key === 'Enter' && startSearch()}
           autoFocus
           disabled={loading}
         />
 
-        {statusMessage && <div className="status-msg" style={{color:'#b4ff00'}}>{statusMessage}</div>}
+        {debugLog && <div style={{fontSize:'10px', color:'#666', marginTop:'5px', whiteSpace: 'nowrap', overflow:'hidden', textOverflow:'ellipsis', maxWidth:'100%'}}>{debugLog}</div>}
         {error && <div className="error-msg">{error}</div>}
 
         <div className="simple-actions">
-          <button className="confirm-btn" onClick={fetchLogo} disabled={loading || !inputValue}>
-            {loading ? 'Cercando...' : 'Cerca'}
+          <button className="confirm-btn" onClick={startSearch} disabled={loading || !inputValue}>
+            {loading ? '...' : 'Cerca'}
           </button>
           <button className="cancel-btn" onClick={onClose} disabled={loading}>
             Chiudi
