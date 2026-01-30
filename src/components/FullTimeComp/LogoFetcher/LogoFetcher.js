@@ -7,219 +7,192 @@ const LogoFetcher = ({ onLogoSelect, onClose }) => {
   const [error, setError] = useState('');
   const [statusMessage, setStatusMessage] = useState('');
 
-  // --- 1. MAPPATURA MANUALE (CASI DIFFICILI) ---
-  // Se una squadra non esce mai, aggiungi qui la parte finale dell'URL.
-  // Es: se l'url è football-logos.cc/england/newcastle-united-fc/ -> scrivi 'newcastle': 'england/newcastle-united-fc'
+  // --- 1. OVERRIDES MANUALI (Per casi disperati) ---
   const MANUAL_OVERRIDES = {
     'inter': 'italy/inter',
     'milan': 'italy/milan',
     'juve': 'italy/juventus',
-    'juventus': 'italy/juventus',
-    'real': 'spain/real-madrid',
     'real madrid': 'spain/real-madrid',
-    'atletico': 'spain/atletico-madrid',
-    'barca': 'spain/fc-barcelona',
-    'barcelona': 'spain/fc-barcelona',
     'man utd': 'england/manchester-united',
     'man city': 'england/manchester-city',
-    'psg': 'france/paris-saint-germain',
     'bayern': 'germany/bayern-munchen',
-    'young boys': 'switzerland/young-boys',
     'slavia': 'czech-republic/slavia-praha',
-    'olympiakos': 'greece/olympiakos',
-    'paok': 'greece/paok',
-    'aek': 'greece/aek',
-    'panathinaikos': 'greece/panathinaikos'
+    'pescara': 'italy/pescara', 
+    'kairat': 'kazakhstan/kairat'
   };
 
-  // --- 2. UTILITÀ SLUGIFY ---
-  // Trasforma "São Paulo" -> "sao-paulo", "O'Higgins" -> "ohiggins"
   const slugify = (text) => {
     return text
       .toString()
       .toLowerCase()
-      .normalize('NFD') // Separa accenti
-      .replace(/[\u0300-\u036f]/g, '') // Rimuove accenti
-      .replace(/'/g, '') // Rimuove apostrofi uniti
-      .replace(/\s+/g, '-') // Spazi in trattini
-      .replace(/[^\w-]+/g, '') // Rimuove char non alfanumerici
-      .replace(/--+/g, '-') // Rimuove doppi trattini
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/'/g, '')
+      .replace(/\s+/g, '-')
+      .replace(/[^\w-]+/g, '')
+      .replace(/--+/g, '-')
       .trim();
   };
 
-  // --- 3. HELPER RICERCA API ---
-  const fetchTeamData = async (teamName) => {
-    try {
-      const res = await fetch(`https://www.thesportsdb.com/api/v1/json/3/searchteams.php?t=${encodeURIComponent(teamName)}`);
-      if (!res.ok) return null;
-      const data = await res.json();
-      if (data.teams && data.teams.length > 0) {
-        return {
-          country: slugify(data.teams[0].strCountry),
-          team: slugify(data.teams[0].strTeam),
-          alternate: slugify(data.teams[0].strTeamShort || '')
-        };
-      }
-      return null;
-    } catch (e) { return null; }
-  };
+  // --- 2. VALIDATORE PAGINA (Il cuore della correzione) ---
+  const validateAndExtractLogo = (html, teamSlug) => {
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    
+    // A. PROTEZIONE HOME PAGE / CATEGORIE
+    // Se il titolo è generico o non contiene il nome cercato (circa), è un redirect errato.
+    const pageTitle = doc.querySelector('title')?.innerText.toLowerCase() || "";
+    const isHomePage = pageTitle === "football logos" || pageTitle.includes("all leagues");
+    
+    // Se siamo finiti sulla home o su una pagina lista, scartare.
+    if (isHomePage) return null;
 
-  // --- 4. ESTRAZIONE IMMAGINE DALLA PAGINA ---
-  const checkUrlForLogo = async (targetPath) => {
-    const pageUrl = `https://football-logos.cc/${targetPath}/`;
-    // Proxy AllOrigins per aggirare CORS e scaricare l'HTML
-    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(pageUrl)}`;
+    // B. ESTRAZIONE
+    // 1. Cerca og:image (massima qualità)
+    let imgUrl = doc.querySelector('meta[property="og:image"]')?.content;
+    
+    // 2. Fallback su div logo
+    if (!imgUrl) {
+      const img = doc.querySelector('.logo img') || doc.querySelector('#logo img');
+      if (img) imgUrl = img.getAttribute('src');
+    }
 
-    try {
-      const res = await fetch(proxyUrl);
-      if (!res.ok) return null; // 404 o errore server
-
-      const html = await res.text();
+    if (imgUrl) {
+      if (imgUrl.startsWith('/')) imgUrl = 'https://football-logos.cc' + imgUrl;
       
-      // Controllo rapido se siamo in una pagina 404 del sito target
-      if (html.includes("Page not found") || html.includes("404 Error")) return null;
-
-      const doc = new DOMParser().parseFromString(html, 'text/html');
-
-      // A. Metodo Migliore: Open Graph Image (Di solito è il PNG ad alta risoluzione)
-      let imgUrl = null;
-      const metaOg = doc.querySelector('meta[property="og:image"]');
-      if (metaOg) {
-        imgUrl = metaOg.content;
-      }
-
-      // B. Metodo Fallback: Cerca nel div .logo
-      if (!imgUrl) {
-        const logoDivImg = doc.querySelector('.logo img') || doc.querySelector('#logo img');
-        if (logoDivImg) imgUrl = logoDivImg.getAttribute('src');
-      }
-
-      // Validazione URL trovato
-      if (imgUrl) {
-        // Fix per URL relativi
-        if (imgUrl.startsWith('/')) {
-            imgUrl = 'https://football-logos.cc' + imgUrl;
-        }
-        // Se l'immagine è l'icona di default del sito o placeholder, scartala
-        if (imgUrl.includes('logo-default') || imgUrl.length < 20) return null;
-        
-        return imgUrl;
-      }
-    } catch (e) {
-      return null;
+      // Controllo finale: se l'immagine è il banner del sito ("logo.png" generico), scarta.
+      if (imgUrl.includes('site-logo') || imgUrl.endsWith('/logo.png')) return null;
+      
+      return imgUrl;
     }
     return null;
   };
 
-  // --- 5. FUNZIONE PRINCIPALE ---
+  // --- 3. FETCH CONCORRENTE (Per la velocità) ---
+  const checkUrl = async (path, teamSlug) => {
+    const targetUrl = `https://football-logos.cc/${path}/`;
+    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
+
+    try {
+      const response = await fetch(proxyUrl);
+      if (!response.ok) throw new Error('404');
+      const html = await response.text();
+      
+      // Validazione rigorosa
+      const logo = validateAndExtractLogo(html, teamSlug);
+      if (logo) return logo;
+      throw new Error('No logo in page');
+    } catch (e) {
+      throw e; // Rilancia errore per Promise.any
+    }
+  };
+
+  const fetchTeamData = async (teamName) => {
+    try {
+      const res = await fetch(`https://www.thesportsdb.com/api/v1/json/3/searchteams.php?t=${encodeURIComponent(teamName)}`);
+      const data = await res.json();
+      if (data.teams?.[0]) {
+        return {
+          country: slugify(data.teams[0].strCountry),
+          team: slugify(data.teams[0].strTeam),
+          alt: slugify(data.teams[0].strTeamShort || '')
+        };
+      }
+    } catch (_) {}
+    return null;
+  };
+
+  // --- 4. LOGICA PRINCIPALE ---
   const fetchLogo = async () => {
     if (!inputValue) return;
     setLoading(true);
     setError('');
-    setStatusMessage('Analisi richiesta...');
-    
+    setStatusMessage('Ricerca ultra-veloce...');
+
     const rawInput = inputValue.toLowerCase().trim();
     let candidates = [];
 
-    // --- FASE A: CONTROLLO MANUALE ---
+    // 1. Override manuale
     if (MANUAL_OVERRIDES[rawInput]) {
       candidates.push(MANUAL_OVERRIDES[rawInput]);
     }
 
-    // --- FASE B: GENERAZIONE CANDIDATI URL ---
     const parts = rawInput.split(' ');
-    
-    // Se l'input è una sola parola (es. "Italy", "Brazil", "Inter")
-    if (parts.length === 1) {
-      const term = slugify(parts[0]);
-      // 1. Ipotesi Nazionale: paese/paese-national-team (es. brazil/brazil-national-team)
-      candidates.push(`${term}/${term}-national-team`);
-      // 2. Ipotesi Club famoso (senza paese nell'input): Cerchiamo info su API
-      setStatusMessage('Ricerca informazioni team...');
-      const apiInfo = await fetchTeamData(parts[0]);
-      if (apiInfo) {
-        candidates.push(`${apiInfo.country}/${apiInfo.team}`); // es. italy/inter
-        if (apiInfo.alternate) candidates.push(`${apiInfo.country}/${apiInfo.alternate}`);
-      }
-    } 
-    // Se l'input è due o più parole (es. "Italy Roma", "Real Madrid")
-    else {
-      // 1. Ipotesi: Prima parola = Paese, Resto = Squadra (es. "Italy Roma")
-      const country = slugify(parts[0]);
-      const team = slugify(parts.slice(1).join(' '));
-      candidates.push(`${country}/${team}`);
-      candidates.push(`${country}/${team}-fc`); // Variabile comune
+    const term = slugify(rawInput);
 
-      // 2. Ipotesi: Tutto è il nome della squadra (es. "Real Madrid") -> serve API per il paese
-      setStatusMessage('Verifica database...');
-      const apiInfo = await fetchTeamData(rawInput);
-      if (apiInfo) {
-        candidates.push(`${apiInfo.country}/${apiInfo.team}`);
-        candidates.push(`${apiInfo.country}/${slugify(rawInput)}`); // Usa input originale + paese API
-      } else {
-        // Fallback API fallita: prova a trattare tutto come nazionale
-        const fullSlug = slugify(rawInput);
-        candidates.push(`${fullSlug}/${fullSlug}-national-team`);
-      }
+    // 2. Generazione Strategie URL
+    if (parts.length === 1) {
+        // Solo nome (es. "Pescara")
+        // Strategia API (trova il paese)
+        const apiData = await fetchTeamData(rawInput);
+        if (apiData) {
+            candidates.push(`${apiData.country}/${apiData.team}`);       // italy/pescara
+            if (apiData.alt) candidates.push(`${apiData.country}/${apiData.alt}`);
+        }
+        
+        // Strategia Nazionale
+        candidates.push(`${term}/${term}-national-team`); // italy/italy-national-team
+    } else {
+        // Nome + Paese o Nome Lungo (es. "Italy Pescara" o "Real Madrid")
+        const country = slugify(parts[0]);
+        const team = slugify(parts.slice(1).join(' '));
+        
+        // Se l'utente ha scritto "Italy Pescara"
+        candidates.push(`${country}/${team}`); 
+        
+        // Se l'utente ha scritto "Real Madrid" (senza paese)
+        const apiData = await fetchTeamData(rawInput);
+        if (apiData) {
+            candidates.push(`${apiData.country}/${apiData.team}`);
+        }
     }
 
     // Rimuovi duplicati
     candidates = [...new Set(candidates)];
-    console.log("Tentativi URL:", candidates);
-
-    // --- FASE C: RICERCA PARALLELA ---
-    setStatusMessage(`Scansione di ${candidates.length} percorsi...`);
     
-    let foundImage = null;
-
-    // Proviamo i candidati uno alla volta per non saturare, o in Promise.all per velocità
-    // Qui usiamo un loop sequenziale per fermarci al primo successo (risparmia banda)
-    for (const candidate of candidates) {
-        foundImage = await checkUrlForLogo(candidate);
-        if (foundImage) {
-            console.log(`Trovato su: ${candidate}`);
-            break;
-        }
-    }
-
-    // --- RISULTATO ---
-    if (foundImage) {
-      onLogoSelect(foundImage);
+    // --- ESECUZIONE PARALLELA ---
+    try {
+      // Crea un array di promesse (tutti i tentativi partono insieme)
+      const promises = candidates.map(path => checkUrl(path, term));
+      
+      // Promise.any aspetta IL PRIMO che ha successo e ignora i fallimenti (se ce n'è almeno uno buono)
+      const foundLogo = await Promise.any(promises);
+      
+      onLogoSelect(foundLogo);
       onClose();
-    } else {
-      setError('Logo non trovato automaticamente. Prova a specificare "Nazione Squadra" (es. "Spain Barcelona").');
+    } catch (err) {
+      // Se arriviamo qui, TUTTE le promesse sono fallite
+      console.error("Nessun logo trovato:", err);
+      setError(`Nessun logo trovato per "${inputValue}". Prova "Nazione Squadra" (es. Italy Pescara).`);
+    } finally {
+      setLoading(false);
+      setStatusMessage('');
     }
-    
-    setLoading(false);
-    setStatusMessage('');
   };
 
   return (
     <div className="logo-fetcher-overlay">
       <div className="logo-fetcher-modal simple-mode">
-        <h3>Carica Logo (Web)</h3>
+        <h3>Trova Logo</h3>
         <p className="instruction">
-          Inserisci <b>Nazione Squadra</b> o solo il nome.<br/>
-          <small>Es: <i>Italy Inter</i>, <i>Brazil</i>, <i>Real Madrid</i></small>
+          Scrivi il nome della squadra (o <i>Nazione Squadra</i> per sicurezza).
         </p>
         
         <input 
           type="text" 
           value={inputValue} 
           onChange={(e) => setInputValue(e.target.value)} 
-          placeholder="Es. Greece PAOK, Italy Milan..."
+          placeholder="Es. Pescara, Kairat, Brazil..."
           className="simple-input"
           onKeyDown={(e) => e.key === 'Enter' && fetchLogo()}
           autoFocus
           disabled={loading}
         />
 
-        {statusMessage && <div className="status-msg" style={{color: '#b4ff00', fontSize: '0.8rem', marginTop:'5px'}}>{statusMessage}</div>}
+        {statusMessage && <div className="status-msg" style={{color:'#b4ff00'}}>{statusMessage}</div>}
         {error && <div className="error-msg">{error}</div>}
 
         <div className="simple-actions">
           <button className="confirm-btn" onClick={fetchLogo} disabled={loading || !inputValue}>
-            {loading ? 'Ricerca...' : 'Trova Logo'}
+            {loading ? 'Cercando...' : 'Cerca'}
           </button>
           <button className="cancel-btn" onClick={onClose} disabled={loading}>
             Chiudi
