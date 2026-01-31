@@ -7,6 +7,18 @@ const LogoFetcher = ({ onLogoSelect, onClose }) => {
   const [error, setError] = useState('');
   const [debugLog, setDebugLog] = useState('');
 
+  const slugify = (text) => {
+    return text
+      .toString()
+      .toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/'/g, '')
+      .replace(/\s+/g, '-')
+      .replace(/[^\w-]+/g, '')
+      .replace(/--+/g, '-')
+      .trim();
+  };
+
   // Helper per determinare l'URL base dell'API (Locale o Produzione)
   const getApiBaseUrl = () => {
     if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
