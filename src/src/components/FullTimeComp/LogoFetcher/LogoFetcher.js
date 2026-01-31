@@ -19,8 +19,9 @@ const LogoFetcher = ({ onLogoSelect, onClose }) => {
       .trim();
   };
 
-  // --- 1. ESTRAZIONE DIRETTA LOGO DA PAGINA (Scraping Avanzato) ---
+  // --- 1. ESTRAZIONE DIRETTA LOGO DA PAGINA (Scraping) ---
   const fetchPageAndExtract = async (path) => {
+    // Se path è già un URL completo, usalo, altrimenti costruisci l'URL di football-logos
     const targetUrl = path.startsWith('http') ? path : `https://football-logos.cc/${path}/`;
     const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`;
 
@@ -31,35 +32,25 @@ const LogoFetcher = ({ onLogoSelect, onClose }) => {
 
       const doc = new DOMParser().parseFromString(data.contents, 'text/html');
       
-      // Prendiamo TUTTE le immagini per analizzarle
-      const allImages = Array.from(doc.querySelectorAll('img'));
+      // A. Selettore specifico per pagina squadra
+      let imgNode = doc.querySelector('#logo img') || doc.querySelector('.logo img');
       
-      // Filtriamo le immagini valide
-      const candidates = allImages.map(img => {
-          let src = img.getAttribute('src');
-          if (!src) return null;
-          if (src.startsWith('/')) src = 'https://football-logos.cc' + src;
-          
-          const filename = src.split('/').pop().toLowerCase();
-          
-          // CRITERI DI ESCLUSIONE
-          if (src.includes('site-logo')) return null;
-          if (filename === 'logo.png') return null; // Logo del sito generico
-          if (filename === 'placeholder.png') return null;
-          if (filename.includes('facebook') || filename.includes('twitter') || filename.includes('instagram')) return null;
-          if (img.width > 0 && img.width < 50) return null; // Troppo piccola (icone)
+      // B. Fallback: cerca l'immagine principale nel contenuto se il selettore specifico fallisce
+      if (!imgNode) {
+         imgNode = doc.querySelector('.post img') || doc.querySelector('.entry-content img');
+      }
 
-          return src;
-      }).filter(Boolean);
+      if (!imgNode) return null;
 
-      if (candidates.length === 0) return null;
+      let imgUrl = imgNode.getAttribute('src');
+      if (imgUrl.startsWith('/')) {
+        imgUrl = 'https://football-logos.cc' + imgUrl;
+      }
 
-      // CRITERI DI SELEZIONE DEL MIGLIORE
-      // 1. Preferiamo immagini che contengono la parola "logo" nel nome file
-      const bestMatch = candidates.find(src => src.toLowerCase().includes('logo'));
+      // Filtri anti-spam (evita loghi del sito o placeholder)
+      if (imgUrl.includes('site-logo') || imgUrl.endsWith('logo.png')) return null;
       
-      // 2. Altrimenti prendiamo la prima immagine valida (di solito è quella principale nel content)
-      return bestMatch || candidates[0];
+      return imgUrl;
 
     } catch (e) {
       console.warn(`Scraping fallito su: ${path}`, e);
@@ -83,7 +74,7 @@ const LogoFetcher = ({ onLogoSelect, onClose }) => {
       // Cerchiamo link nei risultati che sembrino pagine di squadre (es. /italy/pescara/)
       // I risultati di ricerca di solito sono <a> che contengono il titolo
       const links = Array.from(doc.querySelectorAll('a'));
-      let teamLink = links.find(a => {
+      const teamLink = links.find(a => {
         const href = a.getAttribute('href');
         if (!href) return false;
         // Escludi pagine di navigazione
@@ -93,22 +84,12 @@ const LogoFetcher = ({ onLogoSelect, onClose }) => {
         try {
             const urlObj = new URL(href, 'https://football-logos.cc');
             const parts = urlObj.pathname.split('/').filter(Boolean);
-            // FIX: Accettiamo anche 1 sola parte (es. /olympiakos-logo/)
-            return parts.length >= 1;
+            // Ci aspettiamo almeno 2 parti (nazione/squadra)
+            return parts.length >= 2;
         } catch (e) {
             return false;
         }
       });
-
-      // Se non troviamo nulla con l'euristica, cerchiamo un link che contenga la query nel testo o href
-      if (!teamLink) {
-         teamLink = links.find(a => {
-             const href = a.getAttribute('href');
-             if (!href) return false;
-             if (href.includes('/page/') || href.includes('/tag/')) return false;
-             return href.toLowerCase().includes(query.toLowerCase());
-         });
-      }
 
       if (teamLink) {
         let href = teamLink.getAttribute('href');
@@ -137,22 +118,6 @@ const LogoFetcher = ({ onLogoSelect, onClose }) => {
     return null;
   };
 
-  // --- 4. API AI (Nuova Strategia Intelligente) ---
-  const fetchFromAI = async (query) => {
-    try {
-      // Chiamata al server locale che usa GitHub Models
-      const res = await fetch(`http://localhost:5000/api/find-team-info?teamName=${encodeURIComponent(query)}`);
-      const json = await res.json();
-      
-      if (json.status && json.data) {
-        return json.data; // { country, teamName, slug_variants, countrySlug }
-      }
-    } catch (e) {
-      console.warn("Errore API AI (Server non attivo?)", e);
-    }
-    return null;
-  };
-
   const startSearch = async () => {
     if (!inputValue) return;
     setLoading(true);
@@ -162,53 +127,19 @@ const LogoFetcher = ({ onLogoSelect, onClose }) => {
     const rawInput = inputValue.trim();
     
     // FASE 1: API (TheSportsDB) - Velocissimo e preciso
+    // Risolve il 90% dei casi con loghi ufficiali di alta qualità
     setDebugLog('Consulto database ufficiale...');
     const apiLogo = await fetchFromApi(rawInput);
     if (apiLogo) {
-      console.log('Logo trovato via API SportsDB');
+      console.log('Logo trovato via API');
       onLogoSelect(apiLogo);
       onClose();
       return; 
     }
 
-    // FASE 2: AI PREDICTION (GitHub Models)
-    // Usa l'AI per capire paese e slug esatti, poi costruisce l'URL diretto
-    setDebugLog('Analisi AI (GitHub Models)...');
-    const aiData = await fetchFromAI(rawInput);
-    
-    if (aiData) {
-        setDebugLog(`AI: ${aiData.teamName} (${aiData.country})`);
-        
-        // Recuperiamo le varianti (o fallback al vecchio slug se l'API è vecchia versione)
-        const variants = aiData.slug_variants || [aiData.slug];
-        
-        // Costruiamo i path probabili per TUTTE le varianti
-        let aiPaths = [];
-        variants.forEach(slug => {
-            if(!slug) return;
-            aiPaths.push(`${aiData.countrySlug}/${slug}`);      // es. greece/olympiakos
-            aiPaths.push(`${aiData.countrySlug}/${slug}-logo`); // es. greece/olympiakos-logo
-            aiPaths.push(`${slug}/${slug}-logo`);               // es. olympiakos/olympiakos-logo
-        });
-
-        // Rimuoviamo duplicati
-        aiPaths = [...new Set(aiPaths)];
-
-        for (const path of aiPaths) {
-            setDebugLog(`Verifico: ${path}`);
-            const found = await fetchPageAndExtract(path);
-            if (found) {
-                console.log('Logo trovato via AI Prediction');
-                onLogoSelect(found);
-                onClose();
-                return;
-            }
-        }
-    }
-
-    // FASE 3: RICERCA DIRETTA SU SITO (Fallback vecchio)
-    // Se l'AI fallisce o il server è giù, cerchiamo "manualmente"
-    setDebugLog('Cerco negli archivi online (Fallback)...');
+    // FASE 2: RICERCA DIRETTA SU SITO (Scraping Search) - Molto affidabile
+    // Se l'API fallisce, cerchiamo "manualmente" sul sito di loghi
+    setDebugLog('Cerco negli archivi online...');
     const sitePath = await searchOnSite(rawInput);
     if (sitePath) {
       setDebugLog(`Trovata corrispondenza: ${sitePath}`);
@@ -220,8 +151,9 @@ const LogoFetcher = ({ onLogoSelect, onClose }) => {
       }
     }
 
-    // FASE 4: TENTATIVI DISPERATI
-    setDebugLog('Ultimo tentativo...');
+    // FASE 3: TENTATIVI FALLBACK (Per casi disperati)
+    // Se anche la ricerca fallisce, proviamo a indovinare URL comuni
+    setDebugLog('Provo combinazioni standard...');
     const inputSlug = slugify(rawInput);
     const attempts = [
         `italy/${inputSlug}`,
