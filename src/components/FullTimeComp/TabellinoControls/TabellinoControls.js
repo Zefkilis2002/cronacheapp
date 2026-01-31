@@ -167,6 +167,8 @@ function TabellinoControls({
   const checkServerConnection = async () => {
     setErrorMessage('');
     try {
+      // Verifica reale della connessione
+      await axios.get(`${config.API_BASE_URL}/api/health-check`);
       return true;
     } catch (error) {
       console.error("Errore di connessione:", error);
