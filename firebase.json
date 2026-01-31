@@ -1,6 +1,11 @@
 {
+  "functions": {
+    "source": "functions"
+  },
   "hosting": {
-    "predeploy": ["npm run build:no-ci"],
+    "predeploy": [
+      "npm run build:no-ci"
+    ],
     "public": "build",
     "ignore": [
       "firebase.json",
@@ -8,6 +13,14 @@
       "**/node_modules/**"
     ],
     "rewrites": [
+      {
+        "source": "/api/**",
+        "function": "app"
+      },
+      {
+        "source": "/proxy-image",
+        "function": "app"
+      },
       {
         "source": "**",
         "destination": "/index.html"
