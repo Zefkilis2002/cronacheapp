@@ -7,29 +7,29 @@ const LogoFetcher = ({ onLogoSelect, onClose }) => {
   const [error, setError] = useState('');
   const [debugLog, setDebugLog] = useState('');
 
-  const slugify = (text) => {
-    return text
-      .toString()
-      .toLowerCase()
-      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-      .replace(/'/g, '')
-      .replace(/\s+/g, '-')
-      .replace(/[^\w-]+/g, '')
-      .replace(/--+/g, '-')
-      .trim();
+  // Helper per determinare l'URL base dell'API (Locale o Produzione)
+  const getApiBaseUrl = () => {
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+      return 'http://localhost:5000';
+    }
+    return ''; // In produzione usa path relativi (/api/...) gestiti dal proxy/rewrite
   };
 
-  // --- 1. ESTRAZIONE DIRETTA LOGO DA PAGINA (Scraping Avanzato) ---
+  // --- 1. ESTRAZIONE DIRETTA LOGO DA PAGINA (Scraping via Backend) ---
   const fetchPageAndExtract = async (path) => {
     const targetUrl = path.startsWith('http') ? path : `https://football-logos.cc/${path}/`;
-    const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`;
+    
+    // Usiamo il nostro backend per fare scraping (evita problemi CORS e Safari ITP)
+    const scrapeEndpoint = `${getApiBaseUrl()}/api/scrape?url=${encodeURIComponent(targetUrl)}`;
 
     try {
-      const response = await fetch(proxyUrl);
+      const response = await fetch(scrapeEndpoint);
       const data = await response.json();
-      if (!data.contents) return null;
+      
+      // Il backend restituisce { status: true, content: "<html>..." }
+      if (!data.status || !data.content) return null;
 
-      const doc = new DOMParser().parseFromString(data.contents, 'text/html');
+      const doc = new DOMParser().parseFromString(data.content, 'text/html');
       
       // Prendiamo TUTTE le immagini per analizzarle
       const allImages = Array.from(doc.querySelectorAll('img'));
@@ -72,13 +72,14 @@ const LogoFetcher = ({ onLogoSelect, onClose }) => {
     try {
       // Usa la ricerca interna di football-logos.cc
       const searchUrl = `https://football-logos.cc/?s=${encodeURIComponent(query)}`;
-      const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(searchUrl)}`;
+      // Anche la ricerca usa il nostro proxy backend
+      const scrapeEndpoint = `${getApiBaseUrl()}/api/scrape?url=${encodeURIComponent(searchUrl)}`;
       
-      const response = await fetch(proxyUrl);
+      const response = await fetch(scrapeEndpoint);
       const data = await response.json();
-      if (!data.contents) return null;
+      if (!data.content) return null;
 
-      const doc = new DOMParser().parseFromString(data.contents, 'text/html');
+      const doc = new DOMParser().parseFromString(data.content, 'text/html');
       
       // Cerchiamo link nei risultati che sembrino pagine di squadre (es. /italy/pescara/)
       // I risultati di ricerca di solito sono <a> che contengono il titolo
@@ -140,15 +141,15 @@ const LogoFetcher = ({ onLogoSelect, onClose }) => {
   // --- 4. API AI (Nuova Strategia Intelligente) ---
   const fetchFromAI = async (query) => {
     try {
-      // Chiamata al server locale che usa GitHub Models
-      const res = await fetch(`http://localhost:5000/api/find-team-info?teamName=${encodeURIComponent(query)}`);
+      // Chiamata dinamica (locale o produzione)
+      const res = await fetch(`${getApiBaseUrl()}/api/find-team-info?teamName=${encodeURIComponent(query)}`);
       const json = await res.json();
       
       if (json.status && json.data) {
         return json.data; // { country, teamName, slug_variants, countrySlug }
       }
     } catch (e) {
-      console.warn("Errore API AI (Server non attivo?)", e);
+      console.warn("Errore API AI (Server non attivo o offline?)", e);
     }
     return null;
   };
@@ -160,6 +161,7 @@ const LogoFetcher = ({ onLogoSelect, onClose }) => {
     setDebugLog('Avvio ricerca...');
 
     const rawInput = inputValue.trim();
+    const inputSlug = slugify(rawInput);
     
     // FASE 1: API (TheSportsDB) - Velocissimo e preciso
     setDebugLog('Consulto database ufficiale...');
@@ -171,31 +173,59 @@ const LogoFetcher = ({ onLogoSelect, onClose }) => {
       return; 
     }
 
-    // FASE 2: AI PREDICTION (GitHub Models)
-    // Usa l'AI per capire paese e slug esatti, poi costruisce l'URL diretto
+    // FASE 2: RICERCA LAMPO (Quick Search) - Prova i percorsi più ovvi
+    // Risolve istantaneamente casi come Pisa, Milan, Inter senza aspettare l'AI
+    setDebugLog('Ricerca rapida (Top Countries)...');
+    const quickAttempts = [
+        `italy/${inputSlug}`,
+        `spain/${inputSlug}`,
+        `england/${inputSlug}`,
+        `greece/${inputSlug}`,
+        `portugal/${inputSlug}`,
+        `france/${inputSlug}`,
+        `germany/${inputSlug}`,
+        `netherlands/${inputSlug}`
+    ];
+
+    for (const path of quickAttempts) {
+        // Nota: Qui usiamo fetchPageAndExtract che ora è veloce e usa il backend
+        const found = await fetchPageAndExtract(path);
+        if (found) {
+            console.log('Logo trovato via Quick Search');
+            onLogoSelect(found);
+            onClose();
+            return;
+        }
+    }
+
+    // FASE 3: AI PREDICTION (GitHub Models)
+    // Se la ricerca lampo fallisce, chiediamo all'AI che è più esperta
     setDebugLog('Analisi AI (GitHub Models)...');
     const aiData = await fetchFromAI(rawInput);
     
     if (aiData) {
         setDebugLog(`AI: ${aiData.teamName} (${aiData.country})`);
         
-        // Recuperiamo le varianti (o fallback al vecchio slug se l'API è vecchia versione)
         const variants = aiData.slug_variants || [aiData.slug];
-        
-        // Costruiamo i path probabili per TUTTE le varianti
         let aiPaths = [];
+        
+        // Ordine intelligente: prima il nome semplice nel paese corretto
         variants.forEach(slug => {
             if(!slug) return;
-            aiPaths.push(`${aiData.countrySlug}/${slug}`);      // es. greece/olympiakos
-            aiPaths.push(`${aiData.countrySlug}/${slug}-logo`); // es. greece/olympiakos-logo
-            aiPaths.push(`${slug}/${slug}-logo`);               // es. olympiakos/olympiakos-logo
+            aiPaths.push(`${aiData.countrySlug}/${slug}`);      // es. greece/olympiacos
+        });
+        
+        // Poi le varianti composte
+        variants.forEach(slug => {
+            if(!slug) return;
+            aiPaths.push(`${aiData.countrySlug}/${slug}-logo`);
+            aiPaths.push(`${slug}/${slug}-logo`);
         });
 
-        // Rimuoviamo duplicati
         aiPaths = [...new Set(aiPaths)];
 
         for (const path of aiPaths) {
-            setDebugLog(`Verifico: ${path}`);
+            setDebugLog(`Verifico AI: ${path}`);
             const found = await fetchPageAndExtract(path);
             if (found) {
                 console.log('Logo trovato via AI Prediction');
@@ -206,8 +236,7 @@ const LogoFetcher = ({ onLogoSelect, onClose }) => {
         }
     }
 
-    // FASE 3: RICERCA DIRETTA SU SITO (Fallback vecchio)
-    // Se l'AI fallisce o il server è giù, cerchiamo "manualmente"
+    // FASE 4: RICERCA DIRETTA SU SITO (Fallback finale)
     setDebugLog('Cerco negli archivi online (Fallback)...');
     const sitePath = await searchOnSite(rawInput);
     if (sitePath) {
@@ -218,25 +247,6 @@ const LogoFetcher = ({ onLogoSelect, onClose }) => {
         onClose();
         return;
       }
-    }
-
-    // FASE 4: TENTATIVI DISPERATI
-    setDebugLog('Ultimo tentativo...');
-    const inputSlug = slugify(rawInput);
-    const attempts = [
-        `italy/${inputSlug}`,
-        `england/${inputSlug}`,
-        `spain/${inputSlug}`,
-        `${inputSlug}/${inputSlug}-logo`
-    ];
-
-    for (const path of attempts) {
-        const found = await fetchPageAndExtract(path);
-        if (found) {
-            onLogoSelect(found);
-            onClose();
-            return;
-        }
     }
 
     setError(`Nessun logo trovato per "${inputValue}".`);
