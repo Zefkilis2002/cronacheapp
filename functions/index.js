@@ -273,8 +273,16 @@ app.get('/api/find-team-info', async (req, res) => {
   const teamName = req.query.teamName;
   if (!teamName) return res.status(400).json({ status: false, message: 'Team name missing' });
 
-  // Token recuperato dalle variabili d'ambiente
-  const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
+  // Token fornito dall'utente
+  // Priorità: 1. Variabile d'ambiente (locale/.env) 2. Configurazione Firebase (produzione)
+  let GITHUB_TOKEN = process.env.GITHUB_TOKEN;
+  if (!GITHUB_TOKEN) {
+    try {
+        GITHUB_TOKEN = functions.config().app.github_token;
+    } catch (e) {
+        console.warn("Nessun token trovato in functions.config()");
+    }
+  }
 
   try {
     const response = await axios.post(
