@@ -1,9 +1,9 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import NewsCreator from '../components/NewsCreatorComp/NewsCreator/NewsCreator';
 import ImagesSelector from '../components/NewsCreatorComp/ImagesSelector/ImagesSelector';
 import CanvasNews from '../components/NewsCreatorComp/CanvasNews/CanvasNews';
 import ToolbarNews from '../components/NewsCreatorComp/ToolbarNews/ToolbarNews';
-import CameraRawSportFilter, { applyAcrSportFilterToSrc, applyUpscaleFilterToSrc } from '../filters/acrSport';
+import { applyAcrSportFilterToSrc, applyUpscaleFilterToSrc } from '../filters/acrSport';
 import useImage from 'use-image';
 import '../fonts.css';
 import './News.css';

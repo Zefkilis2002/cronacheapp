@@ -108,19 +108,6 @@ function CanvasNews({
   const ORIGINAL_WIDTH = 1440;
   const ORIGINAL_HEIGHT = 1800;
   
-  // 🔧 STABILIZZAZIONE AVANZATA
-  const stableStateRef = useRef({
-    isInitialized: false,
-    lastValidDimensions: { width: 0, height: 0, scale: 1 },
-    lastContainerWidth: 0,
-    lastViewportHeight: 0,
-    resizeTimer: null,
-    orientationTimer: null,
-    isCalculating: false,
-    skipCount: 0,
-    forceUpdate: false
-  });
-
   const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
   const nudgePos = (p, dx, dy) => ({ x: p.x + dx, y: p.y + dy });
 
