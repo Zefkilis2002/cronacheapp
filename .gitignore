@@ -22,3 +22,9 @@
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# Security & Local Data (IMPORTANTE)
+serviceAccountKey.json
+pb_data/
+pocketbase
+pocketbase.exe
