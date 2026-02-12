@@ -21,18 +21,71 @@ try {
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-// Opzioni di lancio Puppeteer (compatibile con Docker/Render)
-const getLaunchOptions = () => ({
-    headless: 'new',
-    executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
-    args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-gpu',
-        '--window-size=1280,720'
-    ]
-});
+// --- BROWSER POOL: riutilizza il browser tra le richieste ---
+let _browser = null;
+let _browserLastUsed = 0;
+const BROWSER_TTL = 120000; // Chiudi dopo 2 min di inattività
+
+async function getBrowser() {
+    // Se il browser esiste ed è ancora connesso, riutilizzalo
+    if (_browser && _browser.connected) {
+        _browserLastUsed = Date.now();
+        return _browser;
+    }
+    // Lancia un nuovo browser
+    _browser = await puppeteer.launch({
+        headless: 'new',
+        executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
+        args: [
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage',
+            '--disable-gpu',
+            '--disable-extensions',
+            '--disable-background-networking',
+            '--disable-default-apps',
+            '--disable-sync',
+            '--no-first-run',
+            '--window-size=1280,720'
+        ]
+    });
+    _browserLastUsed = Date.now();
+
+    // Auto-chiudi dopo inattività
+    const checkInterval = setInterval(() => {
+        if (_browser && Date.now() - _browserLastUsed > BROWSER_TTL) {
+            _browser.close().catch(() => { });
+            _browser = null;
+            clearInterval(checkInterval);
+            console.log('[Flashscore] Browser chiuso per inattività');
+        }
+    }, 30000);
+
+    return _browser;
+}
+
+// Risorse da bloccare (velocizza il caricamento ~60%)
+const BLOCKED_RESOURCES = new Set(['image', 'stylesheet', 'font', 'media', 'other']);
+const BLOCKED_DOMAINS = ['googlesyndication', 'doubleclick', 'google-analytics', 'facebook', 'onetrust'];
+
+async function createFastPage(browser) {
+    const page = await browser.newPage();
+    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+    await page.setViewport({ width: 1280, height: 720 });
+
+    // Blocca risorse pesanti
+    await page.setRequestInterception(true);
+    page.on('request', (req) => {
+        if (BLOCKED_RESOURCES.has(req.resourceType()) ||
+            BLOCKED_DOMAINS.some(d => req.url().includes(d))) {
+            req.abort();
+        } else {
+            req.continue();
+        }
+    });
+
+    return page;
+}
 
 /**
  * Parsa una data Flashscore nel formato "DD.MM.YYYY" o "DD.MM. HH:MM" e la converte in Date.
@@ -85,39 +138,22 @@ function parseFlashscoreDate(dateStr) {
 async function getRecentMatches({ country, league, daysBack = 7 }) {
     const url = `https://www.flashscore.it/calcio/${country}/${league}/risultati/`;
 
-    let browser;
+    const browser = await getBrowser();
+    let page;
     try {
-        browser = await puppeteer.launch(getLaunchOptions());
+        page = await createFastPage(browser);
 
-        const page = await browser.newPage();
-
-        // Imposta user-agent e viewport per sembrare un browser reale
-        await page.setUserAgent(
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-        );
-        await page.setViewport({ width: 1280, height: 720 });
-
-        // Naviga alla pagina risultati
         console.log(`[Flashscore] Navigating to: ${url}`);
-        await page.goto(url, { waitUntil: 'networkidle2', timeout: 60000 });
+        const t0 = Date.now();
+        await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
 
-        // Log pagina raggiunta
-        const pageTitle = await page.title();
-        const pageUrl = page.url();
-        console.log(`[Flashscore] Page loaded: "${pageTitle}" at ${pageUrl}`);
+        // Aspetta che le partite appaiano nel DOM (più veloce di networkidle2)
+        await page.waitForSelector('.event__match, [class*="event__match"]', { timeout: 15000 }).catch(() => { });
 
-        // Chiudi cookie banner se presente
-        try {
-            await page.waitForSelector('#onetrust-accept-btn-handler', { timeout: 3000 });
-            await page.click('#onetrust-accept-btn-handler');
-            console.log('[Flashscore] Cookie banner dismissed');
-            await sleep(1000);
-        } catch (e) {
-            console.log('[Flashscore] No cookie banner found, continuing...');
-        }
+        console.log(`[Flashscore] Page ready in ${Date.now() - t0}ms`);
 
-        // Aspetta per il rendering completo della SPA
-        await sleep(3000);
+        // Breve pausa per render finale
+        await sleep(1000);
 
         // Debug: cerca tutti i possibili selettori per le partite
         const selectorDebug = await page.evaluate(() => {
@@ -226,8 +262,8 @@ async function getRecentMatches({ country, league, daysBack = 7 }) {
             console.log(`[Flashscore] Sample match:`, JSON.stringify(rawMatches[0]));
         }
 
-        await browser.close();
-        browser = null;
+        await page.close();
+        page = null;
 
         // Filtra per data (ultimi N giorni)
         const now = new Date();
@@ -264,7 +300,7 @@ async function getRecentMatches({ country, league, daysBack = 7 }) {
         return filteredMatches;
 
     } catch (error) {
-        if (browser) await browser.close();
+        if (page) await page.close().catch(() => { });
         throw error;
     }
 }
@@ -276,26 +312,20 @@ async function getRecentMatches({ country, league, daysBack = 7 }) {
  * @returns {Promise<Object>} { homeGoals: [{player, minute}], awayGoals: [{player, minute}] }
  */
 async function getMatchDetails(matchUrl) {
-    let browser;
+    const browser = await getBrowser();
+    let page;
     try {
-        browser = await puppeteer.launch(getLaunchOptions());
-
-        const page = await browser.newPage();
-        await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
-        await page.setViewport({ width: 1280, height: 720 });
+        page = await createFastPage(browser);
 
         console.log(`[Flashscore] Fetching match details: ${matchUrl}`);
-        await page.goto(matchUrl, { waitUntil: 'networkidle2', timeout: 60000 });
+        const t0 = Date.now();
+        await page.goto(matchUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
 
-        // Chiudi cookie banner
-        try {
-            await page.waitForSelector('#onetrust-accept-btn-handler', { timeout: 3000 });
-            await page.click('#onetrust-accept-btn-handler');
-            await sleep(1000);
-        } catch (e) { /* nessun banner */ }
+        // Aspetta che gli incidenti appaiano
+        await page.waitForSelector('.smv__incident, [class*="incident"]', { timeout: 10000 }).catch(() => { });
 
-        // Aspetta rendering
-        await sleep(3000);
+        console.log(`[Flashscore] Details page ready in ${Date.now() - t0}ms`);
+        await sleep(1000);
 
         // Estrai i gol
         const goals = await page.evaluate(() => {
@@ -367,14 +397,14 @@ async function getMatchDetails(matchUrl) {
             return { homeGoals, awayGoals };
         });
 
-        await browser.close();
-        browser = null;
+        await page.close();
+        page = null;
 
         console.log(`[Flashscore] Goals found - Home: ${goals.homeGoals.length}, Away: ${goals.awayGoals.length}`);
         return goals;
 
     } catch (error) {
-        if (browser) await browser.close();
+        if (page) await page.close().catch(() => { });
         console.error('[Flashscore] Match details error:', error.message);
         return { homeGoals: [], awayGoals: [] };
     }
