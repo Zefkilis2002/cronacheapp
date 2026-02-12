@@ -342,7 +342,7 @@ app.get('/api/get-matches', async (req, res) => {
   const days = parseInt(daysBack) || 7;
   console.log(`[FLASHSCORE] Searching: ${country}/${league} (last ${days} days)`);
 
-  // Timeout di sicurezza: 45 secondi
+  // Timeout di sicurezza: 90 secondi (Render free tier ha cold start lento)
   const timeout = setTimeout(() => {
     if (!res.headersSent) {
       res.status(504).json({
@@ -350,7 +350,7 @@ app.get('/api/get-matches', async (req, res) => {
         message: 'Timeout: lo scraping ha impiegato troppo tempo. Riprova.'
       });
     }
-  }, 45000);
+  }, 90000);
 
   try {
     // Bussa la cache di Node.js per ricaricare il modulo aggiornato
@@ -396,7 +396,7 @@ app.get('/api/get-match-details', async (req, res) => {
         message: 'Timeout: il recupero dei dettagli ha impiegato troppo tempo.'
       });
     }
-  }, 45000);
+  }, 90000);
 
   try {
     const modulePath = require.resolve('./execution/scrape_flashscore');

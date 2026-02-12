@@ -99,7 +99,7 @@ async function getRecentMatches({ country, league, daysBack = 7 }) {
 
         // Naviga alla pagina risultati
         console.log(`[Flashscore] Navigating to: ${url}`);
-        await page.goto(url, { waitUntil: 'networkidle2', timeout: 30000 });
+        await page.goto(url, { waitUntil: 'networkidle2', timeout: 60000 });
 
         // Log pagina raggiunta
         const pageTitle = await page.title();
@@ -285,7 +285,7 @@ async function getMatchDetails(matchUrl) {
         await page.setViewport({ width: 1280, height: 720 });
 
         console.log(`[Flashscore] Fetching match details: ${matchUrl}`);
-        await page.goto(matchUrl, { waitUntil: 'networkidle2', timeout: 30000 });
+        await page.goto(matchUrl, { waitUntil: 'networkidle2', timeout: 60000 });
 
         // Chiudi cookie banner
         try {
