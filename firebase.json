@@ -1,10 +1,7 @@
 {
-  "functions": {
-    "source": "functions"
-  },
   "hosting": {
     "predeploy": [
-      "npm run build:no-ci"
+      "npm run build"
     ],
     "public": "build",
     "ignore": [

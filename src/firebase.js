@@ -3,9 +3,7 @@ import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
-    // ⚠️ QUI DEVI INCOLLARE LA TUA API KEY REALE TRA LE VIRGOLETTE
     apiKey: "AIzaSyBWCYCtZRTDe8x_Pprkuwq950II8YZeU9M",
-
     authDomain: "cronacheapp.firebaseapp.com",
     projectId: "cronacheapp",
     storageBucket: "cronacheapp.firebasestorage.app",

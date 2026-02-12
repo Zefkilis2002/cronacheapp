@@ -4,6 +4,7 @@ import SetTeamOne from '../components/FullTimeComp/SetTeam/SetTeamOne';
 import SetTeamTwo from '../components/FullTimeComp/SetTeam/SetTeamTwo';
 import Toolbar from '../components/FullTimeComp/ToolBar/ToolBar';
 import Canva from '../components/FullTimeComp/Canva/Canva';
+import FlashscoreImport from '../components/FullTimeComp/FlashscoreImport/FlashscoreImport';
 import './FullTimeEditor.css';
 
 const FullTimeEditor = () => {
@@ -57,10 +58,42 @@ const FullTimeEditor = () => {
     scaleY: Math.max(0.1, prev.scaleY - 0.1),
   }));
 
+  // Handler Flashscore: popola tutti i campi quando si seleziona una partita
+  const handleFlashscoreMatch = (matchData) => {
+    // 1. Aggiorna risultato
+    setScore1(matchData.homeScore);
+    setScore2(matchData.awayScore);
+
+    // 2. Aggiorna tabellino
+    if (matchData.tabellino) {
+      setSelectedTabellino(matchData.tabellino);
+    }
+
+    // 3. Aggiorna loghi
+    if (matchData.homeLogo) {
+      setSelectedLogo1(matchData.homeLogo);
+      setUploadedLogo1(null); // reset uploaded se usiamo il locale
+    }
+    if (matchData.awayLogo) {
+      setSelectedLogo2(matchData.awayLogo);
+      setUploadedLogo2(null);
+    }
+
+    // 4. Aggiorna marcatori (array di 7 slot, riempiti con i gol trovati)
+    if (matchData.homeScorers && matchData.homeScorers.length > 0) {
+      const homePadded = [...matchData.homeScorers, ...Array(7).fill('')].slice(0, 7);
+      setScorersTeam1(homePadded);
+    }
+    if (matchData.awayScorers && matchData.awayScorers.length > 0) {
+      const awayPadded = [...matchData.awayScorers, ...Array(7).fill('')].slice(0, 7);
+      setScorersTeam2(awayPadded);
+    }
+  };
+
   return (
     <div className="App">
       <h1>CRONACHE ELLENICHE <br /> FULL TIME</h1>
-      
+
       <Canva
         stageRef={stageRef}
         borderRef={borderRef}
@@ -90,23 +123,29 @@ const FullTimeEditor = () => {
       />
 
       <div className="tab-header">
-        <button 
+        <button
           className={`tab-button ${activeTab === 'general' ? 'active' : ''}`}
           onClick={() => setActiveTab('general')}
         >
           Generale
         </button>
-        <button 
+        <button
           className={`tab-button ${activeTab === 'team1' ? 'active' : ''}`}
           onClick={() => setActiveTab('team1')}
         >
           Squadra 1
         </button>
-        <button 
+        <button
           className={`tab-button ${activeTab === 'team2' ? 'active' : ''}`}
           onClick={() => setActiveTab('team2')}
         >
           Squadra 2
+        </button>
+        <button
+          className={`tab-button ${activeTab === 'flashscore' ? 'active' : ''}`}
+          onClick={() => setActiveTab('flashscore')}
+        >
+          ⚡ Flashscore
         </button>
       </div>
 
@@ -148,6 +187,10 @@ const FullTimeEditor = () => {
             scorersTeam2={scorersTeam2}
             setScorersTeam2={setScorersTeam2}
           />
+        )}
+
+        {activeTab === 'flashscore' && (
+          <FlashscoreImport onMatchSelect={handleFlashscoreMatch} />
         )}
       </div>
 
