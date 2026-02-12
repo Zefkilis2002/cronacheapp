@@ -11,9 +11,28 @@
  *   node execution/scrape_flashscore.js --country=greece --league=super-league --daysBack=7
  */
 
-const puppeteer = require('puppeteer');
+// Supporta sia puppeteer (locale) che puppeteer-core (Docker/Render)
+let puppeteer;
+try {
+    puppeteer = require('puppeteer');
+} catch (e) {
+    puppeteer = require('puppeteer-core');
+}
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+// Opzioni di lancio Puppeteer (compatibile con Docker/Render)
+const getLaunchOptions = () => ({
+    headless: 'new',
+    executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
+    args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-gpu',
+        '--window-size=1280,720'
+    ]
+});
 
 /**
  * Parsa una data Flashscore nel formato "DD.MM.YYYY" o "DD.MM. HH:MM" e la converte in Date.
@@ -68,16 +87,7 @@ async function getRecentMatches({ country, league, daysBack = 7 }) {
 
     let browser;
     try {
-        browser = await puppeteer.launch({
-            headless: 'new',
-            args: [
-                '--no-sandbox',
-                '--disable-setuid-sandbox',
-                '--disable-dev-shm-usage',
-                '--disable-gpu',
-                '--window-size=1280,720'
-            ]
-        });
+        browser = await puppeteer.launch(getLaunchOptions());
 
         const page = await browser.newPage();
 
@@ -268,10 +278,7 @@ async function getRecentMatches({ country, league, daysBack = 7 }) {
 async function getMatchDetails(matchUrl) {
     let browser;
     try {
-        browser = await puppeteer.launch({
-            headless: 'new',
-            args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu']
-        });
+        browser = await puppeteer.launch(getLaunchOptions());
 
         const page = await browser.newPage();
         await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
