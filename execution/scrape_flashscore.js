@@ -72,18 +72,24 @@ async function getBrowser() {
 
 // Risorse da bloccare (velocizza il caricamento ~60%)
 const BLOCKED_RESOURCES = new Set(['image', 'stylesheet', 'font', 'media', 'other']);
-const BLOCKED_DOMAINS = ['googlesyndication', 'doubleclick', 'google-analytics', 'facebook', 'onetrust'];
+const BLOCKED_DOMAINS = [
+    'googlesyndication', 'doubleclick', 'google-analytics', 'googletagmanager',
+    'facebook', 'onetrust', 'cookielaw', 'adsafeprotected', 'amazon-adsystem',
+    'criteo', 'outbrain', 'taboola', 'chartbeat', 'newrelic', 'sentry',
+    'hotjar', 'clarity.ms', 'segment.', 'analytics.'
+];
 
 async function createFastPage(browser) {
     const page = await browser.newPage();
     await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
     await page.setViewport({ width: 1280, height: 720 });
 
-    // Blocca risorse pesanti
+    // Blocca risorse pesanti e script di terze parti
     await page.setRequestInterception(true);
     page.on('request', (req) => {
+        const url = req.url();
         if (BLOCKED_RESOURCES.has(req.resourceType()) ||
-            BLOCKED_DOMAINS.some(d => req.url().includes(d))) {
+            BLOCKED_DOMAINS.some(d => url.includes(d))) {
             req.abort();
         } else {
             req.continue();
@@ -92,6 +98,19 @@ async function createFastPage(browser) {
 
     return page;
 }
+
+/**
+ * Pre-lancia il browser all'avvio del server per evitare cold start.
+ * Chiamato automaticamente al caricamento del modulo.
+ */
+function prewarmBrowser() {
+    getBrowser()
+        .then(() => console.log('[Flashscore] Browser pre-warmed ✅'))
+        .catch(err => console.warn('[Flashscore] Browser pre-warm failed:', err.message));
+}
+
+// Avvia il pre-warming al caricamento del modulo
+prewarmBrowser();
 
 /**
  * Parsa una data Flashscore nel formato "DD.MM.YYYY" o "DD.MM. HH:MM" e la converte in Date.
@@ -311,11 +330,19 @@ function extractMatchId(matchUrl) {
 /**
  * Parsa il formato dati proprietario di Flashscore.
  * Il formato usa '\u00ac' come separatore e '\u00f7' come delimitatore chiave-valore.
- * Ogni sezione inizia con un key che contiene '~' (es. ~III)
+ * Ogni sezione inizia con un key che contiene '~' (es. ~III).
+ * 
+ * IMPORTANTE: dentro ogni sezione, le chiavi possono ripetersi!
+ * Es. IE=3 (gol) + IF=marcatore, poi IE=8 (assist) + IF=assistman.
+ * Oppure IE=5 (rigore assegnato) + IF=tiratore, poi IE=10 (rigore segnato) + IF=tiratore.
+ * 
+ * Per questo motivo, il parser emette una lista di coppie chiave-valore
+ * per ogni sezione, preservando l'ORDINE e le RIPETIZIONI.
  */
 function parseFlashscoreData(rawData) {
     const sections = [];
-    let current = null;
+    let currentPairs = null; // Array di {key, value}
+    let sectionId = null;
 
     const parts = rawData.split('\xAC'); // \u00ac
     for (const part of parts) {
@@ -327,14 +354,85 @@ function parseFlashscoreData(rawData) {
 
         if (key.startsWith('~')) {
             // Nuova sezione
-            if (current) sections.push(current);
-            current = { [key]: value };
-        } else if (current) {
-            current[key] = value;
+            if (currentPairs) sections.push({ id: sectionId, pairs: currentPairs });
+            sectionId = key;
+            currentPairs = [{ key, value }];
+        } else if (currentPairs) {
+            currentPairs.push({ key, value });
         }
     }
-    if (current) sections.push(current);
+    if (currentPairs) sections.push({ id: sectionId, pairs: currentPairs });
     return sections;
+}
+
+/**
+ * Estrai i gol dal dato parsato di una partita Flashscore.
+ * Gestisce: IE=3 (gol), IE=10 (rigore segnato).
+ * In ogni sezione ~III, i campi si ripetono per sub-evento:
+ *   IE=3/IF=scorer → IE=8/IF=assister  (gol + assist)
+ *   IE=5/IF=player → IE=10/IF=scorer   (rigore assegnato + rigore segnato)
+ */
+function extractGoalsFromSections(sections) {
+    const homeGoals = [];
+    const awayGoals = [];
+
+    for (const section of sections) {
+        // Solo sezioni di incidente (~III)
+        if (!section.id || !section.id.startsWith('~III')) continue;
+
+        const pairs = section.pairs;
+
+        // Estrai IA (team) e IB (minuto) — sono sempre i primi campi della sezione
+        let team = '';
+        let minute = '';
+        for (const p of pairs) {
+            if ((p.key === 'IA' || p.key === 'IAX') && !team) team = p.value;
+            if ((p.key === 'IB' || p.key === 'IBX') && !minute) minute = p.value;
+        }
+
+        // Cerca sub-eventi: ogni IE inizia un nuovo sub-evento
+        // Raccogliamo tutti i sub-eventi con il loro IF (nome giocatore)
+        const subEvents = [];
+        let currentSub = null;
+        for (const p of pairs) {
+            if (p.key === 'IE' || p.key === 'IEX') {
+                if (currentSub) subEvents.push(currentSub);
+                currentSub = { ie: p.value, if: '' };
+            } else if (currentSub && (p.key === 'IF')) {
+                currentSub.if = p.value;
+            }
+        }
+        if (currentSub) subEvents.push(currentSub);
+
+        // Cerca un sub-evento gol (IE=3) o rigore segnato (IE=10)
+        let goalSub = null;
+        for (const sub of subEvents) {
+            if (sub.ie === '3' || sub.ie === '10') {
+                goalSub = sub;
+                break;
+            }
+        }
+
+        if (!goalSub || !goalSub.if) continue;
+
+        // Formatta: COGNOME minuto'
+        const playerName = goalSub.if.trim();
+        const nameParts = playerName.split(/\s+/);
+        const lastName = nameParts[0] || playerName;
+        const isPenalty = goalSub.ie === '10';
+        const rigLabel = isPenalty ? ' (Rig.)' : '';
+        const formatted = `${lastName.toUpperCase()} ${minute}${rigLabel}`;
+
+        const goalData = { player: playerName, minute, formatted };
+
+        if (team === '1') {
+            homeGoals.push(goalData);
+        } else if (team === '2') {
+            awayGoals.push(goalData);
+        }
+    }
+
+    return { homeGoals, awayGoals };
 }
 
 /**
@@ -416,45 +514,12 @@ async function getMatchDetailsViaAPI(matchId) {
         throw lastError || new Error('Nessun endpoint API ha restituito dati');
     }
 
-    // Parsa il formato proprietario
+    // Parsa il formato proprietario e estrai i gol
     const sections = parseFlashscoreData(rawData);
-    const homeGoals = [];
-    const awayGoals = [];
+    const goals = extractGoalsFromSections(sections);
 
-    for (const section of sections) {
-        // Le sezioni di incidente iniziano con ~III o ~IIIX
-        const sectionKey = Object.keys(section).find(k => k.startsWith('~III'));
-        if (!sectionKey) continue;
-
-        const eventType = section['IE'] || section['IEX'] || '';
-
-        // IE=3 → Gol, IE=1 → Cartellino giallo, IE=7 → Sostituzione
-        if (eventType !== '3') continue;
-
-        const team = section['IA'] || section['IAX'] || '';
-        const minute = section['IB'] || section['IBX'] || '';
-        // Il nome del giocatore è nel campo IF (non ICT che è vuoto)
-        const playerName = section['IF'] || section['ICT'] || '';
-
-        if (!playerName) continue;
-
-        // Formatta: COGNOME minuto'
-        // IF contiene "Cognome I." (es. "Taborda V.") — usiamo il primo token
-        const nameParts = playerName.trim().split(/\s+/);
-        const lastName = nameParts[0] || playerName;
-        const formatted = `${lastName.toUpperCase()} ${minute}`;
-
-        const goalData = { player: playerName.trim(), minute, formatted };
-
-        if (team === '1') {
-            homeGoals.push(goalData);
-        } else if (team === '2') {
-            awayGoals.push(goalData);
-        }
-    }
-
-    console.log(`[Flashscore API] Goals found - Home: ${homeGoals.length}, Away: ${awayGoals.length}`);
-    return { homeGoals, awayGoals };
+    console.log(`[Flashscore API] Goals found - Home: ${goals.homeGoals.length}, Away: ${goals.awayGoals.length}`);
+    return goals;
 }
 
 /**
@@ -568,4 +633,4 @@ if (require.main === module) {
         });
 }
 
-module.exports = { getRecentMatches, getMatchDetails };
+module.exports = { getRecentMatches, getMatchDetails, prewarmBrowser };
