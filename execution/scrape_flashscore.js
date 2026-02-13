@@ -472,9 +472,11 @@ async function getMatchDetails(matchUrl, matchId) {
  */
 async function getMatchDetailsViaAPI(matchId) {
     // Prova diversi endpoint regionali
+    // Progetto 1 = locale inglese/internazionale (nomi in alfabeto latino)
+    // Progetto 46 = locale russo (nomi in cirillico) — NON usare!
     const API_BASES = [
-        'https://local-it.flashscore.ninja/46/x/feed',
-        'https://local-global.flashscore.ninja/46/x/feed',
+        'https://local-it.flashscore.ninja/1/x/feed',
+        'https://local-global.flashscore.ninja/2/x/feed',
         'https://d.flashscore.com/x/feed',
     ];
 
