@@ -598,7 +598,7 @@ function TabellinoControls({
         </div>
 
         <button className="download-button" onClick={downloadImage}>
-          Download HD
+          Download
         </button>
       </div>
     </div>

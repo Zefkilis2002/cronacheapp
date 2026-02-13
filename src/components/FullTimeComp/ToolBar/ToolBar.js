@@ -17,39 +17,39 @@ const Toolbar = ({
     <div className="toolbar">
       <div className="toolbar-row">
         {/* Pulsanti per il Logo 1 */}
-        <button onClick={() => moveLogo(1, 'up')}>Log1↑</button>
-        <button onClick={() => moveLogo(1, 'down')}>Log1↓</button>
-        <button onClick={() => moveLogo(1, 'left')}>Log1←</button>
-        <button onClick={() => moveLogo(1, 'right')}>Log1→</button>
-        <button onClick={() => resizeLogo(1, 'increase')}>Log1+</button>
-        <button onClick={() => resizeLogo(1, 'decrease')}>Log1−</button>
+        <button onClick={() => moveLogo(1, 'up')}>lg1↑</button>
+        <button onClick={() => moveLogo(1, 'down')}>lg1↓</button>
+        <button onClick={() => moveLogo(1, 'left')}>lg1←</button>
+        <button onClick={() => moveLogo(1, 'right')}>lg1→</button>
+        <button onClick={() => resizeLogo(1, 'increase')}>lg1+</button>
+        <button onClick={() => resizeLogo(1, 'decrease')}>lg1−</button>
       </div>
 
       <div className="toolbar-row">
         {/* Pulsanti per il Logo 2 */}
-        <button onClick={() => moveLogo(2, 'up')}>Log2↑</button>
-        <button onClick={() => moveLogo(2, 'down')}>Log2↓</button>
-        <button onClick={() => moveLogo(2, 'left')}>Log2←</button>
-        <button onClick={() => moveLogo(2, 'right')}>Log2→</button>
-        <button onClick={() => resizeLogo(2, 'increase')}>Log2+</button>
-        <button onClick={() => resizeLogo(2, 'decrease')}>Log2−</button>
+        <button onClick={() => moveLogo(2, 'up')}>lg2↑</button>
+        <button onClick={() => moveLogo(2, 'down')}>lg2↓</button>
+        <button onClick={() => moveLogo(2, 'left')}>lg2←</button>
+        <button onClick={() => moveLogo(2, 'right')}>lg2→</button>
+        <button onClick={() => resizeLogo(2, 'increase')}>lg2+</button>
+        <button onClick={() => resizeLogo(2, 'decrease')}>lg2−</button>
       </div>
 
       <div className="toolbar-row">
         {/* Pulsanti per lo sfondo (ingrandire/ridurre) e per spostare i punteggi */}
-        <button onClick={increaseImageSize}>Sfond+</button>
-        <button onClick={decreaseImageSize}>Sfond−</button>
+        <button onClick={increaseImageSize}>Img+</button>
+        <button onClick={decreaseImageSize}>Img−</button>
         <button onClick={() => {
           setScore1Y(prev => prev - 2);
           setScore2Y(prev => prev - 2);
         }}>
-          ↑ Pos Y
+          ↑ Y
         </button>
         <button onClick={() => {
           setScore1Y(prev => prev + 2);
           setScore2Y(prev => prev + 2);
         }}>
-          ↓ Pos Y
+          ↓ Y
         </button>
       </div>
     </div>
