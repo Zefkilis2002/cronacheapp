@@ -128,12 +128,16 @@ const FlashscoreImport = ({ onMatchSelect }) => {
 
         // Poi cerca i marcatori in background (con timeout)
         try {
-            if (match.matchUrl) {
+            if (match.matchUrl || match.matchId) {
                 const controller = new AbortController();
                 const timeoutId = setTimeout(() => controller.abort(), 45000);
 
+                const params = new URLSearchParams();
+                if (match.matchUrl) params.set('matchUrl', match.matchUrl);
+                if (match.matchId) params.set('matchId', match.matchId);
+
                 const detailsResponse = await fetch(
-                    `${config.API_BASE_URL}/api/get-match-details?matchUrl=${encodeURIComponent(match.matchUrl)}`,
+                    `${config.API_BASE_URL}/api/get-match-details?${params.toString()}`,
                     { signal: controller.signal }
                 );
                 clearTimeout(timeoutId);

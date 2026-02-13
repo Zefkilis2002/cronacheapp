@@ -21,6 +21,9 @@ try {
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
+// HTTP client per API diretta
+const axios = require('axios');
+
 // --- BROWSER POOL: riutilizza il browser tra le richieste ---
 let _browser = null;
 let _browserLastUsed = 0;
@@ -281,51 +284,212 @@ async function getRecentMatches({ country, league, daysBack = 7 }) {
 }
 
 /**
- * Scrape goalscorer details from a Flashscore match detail page.
+ * Estrai matchId dall'URL Flashscore.
+ * URL format IT: https://www.flashscore.it/partita/calcio/team1-xxx/team2-yyy/?mid=AbCdEfGh
+ * URL format EN: https://www.flashscore.com/match/AbCdEfGh/...
+ */
+function extractMatchId(matchUrl) {
+    if (!matchUrl) return null;
+
+    // Prima prova: parametro ?mid= (formato flashscore.it)
+    const midMatch = matchUrl.match(/[?&]mid=([a-zA-Z0-9]+)/);
+    if (midMatch) return midMatch[1];
+
+    // Seconda prova: /match/{id}/ (formato flashscore.com)
+    const matchEn = matchUrl.match(/\/match\/([a-zA-Z0-9]{6,12})/);
+    if (matchEn) return matchEn[1];
+
+    // Terza prova: prendi l'ultimo segmento alfanumerico di 8 caratteri
+    const segments = matchUrl.split(/[/?#]/);
+    for (const seg of segments) {
+        if (/^[a-zA-Z0-9]{6,12}$/.test(seg)) return seg;
+    }
+
+    return null;
+}
+
+/**
+ * Parsa il formato dati proprietario di Flashscore.
+ * Il formato usa '\u00ac' come separatore e '\u00f7' come delimitatore chiave-valore.
+ * Ogni sezione inizia con un key che contiene '~' (es. ~III)
+ */
+function parseFlashscoreData(rawData) {
+    const sections = [];
+    let current = null;
+
+    const parts = rawData.split('\xAC'); // \u00ac
+    for (const part of parts) {
+        const sepIdx = part.indexOf('\xF7'); // \u00f7
+        if (sepIdx === -1) continue;
+
+        const key = part.substring(0, sepIdx);
+        const value = part.substring(sepIdx + 1);
+
+        if (key.startsWith('~')) {
+            // Nuova sezione
+            if (current) sections.push(current);
+            current = { [key]: value };
+        } else if (current) {
+            current[key] = value;
+        }
+    }
+    if (current) sections.push(current);
+    return sections;
+}
+
+/**
+ * Scrape goalscorer details via API HTTP diretta (VELOCE: ~1-2s).
+ * Fallback a Puppeteer se l'API non risponde.
  * 
  * @param {string} matchUrl - URL della pagina dettaglio partita (flashscore.it)
- * @returns {Promise<Object>} { homeGoals: [{player, minute}], awayGoals: [{player, minute}] }
+ * @param {string} [matchId] - ID partita (opzionale, estratto da URL se non fornito)
+ * @returns {Promise<Object>} { homeGoals: [{player, minute, formatted}], awayGoals: [{player, minute, formatted}] }
  */
-async function getMatchDetails(matchUrl, retryCount = 0) {
-    const MAX_RETRIES = 1;
+async function getMatchDetails(matchUrl, matchId) {
+    const resolvedId = matchId || extractMatchId(matchUrl);
+    if (!resolvedId) {
+        console.error('[Flashscore] Cannot extract matchId from URL:', matchUrl);
+        return { homeGoals: [], awayGoals: [] };
+    }
+    console.log(`[Flashscore] Match ID resolved: ${resolvedId}`);
+
+    // --- METODO 1: API HTTP diretta (veloce, ~1-2s) ---
+    try {
+        return await getMatchDetailsViaAPI(resolvedId);
+    } catch (apiError) {
+        console.warn('[Flashscore] API diretta fallita:', apiError.message, '- Provo Puppeteer...');
+    }
+
+    // --- METODO 2: Fallback Puppeteer (lento, ~15-30s) ---
+    try {
+        return await getMatchDetailsViaPuppeteer(matchUrl);
+    } catch (puppeteerError) {
+        console.error('[Flashscore] Anche Puppeteer fallito:', puppeteerError.message);
+        return { homeGoals: [], awayGoals: [] };
+    }
+}
+
+/**
+ * Recupera marcatori tramite API HTTP diretta di Flashscore.
+ */
+async function getMatchDetailsViaAPI(matchId) {
+    // Prova diversi endpoint regionali
+    const API_BASES = [
+        'https://local-it.flashscore.ninja/46/x/feed',
+        'https://local-global.flashscore.ninja/46/x/feed',
+        'https://d.flashscore.com/x/feed',
+    ];
+
+    const headers = {
+        'x-fsign': 'SW9D1eZo',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Referer': 'https://www.flashscore.it/',
+        'Accept': '*/*',
+        'Accept-Language': 'it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7',
+    };
+
+    let rawData = null;
+    let lastError = null;
+
+    for (const base of API_BASES) {
+        const apiUrl = `${base}/df_sui_1_${matchId}`;
+        console.log(`[Flashscore API] Trying: ${apiUrl}`);
+        try {
+            const t0 = Date.now();
+            const response = await axios.get(apiUrl, {
+                headers,
+                timeout: 10000,
+                responseType: 'text'
+            });
+            console.log(`[Flashscore API] Response in ${Date.now() - t0}ms (${response.data.length} bytes)`);
+            if (response.data && response.data.length > 50) {
+                rawData = response.data;
+                break;
+            }
+        } catch (err) {
+            lastError = err;
+            console.warn(`[Flashscore API] ${base} failed: ${err.message}`);
+        }
+    }
+
+    if (!rawData) {
+        throw lastError || new Error('Nessun endpoint API ha restituito dati');
+    }
+
+    // Parsa il formato proprietario
+    const sections = parseFlashscoreData(rawData);
+    const homeGoals = [];
+    const awayGoals = [];
+
+    for (const section of sections) {
+        // Le sezioni di incidente iniziano con ~III o ~IIIX
+        const sectionKey = Object.keys(section).find(k => k.startsWith('~III'));
+        if (!sectionKey) continue;
+
+        const eventType = section['IE'] || section['IEX'] || '';
+
+        // IE=3 → Gol, IE=1 → Cartellino giallo, IE=7 → Sostituzione
+        if (eventType !== '3') continue;
+
+        const team = section['IA'] || section['IAX'] || '';
+        const minute = section['IB'] || section['IBX'] || '';
+        // Il nome del giocatore è nel campo IF (non ICT che è vuoto)
+        const playerName = section['IF'] || section['ICT'] || '';
+
+        if (!playerName) continue;
+
+        // Formatta: COGNOME minuto'
+        // IF contiene "Cognome I." (es. "Taborda V.") — usiamo il primo token
+        const nameParts = playerName.trim().split(/\s+/);
+        const lastName = nameParts[0] || playerName;
+        const formatted = `${lastName.toUpperCase()} ${minute}`;
+
+        const goalData = { player: playerName.trim(), minute, formatted };
+
+        if (team === '1') {
+            homeGoals.push(goalData);
+        } else if (team === '2') {
+            awayGoals.push(goalData);
+        }
+    }
+
+    console.log(`[Flashscore API] Goals found - Home: ${homeGoals.length}, Away: ${awayGoals.length}`);
+    return { homeGoals, awayGoals };
+}
+
+/**
+ * Fallback: recupera marcatori via Puppeteer (lento ma affidabile).
+ */
+async function getMatchDetailsViaPuppeteer(matchUrl) {
     const browser = await getBrowser();
     let page;
     try {
         page = await createFastPage(browser);
 
-        console.log(`[Flashscore] Fetching match details: ${matchUrl} (attempt ${retryCount + 1})`);
+        console.log(`[Flashscore Puppeteer] Fetching: ${matchUrl}`);
         const t0 = Date.now();
         await page.goto(matchUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
 
-        // Aspetta che gli incidenti appaiano
         await page.waitForSelector('.smv__incident, [class*="incident"]', { timeout: 8000 }).catch(() => { });
-
-        console.log(`[Flashscore] Details page ready in ${Date.now() - t0}ms`);
+        console.log(`[Flashscore Puppeteer] Page ready in ${Date.now() - t0}ms`);
         await sleep(300);
 
-        // Estrai i gol
         const goals = await page.evaluate(() => {
             const homeGoals = [];
             const awayGoals = [];
-
             const incidents = document.querySelectorAll('.smv__incident');
             let prevHomeScore = 0;
             let prevAwayScore = 0;
 
             incidents.forEach(el => {
-                // Verifica che sia un gol (icona pallone)
                 const goalIcon = el.querySelector('[data-testid="wcl-icon-incidents-goal-soccer"]');
                 if (!goalIcon) return;
 
-                // Estrai minuto
                 const timeBox = el.querySelector('.smv__timeBox');
                 const minute = timeBox ? timeBox.textContent.trim() : '';
 
-                // Estrai punteggio corrente dall'evento
                 let curHomeScore = prevHomeScore;
                 let curAwayScore = prevAwayScore;
-
-                // Il punteggio è nel formato "X - Y" dentro l'incident
                 const fullText = el.textContent;
                 const scoreMatch = fullText.match(/(\d+)\s*-\s*(\d+)/);
                 if (scoreMatch) {
@@ -333,16 +497,13 @@ async function getMatchDetails(matchUrl, retryCount = 0) {
                     curAwayScore = parseInt(scoreMatch[2]);
                 }
 
-                // Determina quale squadra ha segnato confrontando i punteggi
                 const isHomeGoal = curHomeScore > prevHomeScore;
 
-                // Estrai nome giocatore
                 let playerName = '';
                 const nameEl = el.querySelector('[class*="playerName"]');
                 if (nameEl) {
                     playerName = nameEl.textContent.trim();
                 } else {
-                    // Fallback: cerca testo che sembra un nome
                     const allText = el.textContent.replace(/\s+/g, ' ').trim();
                     const parts = allText.split(/\d+\s*-\s*\d+/);
                     for (const part of parts) {
@@ -354,7 +515,6 @@ async function getMatchDetails(matchUrl, retryCount = 0) {
                     }
                 }
 
-                // Formatta: COGNOME minuto'
                 const lastName = playerName.split(' ')[0] || playerName;
                 const formatted = `${lastName.toUpperCase()} ${minute}`;
 
@@ -374,27 +534,12 @@ async function getMatchDetails(matchUrl, retryCount = 0) {
         await page.close();
         page = null;
 
-        console.log(`[Flashscore] Goals found - Home: ${goals.homeGoals.length}, Away: ${goals.awayGoals.length}`);
-
-        // Se non ha trovato gol e non ha ancora riprovato, riprova
-        if (goals.homeGoals.length === 0 && goals.awayGoals.length === 0 && retryCount < MAX_RETRIES) {
-            console.log(`[Flashscore] No goals found, retrying...`);
-            return getMatchDetails(matchUrl, retryCount + 1);
-        }
-
+        console.log(`[Flashscore Puppeteer] Goals - Home: ${goals.homeGoals.length}, Away: ${goals.awayGoals.length}`);
         return goals;
 
     } catch (error) {
         if (page) await page.close().catch(() => { });
-        console.error('[Flashscore] Match details error:', error.message);
-
-        // Retry su errore
-        if (retryCount < MAX_RETRIES) {
-            console.log(`[Flashscore] Retrying after error...`);
-            return getMatchDetails(matchUrl, retryCount + 1);
-        }
-
-        return { homeGoals: [], awayGoals: [] };
+        throw error;
     }
 }
 

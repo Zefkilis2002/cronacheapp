@@ -375,17 +375,18 @@ app.get('/api/get-matches', async (req, res) => {
 
 // --- ENDPOINT FLASHSCORE: Dettagli partita (marcatori) ---
 app.get('/api/get-match-details', async (req, res) => {
-  const { matchUrl } = req.query;
+  const { matchUrl, matchId } = req.query;
 
-  if (!matchUrl) {
+  if (!matchUrl && !matchId) {
     return res.status(400).json({
       status: false,
-      message: 'Parametro mancante: matchUrl è obbligatorio'
+      message: 'Parametro mancante: matchUrl o matchId è obbligatorio'
     });
   }
 
-  console.log(`[FLASHSCORE] Fetching match details: ${matchUrl}`);
+  console.log(`[FLASHSCORE] Fetching match details: ${matchId || matchUrl}`);
 
+  // Timeout ridotto: ora l'API HTTP risponde in <1s
   const timeout = setTimeout(() => {
     if (!res.headersSent) {
       res.status(504).json({
@@ -393,10 +394,10 @@ app.get('/api/get-match-details', async (req, res) => {
         message: 'Timeout: il recupero dei dettagli ha impiegato troppo tempo.'
       });
     }
-  }, 90000);
+  }, 30000);
 
   try {
-    const details = await getMatchDetails(matchUrl);
+    const details = await getMatchDetails(matchUrl, matchId);
 
     clearTimeout(timeout);
     if (!res.headersSent) {
