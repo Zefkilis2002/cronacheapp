@@ -46,6 +46,9 @@ async function getBrowser() {
             '--disable-default-apps',
             '--disable-sync',
             '--no-first-run',
+            '--single-process',
+            '--disable-features=TranslateUI',
+            '--disable-ipc-flooding-protection',
             '--window-size=1280,720'
         ]
     });
@@ -145,45 +148,19 @@ async function getRecentMatches({ country, league, daysBack = 7 }) {
 
         console.log(`[Flashscore] Navigating to: ${url}`);
         const t0 = Date.now();
-        await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
+        await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
 
         // Aspetta che le partite appaiano nel DOM (più veloce di networkidle2)
-        await page.waitForSelector('.event__match, [class*="event__match"]', { timeout: 15000 }).catch(() => { });
+        await page.waitForSelector('[class*="event__match"]', { timeout: 12000 }).catch(() => { });
 
         console.log(`[Flashscore] Page ready in ${Date.now() - t0}ms`);
 
         // Breve pausa per render finale
-        await sleep(1000);
+        await sleep(300);
 
-        // Debug: cerca tutti i possibili selettori per le partite
-        const selectorDebug = await page.evaluate(() => {
-            const selectors = {
-                'event__match': document.querySelectorAll('.event__match').length,
-                'event__match--static': document.querySelectorAll('.event__match--static').length,
-                'event__match--twoLine': document.querySelectorAll('.event__match--twoLine').length,
-                'sportName': document.querySelectorAll('.sportName').length,
-                'leagues--static': document.querySelectorAll('.leagues--static').length,
-                'event__participant': document.querySelectorAll('.event__participant').length,
-                'event__participant--home': document.querySelectorAll('.event__participant--home').length,
-                '[class*=event]': document.querySelectorAll('[class*="event"]').length,
-                '[class*=match]': document.querySelectorAll('[class*="match"]').length,
-                '[class*=participant]': document.querySelectorAll('[class*="participant"]').length,
-                '[class*=score]': document.querySelectorAll('[class*="score"]').length,
-            };
-            // Anche: cattura classi top-level per debug
-            const bodyClasses = Array.from(document.body.querySelectorAll('div[class]'))
-                .slice(0, 30)
-                .map(el => el.className.split(' ').slice(0, 3).join(' '));
-            return { selectors, bodyClasses };
-        });
-        console.log('[Flashscore] Selector debug:', JSON.stringify(selectorDebug.selectors));
-        console.log('[Flashscore] Top div classes:', selectorDebug.bodyClasses.slice(0, 15));
-
-        // Prova vari selettori per trovare le partite
+        // Cerca il selettore che contiene partite (ordine per probabilità)
         const MATCH_SELECTORS = [
             '.event__match',
-            '.event__match--static',
-            '.event__match--twoLine',
             '[class*="event__match"]',
         ];
 
@@ -198,9 +175,7 @@ async function getRecentMatches({ country, league, daysBack = 7 }) {
         }
 
         if (!matchSelector) {
-            // Dump più info per debug
-            const bodyText = await page.evaluate(() => document.body.innerText.substring(0, 500));
-            console.error('[Flashscore] No match elements found! Page text preview:', bodyText);
+            console.error('[Flashscore] No match elements found!');
             throw new Error(`Nessuna partita trovata nella pagina ${country}/${league}. La pagina potrebbe aver cambiato struttura.`);
         }
 
@@ -311,21 +286,22 @@ async function getRecentMatches({ country, league, daysBack = 7 }) {
  * @param {string} matchUrl - URL della pagina dettaglio partita (flashscore.it)
  * @returns {Promise<Object>} { homeGoals: [{player, minute}], awayGoals: [{player, minute}] }
  */
-async function getMatchDetails(matchUrl) {
+async function getMatchDetails(matchUrl, retryCount = 0) {
+    const MAX_RETRIES = 1;
     const browser = await getBrowser();
     let page;
     try {
         page = await createFastPage(browser);
 
-        console.log(`[Flashscore] Fetching match details: ${matchUrl}`);
+        console.log(`[Flashscore] Fetching match details: ${matchUrl} (attempt ${retryCount + 1})`);
         const t0 = Date.now();
-        await page.goto(matchUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
+        await page.goto(matchUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
 
         // Aspetta che gli incidenti appaiano
-        await page.waitForSelector('.smv__incident, [class*="incident"]', { timeout: 10000 }).catch(() => { });
+        await page.waitForSelector('.smv__incident, [class*="incident"]', { timeout: 8000 }).catch(() => { });
 
         console.log(`[Flashscore] Details page ready in ${Date.now() - t0}ms`);
-        await sleep(1000);
+        await sleep(300);
 
         // Estrai i gol
         const goals = await page.evaluate(() => {
@@ -346,7 +322,6 @@ async function getMatchDetails(matchUrl) {
                 const minute = timeBox ? timeBox.textContent.trim() : '';
 
                 // Estrai punteggio corrente dall'evento
-                const scoreTexts = el.querySelectorAll('[class*="incidentHomeScore"], [class*="incidentAwayScore"]');
                 let curHomeScore = prevHomeScore;
                 let curAwayScore = prevAwayScore;
 
@@ -363,7 +338,6 @@ async function getMatchDetails(matchUrl) {
 
                 // Estrai nome giocatore
                 let playerName = '';
-                // Prova smv__playerName
                 const nameEl = el.querySelector('[class*="playerName"]');
                 if (nameEl) {
                     playerName = nameEl.textContent.trim();
@@ -401,11 +375,25 @@ async function getMatchDetails(matchUrl) {
         page = null;
 
         console.log(`[Flashscore] Goals found - Home: ${goals.homeGoals.length}, Away: ${goals.awayGoals.length}`);
+
+        // Se non ha trovato gol e non ha ancora riprovato, riprova
+        if (goals.homeGoals.length === 0 && goals.awayGoals.length === 0 && retryCount < MAX_RETRIES) {
+            console.log(`[Flashscore] No goals found, retrying...`);
+            return getMatchDetails(matchUrl, retryCount + 1);
+        }
+
         return goals;
 
     } catch (error) {
         if (page) await page.close().catch(() => { });
         console.error('[Flashscore] Match details error:', error.message);
+
+        // Retry su errore
+        if (retryCount < MAX_RETRIES) {
+            console.log(`[Flashscore] Retrying after error...`);
+            return getMatchDetails(matchUrl, retryCount + 1);
+        }
+
         return { homeGoals: [], awayGoals: [] };
     }
 }

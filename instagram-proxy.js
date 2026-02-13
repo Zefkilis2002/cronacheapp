@@ -2,6 +2,7 @@ const express = require('express');
 const axios = require('axios');
 const cheerio = require('cheerio');
 const cors = require('cors');
+const { getRecentMatches, getMatchDetails } = require('./execution/scrape_flashscore');
 
 const app = express();
 
@@ -353,10 +354,6 @@ app.get('/api/get-matches', async (req, res) => {
   }, 90000);
 
   try {
-    // Bussa la cache di Node.js per ricaricare il modulo aggiornato
-    const modulePath = require.resolve('./execution/scrape_flashscore');
-    delete require.cache[modulePath];
-    const { getRecentMatches } = require('./execution/scrape_flashscore');
     const matches = await getRecentMatches({ country, league, daysBack: days });
 
     clearTimeout(timeout);
@@ -399,9 +396,6 @@ app.get('/api/get-match-details', async (req, res) => {
   }, 90000);
 
   try {
-    const modulePath = require.resolve('./execution/scrape_flashscore');
-    delete require.cache[modulePath];
-    const { getMatchDetails } = require('./execution/scrape_flashscore');
     const details = await getMatchDetails(matchUrl);
 
     clearTimeout(timeout);

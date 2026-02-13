@@ -126,12 +126,17 @@ const FlashscoreImport = ({ onMatchSelect }) => {
             onMatchSelect(matchData);
         }
 
-        // Poi cerca i marcatori in background
+        // Poi cerca i marcatori in background (con timeout)
         try {
             if (match.matchUrl) {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 45000);
+
                 const detailsResponse = await fetch(
-                    `${config.API_BASE_URL}/api/get-match-details?matchUrl=${encodeURIComponent(match.matchUrl)}`
+                    `${config.API_BASE_URL}/api/get-match-details?matchUrl=${encodeURIComponent(match.matchUrl)}`,
+                    { signal: controller.signal }
                 );
+                clearTimeout(timeoutId);
                 const detailsData = await detailsResponse.json();
 
                 if (detailsData.status) {
@@ -148,7 +153,7 @@ const FlashscoreImport = ({ onMatchSelect }) => {
             }
         } catch (err) {
             console.error('Error fetching match details:', err);
-            // Non mostrare errore - i dati base sono già stati applicati
+            setError('⚠️ Marcatori non disponibili. Inseriscili manualmente.');
         } finally {
             setLoadingDetails(false);
         }
