@@ -19,81 +19,176 @@ async function loadAcrXmp() {
     Dehaze: 0,
     Vibrance: 0,
     Saturation: 0,
-    ToneCurve: [[0,0],[1,1]],
-    ToneCurveR: [[0,0],[1,1]],
-    ToneCurveG: [[0,0],[1,1]],
-    ToneCurveB: [[0,0],[1,1]]
+    ToneCurve: [[0, 0], [1, 1]],
+    ToneCurveR: [[0, 0], [1, 1]],
+    ToneCurveG: [[0, 0], [1, 1]],
+    ToneCurveB: [[0, 0], [1, 1]]
   };
   return xmpSettings;
 }
 
-// --------------------- UPSCALE / ENHANCE LOGIC ---------------------
-// Simulated "Smart Enhance" using sharpening convolution + canvas upscaling
+
+// --------------------- SHARED SHADERS ---------------------
+const VS_UPSCALE = `
+attribute vec2 aPos;
+varying vec2 vUv;
+void main() {
+    vUv = 0.5 * (aPos + 1.0);
+    gl_Position = vec4(aPos, 0.0, 1.0);
+}
+`;
+
+// Bicubic Interpolation Fragment Shader
+// Adapted from standard bicubic implementations
+const FS_BICUBIC = `
+precision mediump float;
+varying vec2 vUv;
+uniform sampler2D uTex;
+uniform vec2 uTexSize;
+
+vec4 cubic(float v) {
+    vec4 n = vec4(1.0, 2.0, 3.0, 4.0) - v;
+    vec4 s = n * n * n;
+    float x = s.x;
+    float y = s.y - 4.0 * s.x;
+    float z = s.z - 4.0 * s.y + 6.0 * s.x;
+    float w = 6.0 - x - y - z;
+    return vec4(x, y, z, w) * (1.0/6.0);
+}
+
+void main() {
+    vec2 texSize = uTexSize;
+    vec2 invTexSize = 1.0 / texSize;
+    
+    vec2 pos = vUv * texSize - 0.5;
+    vec2 f = fract(pos);
+    vec2 i = floor(pos);
+    
+    vec4 xCubic = cubic(f.x);
+    vec4 yCubic = cubic(f.y);
+    
+    vec4 c = vec4(pos.x - 0.5, pos.x + 1.5, pos.y - 0.5, pos.y + 1.5);
+    
+    vec4 s = vec4(xCubic.x + xCubic.y, xCubic.z + xCubic.w, yCubic.x + yCubic.y, yCubic.z + yCubic.w);
+    vec4 offset = c + vec4(xCubic.y, xCubic.w, yCubic.y, yCubic.w) / s;
+    
+    vec4 sample0 = texture2D(uTex, vec2(offset.x, offset.z) * invTexSize);
+    vec4 sample1 = texture2D(uTex, vec2(offset.y, offset.z) * invTexSize);
+    vec4 sample2 = texture2D(uTex, vec2(offset.x, offset.w) * invTexSize);
+    vec4 sample3 = texture2D(uTex, vec2(offset.y, offset.w) * invTexSize);
+    
+    float sx = s.x / (s.x + s.y);
+    float sy = s.z / (s.z + s.w);
+    
+    vec4 color = mix(mix(sample3, sample2, sx), mix(sample1, sample0, sx), sy);
+    gl_FragColor = color;
+}
+`;
+
+// Unsharp Mask Shader (Sharpening)
+const FS_SHARPEN = `
+precision mediump float;
+varying vec2 vUv;
+uniform sampler2D uTex;
+uniform vec2 uStep;
+uniform float uStrength;
+
+void main() {
+    vec4 center = texture2D(uTex, vUv);
+    
+    vec4 top    = texture2D(uTex, vUv - vec2(0.0, uStep.y));
+    vec4 bottom = texture2D(uTex, vUv + vec2(0.0, uStep.y));
+    vec4 left   = texture2D(uTex, vUv - vec2(uStep.x, 0.0));
+    vec4 right  = texture2D(uTex, vUv + vec2(uStep.x, 0.0));
+    
+    // Simple Laplacian approximation for edge detection
+    vec4 edges = 4.0 * center - (top + bottom + left + right);
+    
+    // Add edges back to original image (Unsharp Mask)
+    gl_FragColor = center + edges * uStrength;
+}
+`;
+
+// High Quality WebGL Upscale
 export async function applyUpscaleFilter(imageElement) {
-  const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d');
-  
-  // 1. Determine new size (max 2x, limit to reasonable 4k dimensions to prevent crash)
-  const MAX_DIM = 3840;
+  // 1. Determine Target Size (2x)
+  const MAX_DIM = 7680; // Allow up to 8K, WebGL can handle it on modern GPUs
   let w = imageElement.naturalWidth;
   let h = imageElement.naturalHeight;
-  
-  // Only upscale if not already huge
+
+  // Only upscale if within reasonable limits
   if (w < MAX_DIM && h < MAX_DIM) {
     w *= 2;
     h *= 2;
   }
-  
-  canvas.width = w;
-  canvas.height = h;
 
-  // 2. High-quality scaling (bicubic smoother in modern browsers)
-  ctx.imageSmoothingEnabled = true;
-  ctx.imageSmoothingQuality = 'high';
-  ctx.drawImage(imageElement, 0, 0, w, h);
+  // 2. Setup WebGL
+  // We create a canvas that matches the TARGET size
+  const { gl, canvas } = createGL(w, h);
+  const quad = drawQuad(gl);
 
-  // 3. Apply Unsharp Mask via Convolution
-  // Simple sharpen kernel
-  // [  0, -1,  0 ]
-  // [ -1,  5, -1 ]
-  // [  0, -1,  0 ]
-  
-  // Get pixel data
-  const imageData = ctx.getImageData(0, 0, w, h);
-  const data = imageData.data;
-  const buff = new Uint8ClampedArray(data); // copy for reading
+  // Source Texture (Original Size)
+  const srcW = imageElement.naturalWidth;
+  const srcH = imageElement.naturalHeight;
 
-  const sharpenAmount = 0.5; // Adjustable strength (0.0 - 1.0)
-  
-  // Kernel weights for center and neighbors
-  const wCenter = 1 + 4 * sharpenAmount;
-  const wNeighbor = -sharpenAmount;
+  const texSrc = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, texSrc);
+  // Important: Linear filtering for pre-shader sampling, but clamp to edge
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  // Flip Y for WebGL convention
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, imageElement);
 
-  for (let y = 1; y < h - 1; y++) {
-    for (let x = 1; x < w - 1; x++) {
-      const idx = (y * w + x) * 4;
-      
-      // Offsets
-      const up    = ((y - 1) * w + x) * 4;
-      const down  = ((y + 1) * w + x) * 4;
-      const left  = (y * w + (x - 1)) * 4;
-      const right = (y * w + (x + 1)) * 4;
+  // Intermediate Texture/FBO for Bicubic Result (Target Size)
+  // We need this because we can't run two shaders in one pass easily without complexity
+  const texBicubic = makeTex(gl, w, h);
+  const fboBicubic = makeFBO(gl, texBicubic);
 
-      // Apply convolution to RGB
-      for (let c = 0; c < 3; c++) {
-        const val = 
-          buff[idx + c] * wCenter +
-          (buff[up + c] + buff[down + c] + buff[left + c] + buff[right + c]) * wNeighbor;
-        
-        data[idx + c] = Math.min(255, Math.max(0, val));
-      }
-      // Alpha remains same
-    }
-  }
+  // Pass 1: Bicubic Upscale
+  gl.viewport(0, 0, w, h);
+  const progBicubic = program(gl, VS_UPSCALE, FS_BICUBIC);
+  gl.useProgram(progBicubic);
 
-  ctx.putImageData(imageData, 0, 0);
+  const uTexLoc = gl.getUniformLocation(progBicubic, "uTex");
+  const uTexSizeLoc = gl.getUniformLocation(progBicubic, "uTexSize");
+  const aPosLoc = gl.getAttribLocation(progBicubic, "aPos");
 
-  // 4. Return URL
+  gl.bindFramebuffer(gl.FRAMEBUFFER, fboBicubic);
+  gl.bindBuffer(gl.ARRAY_BUFFER, quad);
+  gl.enableVertexAttribArray(aPosLoc);
+  gl.vertexAttribPointer(aPosLoc, 2, gl.FLOAT, false, 0, 0);
+
+  gl.activeTexture(gl.TEXTURE0);
+  gl.bindTexture(gl.TEXTURE_2D, texSrc);
+  gl.uniform1i(uTexLoc, 0);
+  gl.uniform2f(uTexSizeLoc, srcW, srcH); // Bicubic needs SOURCE size
+
+  gl.drawArrays(gl.TRIANGLES, 0, 6);
+
+  // Pass 2: Sharpening (Unsharp Mask)
+  // Render to Canvas (Screen)
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
+  const progSharpen = program(gl, VS_UPSCALE, FS_SHARPEN);
+  gl.useProgram(progSharpen);
+
+  const uTexLocS = gl.getUniformLocation(progSharpen, "uTex");
+  const uStepLocS = gl.getUniformLocation(progSharpen, "uStep");
+  const uStrengthLocS = gl.getUniformLocation(progSharpen, "uStrength");
+  const aPosLocS = gl.getAttribLocation(progSharpen, "aPos"); // Should be same index usually
+
+  gl.activeTexture(gl.TEXTURE0);
+  gl.bindTexture(gl.TEXTURE_2D, texBicubic); // Input is the bicubic upscaled tex
+  gl.uniform1i(uTexLocS, 0);
+  gl.uniform2f(uStepLocS, 1.0 / w, 1.0 / h);
+  gl.uniform1f(uStrengthLocS, 0.8); // Adjust sharpening strength (0.5 - 1.0 is usually good)
+
+  gl.drawArrays(gl.TRIANGLES, 0, 6);
+
+  // 3. Return Result
   return new Promise(resolve => {
     canvas.toBlob(blob => {
       const url = URL.createObjectURL(blob);
@@ -109,77 +204,77 @@ const M_RGB2XYZ = new Float32Array([
   0.0193339, 0.1191920, 0.9503041
 ]);
 const M_XYZ2RGB = new Float32Array([
-   3.2404542, -1.5371385, -0.4985314,
-  -0.9692660,  1.8760108,  0.0415560,
-   0.0556434, -0.2040259,  1.0572252
+  3.2404542, -1.5371385, -0.4985314,
+  -0.9692660, 1.8760108, 0.0415560,
+  0.0556434, -0.2040259, 1.0572252
 ]);
 
 function mul3x3(a, b) {
   const o = new Float32Array(9);
-  for (let r=0;r<3;r++) for (let c=0;c<3;c++) {
-    o[r*3+c] = a[r*3+0]*b[0*3+c] + a[r*3+1]*b[1*3+c] + a[r*3+2]*b[2*3+c];
+  for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) {
+    o[r * 3 + c] = a[r * 3 + 0] * b[0 * 3 + c] + a[r * 3 + 1] * b[1 * 3 + c] + a[r * 3 + 2] * b[2 * 3 + c];
   }
   return o;
 }
 
 function xy2XYZ(x, y) {
   const Y = 1.0;
-  const X = (x / Math.max(1e-6,y)) * Y;
-  const Z = ((1 - x - y) / Math.max(1e-6,y)) * Y;
-  return [X,Y,Z];
+  const X = (x / Math.max(1e-6, y)) * Y;
+  const Z = ((1 - x - y) / Math.max(1e-6, y)) * Y;
+  return [X, Y, Z];
 }
 
 function cct2xy(CCT) {
   const K = Math.max(1000, Math.min(40000, CCT));
   let x;
   if (K <= 7000) {
-    x = -4.6070e9/(K*K*K) + 2.9678e6/(K*K) + 0.09911e3/K + 0.244063;
+    x = -4.6070e9 / (K * K * K) + 2.9678e6 / (K * K) + 0.09911e3 / K + 0.244063;
   } else {
-    x = -2.0064e9/(K*K*K) + 1.9018e6/(K*K) + 0.24748e3/K + 0.237040;
+    x = -2.0064e9 / (K * K * K) + 1.9018e6 / (K * K) + 0.24748e3 / K + 0.237040;
   }
-  const y = -3.000*x*x + 2.870*x - 0.275;
-  return [x,y];
+  const y = -3.000 * x * x + 2.870 * x - 0.275;
+  return [x, y];
 }
 
 function applyTint_xy(x, y, tint) {
-  const denom = (-2*x + 12*y + 3);
-  const upr = (4*x) / denom;
-  const vpr = (9*y) / denom;
+  const denom = (-2 * x + 12 * y + 3);
+  const upr = (4 * x) / denom;
+  const vpr = (9 * y) / denom;
   const scale = tint / 1000.0;
-  const upr2 = upr + 0.0*scale;
-  const vpr2 = vpr + 0.05*scale;
-  const x2 = (9*upr2) / (6*upr2 - 16*vpr2 + 12);
-  const y2 = (4*vpr2) / (6*upr2 - 16*vpr2 + 12);
+  const upr2 = upr + 0.0 * scale;
+  const vpr2 = vpr + 0.05 * scale;
+  const x2 = (9 * upr2) / (6 * upr2 - 16 * vpr2 + 12);
+  const y2 = (4 * vpr2) / (6 * upr2 - 16 * vpr2 + 12);
   return [x2, y2];
 }
 
 function bradfordAdaptMatrix(srcXYZ, dstXYZ) {
   const M = new Float32Array([
     0.8951, 0.2664, -0.1614,
-   -0.7502, 1.7135,  0.0367,
-    0.0389, -0.0685,  1.0296
+    -0.7502, 1.7135, 0.0367,
+    0.0389, -0.0685, 1.0296
   ]);
   const Minv = new Float32Array([
     0.9869929, -0.1470543, 0.1599627,
-    0.4323053,  0.5183603, 0.0492912,
-   -0.0085287,  0.0400428, 0.9684867
+    0.4323053, 0.5183603, 0.0492912,
+    -0.0085287, 0.0400428, 0.9684867
   ]);
-  const Lms = (X,Y,Z) => [ M[0]*X + M[1]*Y + M[2]*Z,
-                           M[3]*X + M[4]*Y + M[5]*Z,
-                           M[6]*X + M[7]*Y + M[8]*Z ];
-  const [Ls,Ms,Ss] = Lms(srcXYZ[0],srcXYZ[1],srcXYZ[2]);
-  const [Ld,Md,Sd] = Lms(dstXYZ[0],dstXYZ[1],dstXYZ[2]);
+  const Lms = (X, Y, Z) => [M[0] * X + M[1] * Y + M[2] * Z,
+  M[3] * X + M[4] * Y + M[5] * Z,
+  M[6] * X + M[7] * Y + M[8] * Z];
+  const [Ls, Ms, Ss] = Lms(srcXYZ[0], srcXYZ[1], srcXYZ[2]);
+  const [Ld, Md, Sd] = Lms(dstXYZ[0], dstXYZ[1], dstXYZ[2]);
   const D = new Float32Array([
-    Ld/Ls, 0,     0,
-    0,     Md/Ms, 0,
-    0,     0,     Sd/Ss
+    Ld / Ls, 0, 0,
+    0, Md / Ms, 0,
+    0, 0, Sd / Ss
   ]);
   return mul3x3(Minv, mul3x3(D, M));
 }
 
 function wbMatrixFromTempTint(tempK, tint) {
-  const [x,y] = applyTint_xy(...cct2xy(Math.max(1000, tempK || 6500)), tint || 0);
-  const src = xy2XYZ(x,y);
+  const [x, y] = applyTint_xy(...cct2xy(Math.max(1000, tempK || 6500)), tint || 0);
+  const src = xy2XYZ(x, y);
   const d65 = xy2XYZ(0.3127, 0.3290);
   const Ad = bradfordAdaptMatrix(src, d65);
   return mul3x3(M_XYZ2RGB, mul3x3(Ad, M_RGB2XYZ));
@@ -190,15 +285,15 @@ function createGL(w, h) {
   const canvas = document.createElement('canvas');
   canvas.width = w;
   canvas.height = h;
-  const gl = canvas.getContext('webgl2', { premultipliedAlpha:false, desynchronized:true })
-      || canvas.getContext('webgl',  { premultipliedAlpha:false, desynchronized:true });
+  const gl = canvas.getContext('webgl2', { premultipliedAlpha: false, desynchronized: true })
+    || canvas.getContext('webgl', { premultipliedAlpha: false, desynchronized: true });
   if (!gl) throw new Error('WebGL non disponibile');
   return { gl, canvas };
 }
 
 function compile(gl, t, src) {
   const s = gl.createShader(t); gl.shaderSource(s, src); gl.compileShader(s);
-  if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)||'shader');
+  if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s) || 'shader');
   return s;
 }
 
@@ -207,15 +302,15 @@ function program(gl, vs, fs) {
   gl.attachShader(p, compile(gl, gl.VERTEX_SHADER, vs));
   gl.attachShader(p, compile(gl, gl.FRAGMENT_SHADER, fs));
   gl.linkProgram(p);
-  if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p)||'program');
+  if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p) || 'program');
   return p;
 }
 
-function makeTex(gl, w, h, data=null, linear=true) {
+function makeTex(gl, w, h, data = null, linear = true) {
   const t = gl.createTexture();
   gl.bindTexture(gl.TEXTURE_2D, t);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, linear?gl.LINEAR:gl.NEAREST);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, linear?gl.LINEAR:gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, linear ? gl.LINEAR : gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, linear ? gl.LINEAR : gl.NEAREST);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, data);
@@ -233,7 +328,7 @@ function drawQuad(gl) {
   const b = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, b);
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
-    -1,-1, 1,-1, -1,1,  1,-1, 1,1, -1,1
+    -1, -1, 1, -1, -1, 1, 1, -1, 1, 1, -1, 1
   ]), gl.STATIC_DRAW);
   return b;
 }
@@ -258,7 +353,7 @@ float luma(vec3 c){ return dot(c, vec3(0.299,0.587,0.114)); }
 const FS_WB_EXPO = `
 precision mediump float; varying vec2 vUv;
 uniform sampler2D uTex; uniform mat3 uWB; uniform float uEV;
-${srgb2lin}
+\${srgb2lin}
 void main(){
   vec4 t = texture2D(uTex, vUv);
   vec3 c = srgb2lin(t.rgb);
@@ -276,7 +371,7 @@ uniform float uShadows;
 uniform float uWhites;
 uniform float uBlacks;
 uniform float uContrast;
-${srgb2lin}
+\${srgb2lin}
 
 float softLUT(float x, float amt, float lo, float hi){
   float wHi = smoothstep(lo, 1.0, x);
@@ -325,7 +420,7 @@ void main(){
 const FS_BILATERAL = `
 precision mediump float; varying vec2 vUv;
 uniform sampler2D uTex; uniform vec2 uDir; uniform float uSigmaS; uniform float uSigmaR;
-${srgb2lin}
+\${srgb2lin}
 
 float weightSpatial(int i){
   if (i==0) return 0.227000;
@@ -400,7 +495,7 @@ const FS_FINISH = `
 precision mediump float; varying vec2 vUv;
 uniform sampler2D uTex;
 uniform float uVibrance; uniform float uSaturation;
-${srgb2lin}
+\${srgb2lin}
 
 vec3 vibranceSaturation(vec3 srgb, float vib, float sat){
   float maxc = max(max(srgb.r, srgb.g), srgb.b);
@@ -425,13 +520,13 @@ void main(){
 // Apply Camera Raw Sport Filter
 async function applyCameraRawSportFilter(imageElement) {
   const s = await loadAcrXmp();
-  
+
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d');
   canvas.width = imageElement.naturalWidth;
   canvas.height = imageElement.naturalHeight;
   ctx.drawImage(imageElement, 0, 0);
-  
+
   const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
   const W = canvas.width, H = canvas.height;
 
@@ -440,16 +535,16 @@ async function applyCameraRawSportFilter(imageElement) {
 
   // Create textures
   // Create textures
-const texSrc = makeTex(gl, W, H, null);
-gl.bindTexture(gl.TEXTURE_2D, texSrc);
+  const texSrc = makeTex(gl, W, H, null);
+  gl.bindTexture(gl.TEXTURE_2D, texSrc);
 
-// FLIP SOLO QUI: la sorgente viene flippata in upload
-gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+  // FLIP SOLO QUI: la sorgente viene flippata in upload
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
 
-gl.texImage2D(
-  gl.TEXTURE_2D, 0, gl.RGBA, W, H, 0,
-  gl.RGBA, gl.UNSIGNED_BYTE, imageData.data
-);
+  gl.texImage2D(
+    gl.TEXTURE_2D, 0, gl.RGBA, W, H, 0,
+    gl.RGBA, gl.UNSIGNED_BYTE, imageData.data
+  );
 
 
   const texA = makeTex(gl, W, H);
@@ -457,7 +552,7 @@ gl.texImage2D(
   const fboA = makeFBO(gl, texA);
   const fboB = makeFBO(gl, texB);
 
-  const W2 = Math.max(1, W>>1), H2 = Math.max(1, H>>1);
+  const W2 = Math.max(1, W >> 1), H2 = Math.max(1, H >> 1);
   const texDS = makeTex(gl, W2, H2);
   const texBLUR1 = makeTex(gl, W2, H2);
   const texBLUR2 = makeTex(gl, W2, H2);
@@ -465,15 +560,15 @@ gl.texImage2D(
   const fboBLUR1 = makeFBO(gl, texBLUR1);
   const fboBLUR2 = makeFBO(gl, texBLUR2);
 
-  gl.viewport(0,0,W,H);
+  gl.viewport(0, 0, W, H);
 
   // Pass 0: WB + Exposure
   const progWB = program(gl, VS, FS_WB_EXPO);
   const p0 = {
     pos: gl.getAttribLocation(progWB, 'aPos'),
     uTex: gl.getUniformLocation(progWB, 'uTex'),
-    uWB:  gl.getUniformLocation(progWB, 'uWB'),
-    uEV:  gl.getUniformLocation(progWB, 'uEV'),
+    uWB: gl.getUniformLocation(progWB, 'uWB'),
+    uEV: gl.getUniformLocation(progWB, 'uEV'),
   };
   gl.useProgram(progWB);
   gl.bindFramebuffer(gl.FRAMEBUFFER, fboA);
@@ -511,7 +606,7 @@ gl.texImage2D(
   gl.drawArrays(gl.TRIANGLES, 0, 6);
 
   // Downscale
-  gl.viewport(0,0,W2,H2);
+  gl.viewport(0, 0, W2, H2);
   const progCopy = program(gl, VS, `
     precision mediump float; varying vec2 vUv; uniform sampler2D uTex;
     void main(){ gl_FragColor = texture2D(uTex, vUv); }
@@ -540,25 +635,25 @@ gl.texImage2D(
   // Small blur (texture)
   gl.bindFramebuffer(gl.FRAMEBUFFER, fboBLUR1);
   gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, texDS); gl.uniform1i(pb.uTex, 0);
-  gl.uniform2f(pb.uDir, 1.0/W2, 0.0); gl.uniform1f(pb.uSigmaS, 2.0); gl.uniform1f(pb.uSigmaR, 0.2);
+  gl.uniform2f(pb.uDir, 1.0 / W2, 0.0); gl.uniform1f(pb.uSigmaS, 2.0); gl.uniform1f(pb.uSigmaR, 0.2);
   gl.drawArrays(gl.TRIANGLES, 0, 6);
   gl.bindFramebuffer(gl.FRAMEBUFFER, fboBLUR2);
   gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, texBLUR1);
-  gl.uniform2f(pb.uDir, 0.0, 1.0/H2);
+  gl.uniform2f(pb.uDir, 0.0, 1.0 / H2);
   gl.drawArrays(gl.TRIANGLES, 0, 6);
 
   // Large blur (clarity)
   gl.bindFramebuffer(gl.FRAMEBUFFER, fboBLUR1);
   gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, texBLUR2);
-  gl.uniform2f(pb.uDir, 1.0/W2, 0.0); gl.uniform1f(pb.uSigmaS, 5.0); gl.uniform1f(pb.uSigmaR, 0.25);
+  gl.uniform2f(pb.uDir, 1.0 / W2, 0.0); gl.uniform1f(pb.uSigmaS, 5.0); gl.uniform1f(pb.uSigmaR, 0.25);
   gl.drawArrays(gl.TRIANGLES, 0, 6);
   gl.bindFramebuffer(gl.FRAMEBUFFER, fboBLUR2);
   gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, texBLUR1);
-  gl.uniform2f(pb.uDir, 0.0, 1.0/H2);
+  gl.uniform2f(pb.uDir, 0.0, 1.0 / H2);
   gl.drawArrays(gl.TRIANGLES, 0, 6);
 
   // Detail enhancement
-  gl.viewport(0,0,W,H);
+  gl.viewport(0, 0, W, H);
   const progDet = program(gl, VS, FS_DETAIL);
   const pd = {
     pos: gl.getAttribLocation(progDet, 'aPos'),
@@ -635,7 +730,7 @@ function CameraRawSportFilter() {
     try {
       const img = new Image();
       img.crossOrigin = 'anonymous';
-      
+
       await new Promise((resolve, reject) => {
         img.onload = resolve;
         img.onerror = reject;
@@ -667,7 +762,7 @@ function CameraRawSportFilter() {
 
   const downloadImage = useCallback(() => {
     if (!filteredImage) return;
-    
+
     const link = document.createElement('a');
     link.href = filteredImage;
     link.download = 'camera-raw-sport-filtered.jpg';
@@ -699,7 +794,7 @@ function CameraRawSportFilter() {
         {/* Upload Section */}
         {!originalImage && (
           <div className="max-w-2xl mx-auto mb-8">
-            <div 
+            <div
               className="border-2 border-dashed border-gray-600 rounded-xl p-12 text-center hover:border-blue-400 transition-all duration-300 cursor-pointer bg-gray-800/50 backdrop-blur-sm"
               onClick={() => fileInputRef.current?.click()}
             >
@@ -843,23 +938,15 @@ function CameraRawSportFilter() {
                       <span className="text-gray-400">Clarity:</span>
                       <span className="text-white">+35</span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-400">White Balance:</span>
-                      <span className="text-white">As Shot</span>
-                    </div>
                   </div>
                   <div className="space-y-2">
                     <div className="flex justify-between">
-                      <span className="text-gray-400">Process Version:</span>
-                      <span className="text-white">15.4</span>
+                      <span className="text-gray-400">Highlights:</span>
+                      <span className="text-white">0</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-400">Curve:</span>
-                      <span className="text-white">Linear</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-400">Profile:</span>
-                      <span className="text-white">Default Color</span>
+                      <span className="text-gray-400">Shadows:</span>
+                      <span className="text-white">0</span>
                     </div>
                   </div>
                 </div>
@@ -867,53 +954,45 @@ function CameraRawSportFilter() {
             )}
           </div>
         )}
-
-        {/* Footer */}
-        <div className="text-center mt-16 pt-8 border-t border-gray-700">
-          <p className="text-gray-500">
-            Filtro Camera Raw Sport implementato con WebGL per prestazioni ottimali
-          </p>
-        </div>
       </div>
     </div>
   );
 }
 
-
-// Wrapper compatibile con NewsEditor per Upscale
-export async function applyUpscaleFilterToSrc(srcUrl) {
-  const img = new Image();
-  img.crossOrigin = 'anonymous';
-  await new Promise((resolve, reject) => {
-    img.onload = resolve;
-    img.onerror = reject;
-    img.src = srcUrl;
+// Helper wrapper for src input
+export async function applyAcrSportFilterToSrc(src) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = async () => {
+      try {
+        const result = await applyCameraRawSportFilter(img);
+        resolve(result);
+      } catch (err) {
+        reject(err);
+      }
+    };
+    img.onerror = (e) => reject(e);
+    img.src = src;
   });
-
-  const { url, _revoke } = await applyUpscaleFilter(img);
-  return { url, _revoke };
 }
 
-
-// Wrapper compatibile con NewsEditor: prende una URL di sorgente e restituisce { url, _revoke }
-export async function applyAcrSportFilterToSrc(srcUrl, xmpUrl = '/filters/Camera Raw Sport.xmp') {
-  // carica l'immagine dalla src
-  const img = new Image();
-  img.crossOrigin = 'anonymous';
-  await new Promise((resolve, reject) => {
-    img.onload = resolve;
-    img.onerror = reject;
-    img.src = srcUrl;
+// Helper wrapper for upscale src input
+export async function applyUpscaleFilterToSrc(src) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = async () => {
+      try {
+        const result = await applyUpscaleFilter(img);
+        resolve(result);
+      } catch (err) {
+        reject(err);
+      }
+    };
+    img.onerror = (e) => reject(e);
+    img.src = src;
   });
-
-  // usa la pipeline già implementata nel file
-  const { url } = await applyCameraRawSportFilter(img);
-
-  // restituisce stesso shape che NewsEditor si aspetta
-  return { 
-    url, 
-    _revoke: () => { try { URL.revokeObjectURL(url); } catch(_) {} } 
-  };
 }
 
 export default CameraRawSportFilter;

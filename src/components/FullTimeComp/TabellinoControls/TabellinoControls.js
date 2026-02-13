@@ -2,7 +2,7 @@
 
 import React, { useState, useRef } from 'react';
 import config from '../../../config';
-import { applyAcrSportFilterToSrc, applyUpscaleFilterToSrc } from '../../../filters/acrSport'; 
+import { applyAcrSportFilterToSrc, applyUpscaleFilterToSrc } from '../../../filters/acrSport';
 import axios from 'axios';
 import sendIcon from '../../../BioCreator/send.png';
 import './TabellinoControls.css';
@@ -40,7 +40,7 @@ function TabellinoControls({
   const handleImageUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    
+
     const reader = new FileReader();
     reader.onload = (ev) => {
       const imageUrl = ev.target.result;
@@ -48,8 +48,8 @@ function TabellinoControls({
       originalUserImageRef.current = imageUrl;
       currentSourceRef.current = 'user';
       setFilterApplied(false);
-      if (filteredUrlRef.current) { try { URL.revokeObjectURL(filteredUrlRef.current); } catch(_) {} filteredUrlRef.current = null; }
-        
+      if (filteredUrlRef.current) { try { URL.revokeObjectURL(filteredUrlRef.current); } catch (_) { } filteredUrlRef.current = null; }
+
       // Verifica le dimensioni dell'immagine caricata
       const img = new Image();
       img.onload = () => {
@@ -62,7 +62,7 @@ function TabellinoControls({
         });
       };
       img.src = imageUrl;
-      
+
       setUserImage(imageUrl);
     };
     reader.readAsDataURL(file);
@@ -92,7 +92,7 @@ function TabellinoControls({
       // Imposta dimensioni per export ad alta qualità
       const exportWidth = 1440;
       const exportHeight = 1800;
-      
+
       stage.scale({ x: 1, y: 1 });
       stage.size({
         width: exportWidth,
@@ -126,7 +126,7 @@ function TabellinoControls({
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      
+
     } catch (error) {
       console.error('Errore durante il download:', error);
       alert('Errore durante il download dell\'immagine.');
@@ -172,7 +172,7 @@ function TabellinoControls({
       return true;
     } catch (error) {
       console.error("Errore di connessione:", error);
-      const errorMsg = error.code === 'ECONNREFUSED' 
+      const errorMsg = error.code === 'ECONNREFUSED'
         ? "Server non attivo. Avvia il server con 'npm run server'."
         : `Errore server: ${error.message}`;
       setErrorMessage(errorMsg);
@@ -184,22 +184,22 @@ function TabellinoControls({
   // Funzione migliorata per selezionare immagini dal carosello
   const selectCarouselImage = async (imageUrl) => {
     console.log("Selezione immagine dal carosello:", imageUrl.substring(0, 100) + '...');
-    
+
     try {
       // Precarica l'immagine per verificarne le dimensioni
       const imageInfo = await getImageInfo(imageUrl);
-      
+
       if (imageInfo.error) {
         throw new Error('Immagine non accessibile');
       }
-      
+
       // Memorizza l’originale e la sorgente
       originalInstagramImageRef.current = imageUrl; // Usa il ref corretto per Instagram
       currentSourceRef.current = 'instagram'; // Imposta la sorgente corretta
       setFilterApplied(false);
-      if (filteredUrlRef.current) { try { URL.revokeObjectURL(filteredUrlRef.current); } catch(_) {} filteredUrlRef.current = null; } 
+      if (filteredUrlRef.current) { try { URL.revokeObjectURL(filteredUrlRef.current); } catch (_) { } filteredUrlRef.current = null; }
       console.log(`Immagine selezionata: ${imageInfo.width}x${imageInfo.height}`);
-      
+
       setImageQualityInfo({
         width: imageInfo.width,
         height: imageInfo.height,
@@ -207,12 +207,12 @@ function TabellinoControls({
         aspectRatio: imageInfo.aspectRatio,
         url: imageUrl
       });
-      
+
       // Pulisci l'immagine utente precedente per evitare sovrapposizioni
       setUserImage(null);
       setInstagramImage(imageUrl);
       setShowCarouselSelector(false); // Chiudi il selettore (opzionale, ma pulisce la UI)
-      
+
     } catch (error) {
       console.error("Errore nel caricamento dell'immagine:", error);
       alert("Errore nel caricamento dell'immagine. Prova con un'altra.");
@@ -226,20 +226,20 @@ function TabellinoControls({
     setCarouselImages([]);
     setShowCarouselSelector(false);
     setImageQualityInfo(null);
-  
+
     if (!(await checkServerConnection())) {
       setIsLoading(false);
       return;
     }
-  
+
     try {
       const instagramUrl = getInstagramUrl(instagramLink);
       if (!instagramUrl) {
         throw new Error("Link Instagram non valido");
       }
-  
+
       console.log("Recupero immagine da:", instagramUrl);
-  
+
       const response = await axios.get(`${config.API_BASE_URL}/api/instagram-image`, {
         params: {
           url: encodeURIComponent(instagramUrl),
@@ -248,29 +248,29 @@ function TabellinoControls({
         },
         timeout: 60000
       });
-  
+
       if (!response.data || !response.data.status) {
         throw new Error('Risposta server non valida');
       }
-  
+
       const { imageUrl, carouselImages: carousel, imageCount, quality } = response.data;
-  
+
       if (carousel && carousel.length > 1) {
         setCarouselImages(carousel);
         setShowCarouselSelector(true);
-        
+
         // Non caricare automaticamente la prima immagine.
         // Pulisci l'immagine corrente per forzare la selezione
         setInstagramImage(null);
         setUserImage(null);
-        
+
         alert(`Carosello trovato con ${imageCount} immagini. Seleziona l'immagine che vuoi usare.`);
       } else if (imageUrl) {
         const imageInfo = await getImageInfo(imageUrl);
         originalInstagramImageRef.current = imageUrl;
         currentSourceRef.current = 'instagram';
         setFilterApplied(false);
-        if (filteredUrlRef.current) { try { URL.revokeObjectURL(filteredUrlRef.current); } catch(_) {} filteredUrlRef.current = null; }
+        if (filteredUrlRef.current) { try { URL.revokeObjectURL(filteredUrlRef.current); } catch (_) { } filteredUrlRef.current = null; }
         setImageQualityInfo({
           width: imageInfo.width,
           height: imageInfo.height,
@@ -279,13 +279,13 @@ function TabellinoControls({
           quality: quality,
           isCarousel: false
         });
-  
+
         setInstagramImage(imageUrl);
         alert(`Immagine caricata in qualità ${quality}. Dimensioni: ${imageInfo.width}x${imageInfo.height}`);
       } else {
         throw new Error("Nessuna immagine trovata nel post");
       }
-  
+
     } catch (error) {
       console.error("Errore dettagliato:", error);
       let errorMsg = `Errore: ${error.message}`;
@@ -313,7 +313,7 @@ function TabellinoControls({
   const getImageInfo = (imageUrl) => {
     return new Promise((resolve) => {
       const img = new Image();
-      
+
       img.onload = () => {
         resolve({
           width: img.width,
@@ -324,7 +324,7 @@ function TabellinoControls({
           error: false
         });
       };
-      
+
       img.onerror = () => {
         resolve({
           width: 0,
@@ -335,7 +335,7 @@ function TabellinoControls({
           error: true
         });
       };
-      
+
       img.src = imageUrl;
     });
   };
@@ -358,7 +358,7 @@ function TabellinoControls({
     try {
       const { url } = await applyAcrSportFilterToSrc(srcUrl);
       // libera eventuale blob precedente
-      if (filteredUrlRef.current) { try { URL.revokeObjectURL(filteredUrlRef.current); } catch(_) {} }
+      if (filteredUrlRef.current) { try { URL.revokeObjectURL(filteredUrlRef.current); } catch (_) { } }
       filteredUrlRef.current = url;
       // Per Instagram sposta il risultato su userImage e svuota instagramImage (il Canvas usa il proxy su instagramImage)
       if (srcType === 'instagram') {
@@ -391,9 +391,9 @@ function TabellinoControls({
     setIsFiltering(true);
     try {
       const { url } = await applyUpscaleFilterToSrc(srcUrl);
-      if (filteredUrlRef.current) { try { URL.revokeObjectURL(filteredUrlRef.current); } catch(_) {} }
+      if (filteredUrlRef.current) { try { URL.revokeObjectURL(filteredUrlRef.current); } catch (_) { } }
       filteredUrlRef.current = url;
-      
+
       if (srcType === 'instagram') {
         setInstagramImage(null);
         setUserImage(url);
@@ -413,7 +413,7 @@ function TabellinoControls({
   const removeRawFilter = () => {
     try {
       if (filteredUrlRef.current) { URL.revokeObjectURL(filteredUrlRef.current); }
-    } catch(_) {}
+    } catch (_) { }
     filteredUrlRef.current = null;
     setFilterApplied(false);
     const srcType = currentSourceRef.current;
@@ -431,7 +431,7 @@ function TabellinoControls({
 
   return (
     <div className="controls-top">
-      
+
       {/* Selettore tabellino */}
       <label htmlFor="tabellinoSelect">Scegli Tabellino:</label>
       <select
@@ -453,9 +453,9 @@ function TabellinoControls({
 
       {/* Caricamento immagine */}
       <h3>Carica sfondo:</h3>
-      
+
       <div className="instagram-container">
-        <input 
+        <input
           className='instagramInput'
           type="text"
           placeholder="Enter Instagram Post Link"
@@ -481,7 +481,7 @@ function TabellinoControls({
         >
           File
         </button>
-        
+
         <input
           id="fileUpload"
           type="file"
@@ -490,24 +490,16 @@ function TabellinoControls({
           style={{ display: 'none' }}
         />
 
-        
-        {/* Nuovi pulsanti filtro */}
-        <button
-          className="instagramButton"
-          onClick={applyRawFilter}
-          disabled={isLoading || isFiltering || (!originalUserImageRef.current && !originalInstagramImageRef.current)}
-          title="Applica il filtro Camera Raw allo sfondo corrente"
-        >
-          {isFiltering ? '...' : 'Filtro'}
-        </button>
 
+        {/* Nuovi pulsanti filtro */}
+        {/* Toggle Button Filtro */}
         <button
-          className="customFileUpload"
-          onClick={removeRawFilter}
-          disabled={isLoading || !filterApplied}
-          title="Rimuovi il filtro e ripristina l'immagine originale"
+          className={filterApplied ? "customFileUpload" : "instagramButton"}
+          onClick={filterApplied ? removeRawFilter : applyRawFilter}
+          disabled={isLoading || isFiltering || (!originalUserImageRef.current && !originalInstagramImageRef.current)}
+          title={filterApplied ? "Rimuovi il filtro e ripristina l'immagine originale" : "Applica il filtro Camera Raw allo sfondo corrente"}
         >
-          ❌ filtro
+          {isFiltering ? '...' : (filterApplied ? '❌ Filtro' : 'Filtro')}
         </button>
 
         <button
@@ -523,9 +515,9 @@ function TabellinoControls({
 
       {/* Informazioni qualità immagine */}
       {imageQualityInfo && (
-        <div className="image-quality-info" style={{ 
-          background: 'rgba(180, 255, 0, 0.1)', 
-          padding: '10px', 
+        <div className="image-quality-info" style={{
+          background: 'rgba(180, 255, 0, 0.1)',
+          padding: '10px',
           borderRadius: '5px',
           margin: '10px 0',
           fontSize: '12px',
@@ -567,9 +559,9 @@ function TabellinoControls({
                 <img
                   src={imageUrl}
                   alt={`Immagine ${index + 1}`}
-                  style={{ 
-                    width: '100px', 
-                    height: '100px', 
+                  style={{
+                    width: '100px',
+                    height: '100px',
                     objectFit: 'cover',
                     border: index === selectedCarouselIndex ? '3px solid #b4ff00' : '1px solid #ccc'
                   }}

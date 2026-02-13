@@ -127,6 +127,12 @@ const FullTimeEditor = () => {
           Generale
         </button>
         <button
+          className={`tab-button ${activeTab === 'flashscore' ? 'active' : ''}`}
+          onClick={() => setActiveTab('flashscore')}
+        >
+          ⚡ Flashscore
+        </button>
+        <button
           className={`tab-button ${activeTab === 'team1' ? 'active' : ''}`}
           onClick={() => setActiveTab('team1')}
         >
@@ -137,12 +143,6 @@ const FullTimeEditor = () => {
           onClick={() => setActiveTab('team2')}
         >
           Squadra 2
-        </button>
-        <button
-          className={`tab-button ${activeTab === 'flashscore' ? 'active' : ''}`}
-          onClick={() => setActiveTab('flashscore')}
-        >
-          ⚡ Flashscore
         </button>
       </div>
 
@@ -162,6 +162,10 @@ const FullTimeEditor = () => {
             setScore2={setScore2}
             setUserImage={setUserImage}
           />
+        )}
+
+        {activeTab === 'flashscore' && (
+          <FlashscoreImport onMatchSelect={handleFlashscoreMatch} />
         )}
 
         {activeTab === 'team1' && (
@@ -184,10 +188,6 @@ const FullTimeEditor = () => {
             scorersTeam2={scorersTeam2}
             setScorersTeam2={setScorersTeam2}
           />
-        )}
-
-        {activeTab === 'flashscore' && (
-          <FlashscoreImport onMatchSelect={handleFlashscoreMatch} />
         )}
       </div>
 
