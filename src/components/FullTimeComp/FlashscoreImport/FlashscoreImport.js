@@ -147,8 +147,8 @@ const FlashscoreImport = ({ onMatchSelect }) => {
                     // Aggiorna con i marcatori
                     const updatedData = {
                         ...matchData,
-                        homeScorers: (detailsData.homeGoals || []).map(g => g.formatted),
-                        awayScorers: (detailsData.awayGoals || []).map(g => g.formatted),
+                        homeScorers: detailsData.homeGoals || [],
+                        awayScorers: detailsData.awayGoals || [],
                     };
                     if (onMatchSelect) {
                         onMatchSelect(updatedData);

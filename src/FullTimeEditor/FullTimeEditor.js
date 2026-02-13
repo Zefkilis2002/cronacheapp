@@ -80,14 +80,11 @@ const FullTimeEditor = () => {
     }
 
     // 4. Aggiorna marcatori (array di 7 slot, riempiti con i gol trovati)
-    if (matchData.homeScorers && matchData.homeScorers.length > 0) {
-      const homePadded = [...matchData.homeScorers, ...Array(7).fill('')].slice(0, 7);
-      setScorersTeam1(homePadded);
-    }
-    if (matchData.awayScorers && matchData.awayScorers.length > 0) {
-      const awayPadded = [...matchData.awayScorers, ...Array(7).fill('')].slice(0, 7);
-      setScorersTeam2(awayPadded);
-    }
+    // SEMPRE aggiornare — anche con array vuoto per cancellare i marcatori precedenti
+    const homePadded = [...(matchData.homeScorers || []), ...Array(7).fill('')].slice(0, 7);
+    setScorersTeam1(homePadded);
+    const awayPadded = [...(matchData.awayScorers || []), ...Array(7).fill('')].slice(0, 7);
+    setScorersTeam2(awayPadded);
   };
 
   return (

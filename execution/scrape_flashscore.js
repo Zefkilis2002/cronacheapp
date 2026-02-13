@@ -368,6 +368,8 @@ function parseFlashscoreData(rawData) {
 /**
  * Estrai i gol dal dato parsato di una partita Flashscore.
  * Gestisce: IE=3 (gol), IE=10 (rigore segnato).
+ * Filtra i calci di rigore finali (shootout) — solo gol regolamentari + supplementari.
+ * 
  * In ogni sezione ~III, i campi si ripetono per sub-evento:
  *   IE=3/IF=scorer → IE=8/IF=assister  (gol + assist)
  *   IE=5/IF=player → IE=10/IF=scorer   (rigore assegnato + rigore segnato)
@@ -375,10 +377,27 @@ function parseFlashscoreData(rawData) {
 function extractGoalsFromSections(sections) {
     const homeGoals = [];
     const awayGoals = [];
+    let inShootout = false;
 
     for (const section of sections) {
+        // Rileva l'inizio della fase rigori (penalty shootout)
+        // ~AC con valore che contiene "Пенальти" o "Penalty" o "Rigori"
+        if (section.id === '~AC') {
+            const firstPair = section.pairs[0];
+            if (firstPair) {
+                const val = firstPair.value.toLowerCase();
+                if (val.includes('пенальти') || val.includes('penalty') || val.includes('rigori') || val.includes('pen')) {
+                    inShootout = true;
+                }
+            }
+            continue;
+        }
+
         // Solo sezioni di incidente (~III)
         if (!section.id || !section.id.startsWith('~III')) continue;
+
+        // Salta gol durante i calci di rigore finali
+        if (inShootout) continue;
 
         const pairs = section.pairs;
 
@@ -391,7 +410,6 @@ function extractGoalsFromSections(sections) {
         }
 
         // Cerca sub-eventi: ogni IE inizia un nuovo sub-evento
-        // Raccogliamo tutti i sub-eventi con il loro IF (nome giocatore)
         const subEvents = [];
         let currentSub = null;
         for (const p of pairs) {
@@ -415,15 +433,18 @@ function extractGoalsFromSections(sections) {
 
         if (!goalSub || !goalSub.if) continue;
 
-        // Formatta: COGNOME minuto'
+        // Estrai cognome
         const playerName = goalSub.if.trim();
         const nameParts = playerName.split(/\s+/);
         const lastName = nameParts[0] || playerName;
         const isPenalty = goalSub.ie === '10';
-        const rigLabel = isPenalty ? ' (Rig.)' : '';
-        const formatted = `${lastName.toUpperCase()} ${minute}${rigLabel}`;
 
-        const goalData = { player: playerName, minute, formatted };
+        const goalData = {
+            player: playerName,
+            lastName: lastName.toUpperCase(),
+            minute,
+            isPenalty,
+        };
 
         if (team === '1') {
             homeGoals.push(goalData);
@@ -434,6 +455,53 @@ function extractGoalsFromSections(sections) {
 
     return { homeGoals, awayGoals };
 }
+
+/**
+ * Formatta l'array di gol per il frontend.
+ * - Raggruppa gol dello stesso giocatore in una riga
+ * - Home: "27' 83' JOVIC", Away: "JOVIC 27' 83'"
+ * - Rigori: "33' [R] VARGA" (home), "VARGA 33' [R]" (away)
+ * 
+ * @param {Array} goals - Array di {lastName, minute, isPenalty}
+ * @param {string} side - 'home' o 'away'
+ * @returns {Array<string>} Array di stringhe formattate
+ */
+function formatGoalscorers(goals, side) {
+    // Raggruppa per cognome
+    const grouped = {};
+    for (const g of goals) {
+        if (!grouped[g.lastName]) {
+            grouped[g.lastName] = [];
+        }
+        grouped[g.lastName].push({ minute: g.minute, isPenalty: g.isPenalty });
+    }
+
+    // Mantieni l'ordine di apparizione
+    const seen = [];
+    for (const g of goals) {
+        if (!seen.includes(g.lastName)) {
+            seen.push(g.lastName);
+        }
+    }
+
+    const result = [];
+    for (const name of seen) {
+        const entries = grouped[name];
+
+        if (side === 'home') {
+            // Home: "27' 83' JOVIC" oppure "33' [R] 87' JOVIC"
+            const minuteParts = entries.map(e => e.isPenalty ? `${e.minute} [R]` : e.minute);
+            result.push(`${minuteParts.join(' ')} ${name}`);
+        } else {
+            // Away: "JOVIC 27' 83'" oppure "JOVIC 33' [R] 87'"
+            const minuteParts = entries.map(e => e.isPenalty ? `${e.minute} [R]` : e.minute);
+            result.push(`${name} ${minuteParts.join(' ')}`);
+        }
+    }
+
+    return result;
+}
+
 
 /**
  * Scrape goalscorer details via API HTTP diretta (VELOCE: ~1-2s).
@@ -520,8 +588,15 @@ async function getMatchDetailsViaAPI(matchId) {
     const sections = parseFlashscoreData(rawData);
     const goals = extractGoalsFromSections(sections);
 
+    // Formatta per il frontend (home: "27' JOVIC", away: "JOVIC 27'")
+    const homeFormatted = formatGoalscorers(goals.homeGoals, 'home');
+    const awayFormatted = formatGoalscorers(goals.awayGoals, 'away');
+
     console.log(`[Flashscore API] Goals found - Home: ${goals.homeGoals.length}, Away: ${goals.awayGoals.length}`);
-    return goals;
+    return {
+        homeGoals: homeFormatted,
+        awayGoals: awayFormatted,
+    };
 }
 
 /**
