@@ -178,7 +178,7 @@ export async function applyUpscaleFilter(imageElement) {
   const uTexLocS = gl.getUniformLocation(progSharpen, "uTex");
   const uStepLocS = gl.getUniformLocation(progSharpen, "uStep");
   const uStrengthLocS = gl.getUniformLocation(progSharpen, "uStrength");
-  const aPosLocS = gl.getAttribLocation(progSharpen, "aPos"); // Should be same index usually
+  // aPosLocS removed as it was unused
 
   gl.activeTexture(gl.TEXTURE0);
   gl.bindTexture(gl.TEXTURE_2D, texBicubic); // Input is the bicubic upscaled tex
@@ -344,6 +344,7 @@ void main(){
 `;
 
 
+// eslint-disable-next-line no-unused-vars
 const srgb2lin = `
 vec3 srgb2lin(vec3 c){ return pow(c, vec3(2.2)); }
 vec3 lin2srgb(vec3 c){ return pow(max(c,0.0), vec3(1.0/2.2)); }
