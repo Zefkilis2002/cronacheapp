@@ -22,90 +22,105 @@ function NewsCreator({
 }) {
   return (
     <div className="news-controls">
-      {/* Sezione per selezionare lo sfondo */}
-      <div>
-        <label>Scegli lo sfondo:</label>
-        <select 
-          className="sfondo-selector" 
-          onChange={handleBackgroundChange} 
-          value={backgroundImage}  // Changed from split('/').pop()
-        >
-          <option value="/sfondoNotizie/sfumatura.png">Sfumatura</option>
-          <option value="/sfondoNotizie/dichiarazioni.png">Dichiarazioni</option>
-          <option value="/sfondoNotizie/news.png">News</option>
-          <option value="/sfondoNotizie/news2.png">News 2</option>
-          <option value="/sfondoNotizie/news3.png">News 3</option>
-          <option value="/sfondoNotizie/breaking.png">Breaking</option>
-          <option value="/sfondoNotizie/roumor.png">Roumor</option>
-          <option value="/sfondoNotizie/citation.png">Citation</option>
-        </select>
+
+      {/* Gruppo 1: Impostazioni Generali (Sfondo e Toggle) */}
+      <div className="control-group">
+        <h3 className="group-title">Impostazioni Generali</h3>
+        <div className="row">
+          <div>
+            <label>Scegli lo sfondo:</label>
+            <select
+              className="sfondo-selector"
+              onChange={handleBackgroundChange}
+              value={backgroundImage}
+            >
+              <option value="/sfondoNotizie/sfumatura.png">Sfumatura</option>
+              <option value="/sfondoNotizie/dichiarazioni.png">Dichiarazioni</option>
+              <option value="/sfondoNotizie/news.png">News</option>
+              <option value="/sfondoNotizie/news2.png">News 2</option>
+              <option value="/sfondoNotizie/news3.png">News 3</option>
+              <option value="/sfondoNotizie/breaking.png">Breaking</option>
+              <option value="/sfondoNotizie/roumor.png">Roumor</option>
+              <option value="/sfondoNotizie/citation.png">Citation</option>
+            </select>
+          </div>
+          <div className="checkbox-container">
+            <label className="checkbox-label">
+              <input
+                type="checkbox"
+                checked={!!textAboveImages}
+                onChange={(e) => setTextAboveImages(e.target.checked)}
+              />
+              Testo sopra immagini e loghi
+            </label>
+          </div>
+        </div>
       </div>
 
-      {/* Opzione: testo sopra immagini e loghi */}
-      <div>
-        <label>Testo sopra immagini e loghi:</label>
-        <input
-          type="checkbox"
-          checked={!!textAboveImages}
-          onChange={(e) => setTextAboveImages(e.target.checked)}
-        />
-      </div>
+      <hr className="separator" />
 
-      {/* Prima riga: Titolo, Colore titolo, Font titolo */}
-      <div className="row">
-        <div>
-          <label>Titolo:</label>
+      {/* Gruppo 2: Configurazione Titolo */}
+      <div className="control-group">
+        <h3 className="group-title">Titolo</h3>
+        <div className="full-width-item">
           <input
             type="text"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="Inserisci il titolo"
+            placeholder="Inserisci il titolo qui..."
+            className="title-input"
           />
         </div>
-        <div>
-          <label>Colore del titolo:</label>
-          <input
-            type="color"
-            value={titleColor}
-            onChange={(e) => setTitleColor(e.target.value)}
-          />
-        </div>
-        <div>
-          <label>Font del titolo:</label>
-          <select value={titleFont} onChange={(e) => setTitleFont(e.target.value)}>
-            <option value="Kenyan Coffee Regular">Kenyan Coffee Regular</option>
-            <option value="Kenyan Coffee Bold">Kenyan Coffee Bold</option>
-            <option value="Kenyan Coffee Regular Italic">Kenyan Coffee Regular Italic</option>
-            <option value="Kenyan Coffee Bold Italic">Kenyan Coffee Bold Italic</option>
-            <option value="Benzin-Bold">Benzin Bold</option>
-            <option value="Benzin-ExtraBold">Benzin Extra Bold</option>
-            <option value="Benzin-Medium">Benzin Medium</option>
-            <option value="Benzin-Regular">Benzin Regular</option>
-            <option value="Benzin-Semibold">Benzin Semi Bold</option>
-          </select>
+        <div className="row" style={{ marginTop: '1rem' }}>
+          <div>
+            <label>Font del titolo:</label>
+            <select value={titleFont} onChange={(e) => setTitleFont(e.target.value)}>
+              <option value="Kenyan Coffee Regular">Kenyan Coffee Regular</option>
+              <option value="Kenyan Coffee Bold">Kenyan Coffee Bold</option>
+              <option value="Kenyan Coffee Regular Italic">Kenyan Coffee Regular Italic</option>
+              <option value="Kenyan Coffee Bold Italic">Kenyan Coffee Bold Italic</option>
+              <option value="Benzin-Bold">Benzin Bold</option>
+              <option value="Benzin-ExtraBold">Benzin Extra Bold</option>
+              <option value="Benzin-Medium">Benzin Medium</option>
+              <option value="Benzin-Regular">Benzin Regular</option>
+              <option value="Benzin-Semibold">Benzin Semi Bold</option>
+            </select>
+          </div>
+          <div>
+            <label>Colore del titolo:</label>
+            <div className="color-picker-wrapper">
+              <input
+                type="color"
+                value={titleColor}
+                onChange={(e) => setTitleColor(e.target.value)}
+              />
+              <span className="color-value">{titleColor}</span>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Seconda riga: Testo, Colore testo, Font testo */}
-      <div className="row">
-        <div>
-          <label>Testo:</label>
+      <hr className="separator" />
+
+      {/* Gruppo 3: Configurazione Testo */}
+      <div className="control-group">
+        <h3 className="group-title">Testo Principale</h3>
+
+        {/* Editor Testo */}
+        <div className="full-width-item">
           <div
             ref={textContainerRef}
             contentEditable
             onInput={handleTextChange}
-            style={{
-              border: '1px solid #ccc',
-              padding: '10px',
-              minHeight: '80px',
-              minWidth: '200px',
-              whiteSpace: 'pre-wrap',
-            }}
+            className="text-editor"
+            placeholder="Scrivi qui il testo della notizia..."
           />
+        </div>
 
-          {/* NUOVO: controlli selezione colore */}
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 8, flexWrap: 'wrap' }}>
-            <span style={{ fontSize: 14 }}>Colore parole selezionate:</span>
+        {/* Strumenti Formattazione Selezione */}
+        <div className="selection-tools">
+          <span className="tool-label">Formattazione Selezione:</span>
+          <div className="tool-actions">
             <input
               type="color"
               onChange={(e) => {
@@ -114,12 +129,10 @@ function NewsCreator({
                 const editor = textContainerRef?.current;
                 if (!sel || sel.rangeCount === 0 || !editor || !editor.contains(sel.anchorNode)) return;
 
-                // tentativo standard
                 try {
                   document.execCommand('styleWithCSS', false, true);
                   document.execCommand('foreColor', false, color);
                 } catch (_) {
-                  // fallback: avvolgi la selezione in uno span colorato
                   try {
                     const range = sel.getRangeAt(0);
                     if (!range.collapsed) {
@@ -127,13 +140,12 @@ function NewsCreator({
                       span.style.color = color;
                       range.surroundContents(span);
                     }
-                  } catch (_) {}
+                  } catch (_) { }
                 }
-                // Notifica il parent per ricalcolare il richText
                 if (typeof handleTextChange === 'function') handleTextChange();
               }}
-              title="Seleziona una parola/frase nell'editor sopra, poi scegli un colore"
-              style={{ width: 40, height: 32 }}
+              title="Cambia colore testo selezionato"
+              className="mini-color-picker"
             />
             <button
               type="button"
@@ -142,11 +154,9 @@ function NewsCreator({
                 const editor = textContainerRef?.current;
                 if (!sel || sel.rangeCount === 0 || !editor || !editor.contains(sel.anchorNode)) return;
 
-                // prova a rimuovere formattazione
                 try {
                   document.execCommand('removeFormat');
                 } catch (_) {
-                  // fallback: rimuovi solo il colore dagli span nella selezione
                   try {
                     const range = sel.getRangeAt(0);
                     if (!range.collapsed) {
@@ -155,44 +165,54 @@ function NewsCreator({
                       range.deleteContents();
                       range.insertNode(frag);
                     }
-                  } catch (_) {}
+                  } catch (_) { }
                 }
                 if (typeof handleTextChange === 'function') handleTextChange();
               }}
-              className="modern-button"
-              style={{ padding: '6px 10px' }}
+              className="clean-button"
+              title="Rimuovi formattazione dalla selezione"
             >
-              Pulisci colore selezione
+              Pulisci Stile
             </button>
           </div>
         </div>
 
-        <div>
-          <label>Colore del testo:</label>
-          <input
-            type="color"
-            value={textColor}
-            onChange={(e) => setTextColor(e.target.value)}
-          />
-        </div>
-        <div>
-          <label>Font del testo:</label>
-          <select value={textFont} onChange={(e) => setTextFont(e.target.value)}>
-            <option value="Kenyan Coffee Regular">Kenyan Coffee Regular</option>
-            <option value="Kenyan Coffee Bold">Kenyan Coffee Bold</option>
-            <option value="Kenyan Coffee Regular Italic">Kenyan Coffee Regular Italic</option>
-            <option value="Kenyan Coffee Bold Italic">Kenyan Coffee Bold Italic</option>
-            <option value="Benzin-Regular">Benzin Regular</option>
-            <option value="Benzin-Medium">Benzin Medium</option>
-            <option value="Benzin-Semibold">Benzin Semi Bold</option>
-          </select>
+        {/* Font e Colore Generale Testo */}
+        <div className="row" style={{ marginTop: '1rem' }}>
+          <div>
+            <label>Font del testo:</label>
+            <select value={textFont} onChange={(e) => setTextFont(e.target.value)}>
+              <option value="Kenyan Coffee Regular">Kenyan Coffee Regular</option>
+              <option value="Kenyan Coffee Bold">Kenyan Coffee Bold</option>
+              <option value="Kenyan Coffee Regular Italic">Kenyan Coffee Regular Italic</option>
+              <option value="Kenyan Coffee Bold Italic">Kenyan Coffee Bold Italic</option>
+              <option value="Benzin-Regular">Benzin Regular</option>
+              <option value="Benzin-Medium">Benzin Medium</option>
+              <option value="Benzin-Semibold">Benzin Semi Bold</option>
+            </select>
+          </div>
+          <div>
+            <label>Colore base testo:</label>
+            <div className="color-picker-wrapper">
+              <input
+                type="color"
+                value={textColor}
+                onChange={(e) => setTextColor(e.target.value)}
+              />
+              <span className="color-value">{textColor}</span>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Bottone per scaricare */}
-      <button className="modern-button" onClick={downloadImage}>
-        Scarica Immagine
-      </button>
+      <hr className="separator" />
+
+      {/* Action Footer */}
+      <div className="action-footer">
+        <button className="modern-button download-btn" onClick={downloadImage}>
+          Download
+        </button>
+      </div>
     </div>
   );
 }

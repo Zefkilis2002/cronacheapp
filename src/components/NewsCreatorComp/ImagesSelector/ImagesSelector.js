@@ -1,12 +1,13 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import './ImagesSelector.css';
+import LogoFetcher from '../../FullTimeComp/LogoFetcher/LogoFetcher';
 
-function ImagesSelector({ 
-  handleBackgroundUpload, 
-  handleLogoUpload, 
-  backgroundImages, 
-  logos, 
-  removeBackgroundImage, 
+function ImagesSelector({
+  handleBackgroundUpload,
+  handleLogoUpload,
+  backgroundImages,
+  logos,
+  removeBackgroundImage,
   removeLogo,
   reorderItems,
   setBackgroundImages,
@@ -22,34 +23,35 @@ function ImagesSelector({
 }) {
   const dragItem = useRef(null);
   const dragOverItem = useRef(null);
-  
+  const [showLogoSearch, setShowLogoSearch] = useState(false);
+
   const handleDragStart = (e, type, index) => {
     dragItem.current = { type, index };
     e.dataTransfer.effectAllowed = "move";
   };
-  
+
   const handleDragOver = (e, type, index) => {
     e.preventDefault();
     dragOverItem.current = { type, index };
   };
-  
+
   const handleDrop = (e) => {
     e.preventDefault();
-    
-    if (dragItem.current && dragOverItem.current && 
-        dragItem.current.type === dragOverItem.current.type && 
-        dragItem.current.index !== dragOverItem.current.index) {
-      
+
+    if (dragItem.current && dragOverItem.current &&
+      dragItem.current.type === dragOverItem.current.type &&
+      dragItem.current.index !== dragOverItem.current.index) {
+
       const { type, index: dragIndex } = dragItem.current;
       const { index: hoverIndex } = dragOverItem.current;
-      
+
       if (type === 'background') {
         reorderItems(dragIndex, hoverIndex, backgroundImages, setBackgroundImages);
       } else if (type === 'logo') {
         reorderItems(dragIndex, hoverIndex, logos, setLogos);
       }
     }
-    
+
     dragItem.current = null;
     dragOverItem.current = null;
   };
@@ -64,13 +66,25 @@ function ImagesSelector({
     setSelectedBackground(null);
   };
 
+  const handleLogoFromSearch = (url) => {
+    const newLogo = {
+      id: `logo-${Date.now()}`,
+      src: url,
+      position: { x: 65, y: 1260 },
+      scale: { scaleX: 1, scaleY: 1 }
+    };
+    setLogos([...logos, newLogo]);
+    setSelectedLogo(newLogo.id);
+    setSelectedBackground(null);
+  };
+
   return (
     <div className="images-selector">
       {/* Sezione immagini di sfondo */}
       <div className="image-upload-section">
         <h3>Immagini di sfondo (max 5):</h3>
-        <div style={{ display:'flex', gap:8, alignItems:'center', margin:'6px 0 10px' }}>
-          <button 
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', margin: '6px 0 10px' }}>
+          <button
             className="file-input"
             disabled={!selectedBackground || busyFilter}
             onClick={onApplyAcrSport}
@@ -79,7 +93,7 @@ function ImagesSelector({
             {busyFilter ? '...' : 'Filtro RAW'}
           </button>
 
-          <button 
+          <button
             className="logo-selector"
             disabled={!selectedBackground || busyFilter}
             onClick={onRemoveAcrSport}
@@ -88,7 +102,7 @@ function ImagesSelector({
             Rimuovi filtro
           </button>
 
-          <button 
+          <button
             className="file-input"
             disabled={!selectedBackground || busyFilter}
             onClick={onApplyUpscale}
@@ -111,11 +125,11 @@ function ImagesSelector({
           <label htmlFor="background-upload" className="file-input">
             Scegli l'immagine di sfondo
           </label>
-          
+
           <div className="thumbnails-container">
             {backgroundImages.map((image, index) => (
-              <div 
-                key={image.id} 
+              <div
+                key={image.id}
                 className={`thumbnail ${selectedBackground === image.id ? 'selected-thumbnail' : ''}`}
                 draggable
                 onDragStart={(e) => handleDragStart(e, 'background', index)}
@@ -124,8 +138,8 @@ function ImagesSelector({
                 onClick={() => handleBackgroundSelect(image)}
               >
                 <img src={image.src} alt={`Background ${index + 1}`} />
-                <button 
-                  className="remove-button" 
+                <button
+                  className="remove-button"
                   onClick={(e) => {
                     e.stopPropagation();
                     removeBackgroundImage(image.id);
@@ -147,7 +161,9 @@ function ImagesSelector({
       {/* Sezione loghi */}
       <div className="image-upload-section">
         <h3>Loghi (max 8):</h3>
-        <div className="upload-control-row">
+
+        {/* Buttons Row */}
+        <div className="logo-actions-row">
           <input
             type="file"
             accept="image/*"
@@ -160,11 +176,22 @@ function ImagesSelector({
           <label htmlFor="logo-upload" className="logo-selector">
             Scegli il logo
           </label>
-          
-          <div className="thumbnails-container">
+
+          <button
+            className="logo-selector"
+            onClick={() => setShowLogoSearch(true)}
+            disabled={logos.length >= 8}
+          >
+            Cerca web
+          </button>
+        </div>
+
+        {/* Thumbnails Row */}
+        <div className="thumbnails-row">
+          <div className="thumbnails-container" style={{ margin: 0, width: '100%' }}>
             {logos.map((logo, index) => (
-              <div 
-                key={logo.id} 
+              <div
+                key={logo.id}
                 className={`thumbnail ${selectedLogo === logo.id ? 'selected-thumbnail' : ''}`}
                 draggable
                 onDragStart={(e) => handleDragStart(e, 'logo', index)}
@@ -173,8 +200,8 @@ function ImagesSelector({
                 onClick={() => handleLogoSelect(logo)}
               >
                 <img src={logo.src} alt={`Logo ${index + 1}`} />
-                <button 
-                  className="remove-button" 
+                <button
+                  className="remove-button"
                   onClick={(e) => {
                     e.stopPropagation();
                     removeLogo(logo.id);
@@ -192,6 +219,13 @@ function ImagesSelector({
           </div>
         </div>
       </div>
+
+      {showLogoSearch && (
+        <LogoFetcher
+          onLogoSelect={handleLogoFromSearch}
+          onClose={() => setShowLogoSearch(false)}
+        />
+      )}
     </div>
   );
 }
