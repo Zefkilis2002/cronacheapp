@@ -45,10 +45,33 @@ const ClassificaComp = () => {
     setIsFetching(true);
     try {
       console.log("Fetching standings for Greece Super League...");
-      // Using direct absolute URL to bypass potentially broken local proxy
-      const res = await fetch('http://localhost:5000/api/standings?country=greece&league=super-league');
+
+      // Determina l'URL del backend in base all'ambiente
+      const isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+      const API_BASE_URL = isLocal
+        ? "http://localhost:5000"
+        : "https://cronacheapp.onrender.com";
+
+      console.log(`Using API URL: ${API_BASE_URL}`);
+
+      const res = await fetch(`${API_BASE_URL}/api/standings?country=greece&league=super-league`);
+
+      // Verifica se la risposta è ok (status 200-299)
+      if (!res.ok) {
+        throw new Error(`Errore HTTP! Status: ${res.status}`);
+      }
+
+      // Verifica che il contenuto sia JSON per evitare errori di parsing su pagine di errore HTML
+      const contentType = res.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        const text = await res.text();
+        console.error("Risposta non valida (non JSON):", text);
+        throw new Error("Il server ha restituito una risposta non valida (HTML invece di JSON). Controlla l'URL o i log del server.");
+      }
+
       const json = await res.json();
       console.log("Fetch result:", json);
+
       if (json.success && json.data) {
         console.log("Data received, updating rows...", json.data);
         setOriginalData(json.data);
@@ -59,6 +82,7 @@ const ClassificaComp = () => {
       }
     } catch (e) {
       console.error("Failed to fetch standings:", e);
+      alert(`Errore di connessione: ${e.message}`);
     } finally {
       setIsFetching(false);
     }
