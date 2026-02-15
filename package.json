@@ -2,6 +2,9 @@
   "name": "cronacheapp",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "dependencies": {
     "@testing-library/dom": "^10.4.0",
     "@testing-library/jest-dom": "^6.6.3",
@@ -30,8 +33,9 @@
     "server": "node instagram-proxy.js",
     "client": "react-scripts start",
     "build": "react-scripts build",
-    "build:no-ci": "CI=false react-scripts build",
-    "start": "concurrently \"npm run server\" \"npm:client\"",
+    "test": "react-scripts test",
+    "eject": "react-scripts eject",
+    "start": "node instagram-proxy.js",
     "dev": "concurrently \"npm run server\" \"npm:client\" --kill-others-on-fail"
   },
   "eslintConfig": {
