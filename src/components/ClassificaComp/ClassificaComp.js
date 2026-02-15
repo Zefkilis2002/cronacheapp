@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import CanvaClassifica from './CanvaClassifica';
 import ImageControl from './ImageControl';
 import ClassificaToolBar from './ClassificaToolBar';
@@ -18,16 +18,12 @@ const ClassificaComp = () => {
   const [rows, setRows] = useState(INITIAL_ROWS);
   const [originalData, setOriginalData] = useState([]);
   const [isTopHalf, setIsTopHalf] = useState(true);
-  const [isFetching, setIsFetching] = useState(false); // rename to distinguish from ImageControl isLoading
+  const [isFetching, setIsFetching] = useState(false);
   const stageRef = useRef(null);
   const borderRef = useRef(null);
 
-  // Helper to reset position/scale when new image loaded
   const handleSetUserImage = (img) => {
     setUserImage(img);
-    // Optional: Reset position/scale on new image? 
-    // Usually good UX to reset or keep center. 
-    // For now, let's keep it simple.
   };
 
   const handleIncreaseImageSize = () => {
@@ -41,74 +37,25 @@ const ClassificaComp = () => {
     }));
   };
 
-  const fetchStandings = async () => {
-    setIsFetching(true);
-    try {
-      console.log("Fetching standings for Greece Super League...");
+  // --- FUNZIONE DI AGGIORNAMENTO RIGHE (Spostata qui e wrappata in useCallback) ---
+  const updateRows = useCallback((data, topHalf) => {
+    if (!data || data.length === 0) return;
 
-      // Determina l'URL del backend in base all'ambiente
-      const isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
-      const API_BASE_URL = isLocal
-        ? "http://localhost:5000"
-        : "https://cronacheapp.onrender.com";
-
-      console.log(`Using API URL: ${API_BASE_URL}`);
-
-      const res = await fetch(`${API_BASE_URL}/api/standings?country=greece&league=super-league`);
-
-      // Verifica se la risposta è ok (status 200-299)
-      if (!res.ok) {
-        throw new Error(`Errore HTTP! Status: ${res.status}`);
-      }
-
-      // Verifica che il contenuto sia JSON per evitare errori di parsing su pagine di errore HTML
-      const contentType = res.headers.get("content-type");
-      if (!contentType || !contentType.includes("application/json")) {
-        const text = await res.text();
-        console.error("Risposta non valida (non JSON):", text);
-        throw new Error("Il server ha restituito una risposta non valida (HTML invece di JSON). Controlla l'URL o i log del server.");
-      }
-
-      const json = await res.json();
-      console.log("Fetch result:", json);
-
-      if (json.success && json.data) {
-        console.log("Data received, updating rows...", json.data);
-        setOriginalData(json.data);
-        updateRows(json.data, isTopHalf);
-      } else {
-        console.error("Fetch failed or no data:", json);
-        alert("Errore nel recupero dati: " + (json.error || "Formato non valido"));
-      }
-    } catch (e) {
-      console.error("Failed to fetch standings:", e);
-      alert(`Errore di connessione: ${e.message}`);
-    } finally {
-      setIsFetching(false);
-    }
-  };
-
-
-  React.useEffect(() => {
-    if (originalData.length > 0) {
-      updateRows(originalData, isTopHalf);
-    } else {
-      setRows(INITIAL_ROWS);
-    }
-  }, [isTopHalf, originalData]);
-
-  const updateRows = (data, topHalf) => {
+    // Filtra in base a Alta/Bassa classifica
     const filtered = data.filter(item => {
       const r = parseInt(item.rank);
-      return topHalf ? (r >= 1 && r <= 7) : (r >= 8 && r <= 14);
+      // Alta: 1-7, Bassa: 8-14 (o il resto)
+      return topHalf ? (r >= 1 && r <= 7) : (r >= 8);
     });
 
-    const newRows = filtered.map((item, i) => {
+    // Mappa i dati nel formato righe
+    const newRows = filtered.slice(0, 7).map((item, i) => { // Prendi max 7 elementi
       const mappedName = normalizeTeamName(item.team);
       let tIndex = TEAMS_LIST.indexOf(mappedName);
+
       if (tIndex === -1) {
         console.warn(`Team not found in list: ${item.team} -> ${mappedName}`);
-        tIndex = 0;
+        tIndex = 0; // Fallback
       }
 
       return {
@@ -123,6 +70,7 @@ const ClassificaComp = () => {
       };
     });
 
+    // Riempi con righe vuote se sono meno di 7
     while (newRows.length < 7) {
       newRows.push({
         id: newRows.length,
@@ -132,7 +80,67 @@ const ClassificaComp = () => {
     }
 
     setRows(newRows);
+  }, []); // Dipendenze vuote perché usa solo costanti esterne o parametri
+
+  // --- FETCHING DATI ---
+  const fetchStandings = async () => {
+    setIsFetching(true);
+    try {
+      console.log("Fetching standings for Greece Super League...");
+
+      const hostname = window.location.hostname;
+
+      // LOGICA IBRIDA URL:
+      // 1. Se sei su localhost o 127.0.0.1 -> Usa http://localhost:5000
+      // 2. Se sei su qualsiasi altro dominio (es. Firebase, Render, IP locale dal telefono) -> Usa Render
+      const isLocalhost = hostname === "localhost" || hostname === "127.0.0.1";
+
+      const API_BASE_URL = isLocalhost
+        ? "http://localhost:5000"
+        : "https://cronacheapp.onrender.com";
+
+      console.log(`[NETWORK] Environment: ${hostname}. Using API: ${API_BASE_URL}`);
+
+      // Aggiungi timestamp per evitare cache aggressiva su mobile
+      const res = await fetch(`${API_BASE_URL}/api/standings?country=greece&league=super-league&_t=${Date.now()}`);
+
+      if (!res.ok) {
+        throw new Error(`Errore HTTP! Status: ${res.status}`);
+      }
+
+      const contentType = res.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        const text = await res.text();
+        console.error("Risposta non valida (HTML):", text.substring(0, 200));
+        throw new Error("Il server ha risposto con HTML invece di JSON. Controlla l'URL.");
+      }
+
+      const json = await res.json();
+      console.log("Fetch result:", json);
+
+      if (json.success && json.data) {
+        setOriginalData(json.data);
+        updateRows(json.data, isTopHalf); // Ora updateRows è definita e sicura
+      } else {
+        alert("Errore nel recupero dati: " + (json.error || "Formato non valido"));
+      }
+    } catch (e) {
+      console.error("Failed to fetch standings:", e);
+      alert(`Errore di connessione: ${e.message}`);
+    } finally {
+      setIsFetching(false);
+    }
   };
+
+  // --- EFFETTO PER AGGIORNAMENTO AUTOMATICO AL CAMBIO TAB (Alta/Bassa) ---
+  useEffect(() => {
+    if (originalData.length > 0) {
+      updateRows(originalData, isTopHalf);
+    } else {
+      // Se non abbiamo dati, resettiamo alle righe iniziali vuote
+      setRows(INITIAL_ROWS);
+    }
+  }, [isTopHalf, originalData, updateRows]);
 
   const handleTeamClick = (rowIndex) => {
     setRows(prev => prev.map((row, i) => {
@@ -158,27 +166,23 @@ const ClassificaComp = () => {
     if (!stage) return;
 
     try {
-      // Hide border for export
       if (borderRef.current) {
         borderRef.current.visible(false);
       }
 
-      // Save current state
       const currentScale = stage.scale();
       const currentSize = { width: stage.width(), height: stage.height() };
 
-      // Set scale for export (reset to 1:1 of original size)
       stage.scale({ x: 1, y: 1 });
-      stage.size({ width: 2000, height: 2500 });
+      stage.size({ width: 2000, height: 2500 }); // Risoluzione export
       stage.batchDraw();
 
       const uri = stage.toDataURL({
-        pixelRatio: 1.5, // High quality
+        pixelRatio: 1.5,
         mimeType: 'image/jpeg',
         quality: 0.95
       });
 
-      // Restore state
       stage.scale(currentScale);
       stage.size(currentSize);
       if (borderRef.current) {
@@ -186,7 +190,6 @@ const ClassificaComp = () => {
       }
       stage.batchDraw();
 
-      // Download link
       const link = document.createElement('a');
       link.download = `classifica_${Date.now()}.jpg`;
       link.href = uri;
@@ -232,7 +235,6 @@ const ClassificaComp = () => {
       </div>
 
       <div className="classifica-panel">
-        {/* Section 1: Background & Image Control */}
         {activeTab === 'vision' && (
           <div style={{ width: '100%' }}>
             <div className="control-group">
@@ -261,7 +263,6 @@ const ClassificaComp = () => {
           </div>
         )}
 
-        {/* Section 2: Data & Scraping */}
         {activeTab === 'data' && (
           <div style={{ width: '100%' }}>
             <div className="control-group">
@@ -293,7 +294,6 @@ const ClassificaComp = () => {
                 </button>
               </div>
 
-              {/* Loading Bar */}
               {isFetching && (
                 <div className="loading-container">
                   <div className="loading-bar">
