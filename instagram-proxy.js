@@ -2,7 +2,7 @@ const express = require('express');
 const axios = require('axios');
 const cheerio = require('cheerio');
 const cors = require('cors');
-const { getRecentMatches, getMatchDetails } = require('./execution/scrape_flashscore');
+const { getRecentMatches, getMatchDetails, getStandings } = require('./execution/scrape_flashscore');
 
 const app = express();
 
@@ -413,6 +413,21 @@ app.get('/api/get-match-details', async (req, res) => {
         message: error.message || 'Errore durante il recupero dei dettagli partita'
       });
     }
+  }
+});
+
+// --- ENDPOINT FLASHSCORE: Classifica ---
+app.get('/api/standings', async (req, res) => {
+  const { country = 'greece', league = 'super-league' } = req.query;
+  console.log(`[FLASHSCORE] Fetching standings for: ${country}/${league}`);
+
+  try {
+    const data = await getStandings({ country, league });
+    console.log(`[FLASHSCORE] Standings success: ${data.length} teams`);
+    res.json({ success: true, data });
+  } catch (error) {
+    console.error(`[FLASHSCORE] Standings error:`, error.message);
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 

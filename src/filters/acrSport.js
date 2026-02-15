@@ -354,7 +354,7 @@ float luma(vec3 c){ return dot(c, vec3(0.299,0.587,0.114)); }
 const FS_WB_EXPO = `
 precision mediump float; varying vec2 vUv;
 uniform sampler2D uTex; uniform mat3 uWB; uniform float uEV;
-\${srgb2lin}
+${srgb2lin}
 void main(){
   vec4 t = texture2D(uTex, vUv);
   vec3 c = srgb2lin(t.rgb);
@@ -372,7 +372,7 @@ uniform float uShadows;
 uniform float uWhites;
 uniform float uBlacks;
 uniform float uContrast;
-\${srgb2lin}
+${srgb2lin}
 
 float softLUT(float x, float amt, float lo, float hi){
   float wHi = smoothstep(lo, 1.0, x);
@@ -421,7 +421,7 @@ void main(){
 const FS_BILATERAL = `
 precision mediump float; varying vec2 vUv;
 uniform sampler2D uTex; uniform vec2 uDir; uniform float uSigmaS; uniform float uSigmaR;
-\${srgb2lin}
+${srgb2lin}
 
 float weightSpatial(int i){
   if (i==0) return 0.227000;
@@ -496,7 +496,7 @@ const FS_FINISH = `
 precision mediump float; varying vec2 vUv;
 uniform sampler2D uTex;
 uniform float uVibrance; uniform float uSaturation;
-\${srgb2lin}
+${srgb2lin}
 
 vec3 vibranceSaturation(vec3 srgb, float vib, float sat){
   float maxc = max(max(srgb.r, srgb.g), srgb.b);
@@ -522,19 +522,35 @@ void main(){
 async function applyCameraRawSportFilter(imageElement) {
   const s = await loadAcrXmp();
 
+  // Create canvas for pixel extraction
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d');
   canvas.width = imageElement.naturalWidth;
   canvas.height = imageElement.naturalHeight;
   ctx.drawImage(imageElement, 0, 0);
 
-  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-  const W = canvas.width, H = canvas.height;
+  let imageData;
+  try {
+    imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  } catch (e) {
+    console.error("getImageData failed (Tainted Canvas?):", e);
+    throw new Error("Impossibile leggere i pixel dell'immagine. Probabile blocco di sicurezza (CORS/Tainted).");
+  }
 
-  const { gl, canvas: glCanvas } = createGL(W, H);
+  const W = canvas.width, H = canvas.height;
+  if (W === 0 || H === 0) throw new Error("Dimensioni immagine non valide (0x0).");
+
+  let gl, glCanvas;
+  try {
+    const res = createGL(W, H);
+    gl = res.gl;
+    glCanvas = res.canvas;
+  } catch (e) {
+    throw new Error("Inizializzazione WebGL fallita: " + e.message);
+  }
+
   const quad = drawQuad(gl);
 
-  // Create textures
   // Create textures
   const texSrc = makeTex(gl, W, H, null);
   gl.bindTexture(gl.TEXTURE_2D, texSrc);
@@ -964,16 +980,24 @@ function CameraRawSportFilter() {
 export async function applyAcrSportFilterToSrc(src) {
   return new Promise((resolve, reject) => {
     const img = new Image();
-    img.crossOrigin = 'anonymous';
+    // Only set crossOrigin if NOT a data URL to avoid tainting issues in some browsers
+    if (typeof src === 'string' && !src.startsWith('data:')) {
+      img.crossOrigin = 'anonymous';
+    }
+
     img.onload = async () => {
       try {
         const result = await applyCameraRawSportFilter(img);
         resolve(result);
       } catch (err) {
+        console.error("ACR Sport Filter Internal Error:", err);
         reject(err);
       }
     };
-    img.onerror = (e) => reject(e);
+    img.onerror = (e) => {
+      console.error("Failed to load image for filter:", e);
+      reject(new Error("Image load failed"));
+    };
     img.src = src;
   });
 }
@@ -982,16 +1006,24 @@ export async function applyAcrSportFilterToSrc(src) {
 export async function applyUpscaleFilterToSrc(src) {
   return new Promise((resolve, reject) => {
     const img = new Image();
-    img.crossOrigin = 'anonymous';
+    // Only set crossOrigin if NOT a data URL
+    if (typeof src === 'string' && !src.startsWith('data:')) {
+      img.crossOrigin = 'anonymous';
+    }
+
     img.onload = async () => {
       try {
         const result = await applyUpscaleFilter(img);
         resolve(result);
       } catch (err) {
+        console.error("Upscale Filter Internal Error:", err);
         reject(err);
       }
     };
-    img.onerror = (e) => reject(e);
+    img.onerror = (e) => {
+      console.error("Failed to load image for upscale:", e);
+      reject(new Error("Image load failed"));
+    };
     img.src = src;
   });
 }

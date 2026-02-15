@@ -1,0 +1,1059 @@
+{
+  "data": {
+    "getTournamentSeasons": {
+      "__typename": "TournamentSeasons",
+      "requested": {
+        "__typename": "TournamentSeason",
+        "tournamentId": "nkWI0kH7",
+        "tournamentTemplateId": "d2pwJFHI",
+        "topLeagueKey": "83_d2pwJFHI",
+        "start": "2025",
+        "end": "2026",
+        "isCurrent": true,
+        "winners": null,
+        "tournamentStages": {
+          "__typename": "TournamentSeasonStages",
+          "requested": {
+            "__typename": "TournamentSeasonStage",
+            "id": "YqOkq45l",
+            "tournamentStageTypeId": 2,
+            "sortKey": 34,
+            "leagueNames": {
+              "__typename": "LeagueNames",
+              "country": "Grecia",
+              "tournament": "Super League",
+              "stage": "Principale",
+              "stageGroup": null
+            },
+            "tournamentStage": {
+              "__typename": "TournamentStage",
+              "stageStartEstimated": null,
+              "stageEndEstimated": null,
+              "isFinal": null,
+              "view": {
+                "__typename": "LeagueView",
+                "images": [
+                  {
+                    "__typename": "Image",
+                    "path": "ll8DBfqp-nky2xeEj.png",
+                    "variantType": 87,
+                    "fallback": "TOURNAMENT"
+                  },
+                  {
+                    "__typename": "Image",
+                    "path": "rB7HAEbj-nky2xeEj.png",
+                    "variantType": 88,
+                    "fallback": "TOURNAMENT"
+                  }
+                ]
+              },
+              "tournamentStageTabIds": [
+                "TA",
+                "RE",
+                "FI",
+                "NF"
+              ]
+            }
+          },
+          "other": [
+            {
+              "__typename": "TournamentSeasonStage",
+              "id": "xdJ8HD0J",
+              "tournamentStageTypeId": 370,
+              "sortKey": 167,
+              "leagueNames": {
+                "__typename": "LeagueNames",
+                "stage": "Conference League - Gruppi",
+                "stageGroup": null
+              },
+              "tournamentStage": {
+                "__typename": "TournamentStage",
+                "stageStartEstimated": null,
+                "stageEndEstimated": null,
+                "isFinal": null
+              }
+            }
+          ],
+          "timeline": [
+            {
+              "__typename": "TournamentSeasonStage",
+              "id": "bq9BlQsR",
+              "leagueNames": {
+                "__typename": "LeagueNames",
+                "stage": "Spareggio",
+                "stageGroup": null
+              },
+              "tournamentStage": {
+                "__typename": "TournamentStage",
+                "stageStartEstimated": null,
+                "stageEndEstimated": null,
+                "isFinal": null
+              }
+            },
+            {
+              "__typename": "TournamentSeasonStage",
+              "id": "YqOkq45l",
+              "leagueNames": {
+                "__typename": "LeagueNames",
+                "stage": "Principale",
+                "stageGroup": null
+              },
+              "tournamentStage": {
+                "__typename": "TournamentStage",
+                "stageStartEstimated": null,
+                "stageEndEstimated": null,
+                "isFinal": null
+              }
+            },
+            {
+              "__typename": "TournamentSeasonStage",
+              "id": "SrHbsrz1",
+              "leagueNames": {
+                "__typename": "LeagueNames",
+                "stage": "Play-Offs Championship",
+                "stageGroup": null
+              },
+              "tournamentStage": {
+                "__typename": "TournamentStage",
+                "stageStartEstimated": null,
+                "stageEndEstimated": null,
+                "isFinal": true
+              }
+            },
+            {
+              "__typename": "TournamentSeasonStage",
+              "id": "0dF6uM4D",
+              "leagueNames": {
+                "__typename": "LeagueNames",
+                "stage": "Gruppo Retrocessione",
+                "stageGroup": null
+              },
+              "tournamentStage": {
+                "__typename": "TournamentStage",
+                "stageStartEstimated": null,
+                "stageEndEstimated": null,
+                "isFinal": null
+              }
+            },
+            {
+              "__typename": "TournamentSeasonStage",
+              "id": "xdJ8HD0J",
+              "leagueNames": {
+                "__typename": "LeagueNames",
+                "stage": "Conference League - Gruppi",
+                "stageGroup": null
+              },
+              "tournamentStage": {
+                "__typename": "TournamentStage",
+                "stageStartEstimated": null,
+                "stageEndEstimated": null,
+                "isFinal": null
+              }
+            }
+          ]
+        },
+        "images": [
+          {
+            "__typename": "Image",
+            "path": "UkQpyqTp-Qg3EHN32.png",
+            "variantType": 19,
+            "fallback": "TOURNAMENT"
+          }
+        ]
+      },
+      "other": [
+        {
+          "__typename": "TournamentSeason",
+          "tournamentId": "pdrwJlvm",
+          "start": "2024",
+          "end": "2025",
+          "isCurrent": false,
+          "winners": [
+            {
+              "__typename": "Participant",
+              "id": "hnzvnHPS",
+              "name": "Olympiakos",
+              "url": "olympiakos",
+              "images": [
+                {
+                  "__typename": "Image",
+                  "path": "C6DyywyB-lzmp9FUJ.png",
+                  "variantType": 15,
+                  "fallback": "TEAM"
+                }
+              ]
+            }
+          ],
+          "tournamentStages": {
+            "__typename": "TournamentSeasonStages",
+            "other": [
+              {
+                "__typename": "TournamentSeasonStage",
+                "id": "Y5PJdcC3",
+                "tournamentStageTypeId": 2
+              }
+            ]
+          }
+        },
+        {
+          "__typename": "TournamentSeason",
+          "tournamentId": "bF8TP9lM",
+          "start": "2023",
+          "end": "2024",
+          "isCurrent": false,
+          "winners": [
+            {
+              "__typename": "Participant",
+              "id": "Kry6HxA9",
+              "name": "PAOK",
+              "url": "paok",
+              "images": [
+                {
+                  "__typename": "Image",
+                  "path": "KQW4V6FG-pvWT1yik.png",
+                  "variantType": 15,
+                  "fallback": "TEAM"
+                }
+              ]
+            }
+          ],
+          "tournamentStages": {
+            "__typename": "TournamentSeasonStages",
+            "other": [
+              {
+                "__typename": "TournamentSeasonStage",
+                "id": "zHzDNrQb",
+                "tournamentStageTypeId": 2
+              }
+            ]
+          }
+        },
+        {
+          "__typename": "TournamentSeason",
+          "tournamentId": "lYhXH1ke",
+          "start": "2022",
+          "end": "2023",
+          "isCurrent": false,
+          "winners": [
+            {
+              "__typename": "Participant",
+              "id": "ANpZncAM",
+              "name": "AEK",
+              "url": "aek",
+              "images": [
+                {
+                  "__typename": "Image",
+                  "path": "vHCp8QeM-Aq4Rjd2q.png",
+                  "variantType": 15,
+                  "fallback": "TEAM"
+                }
+              ]
+            }
+          ],
+          "tournamentStages": {
+            "__typename": "TournamentSeasonStages",
+            "other": [
+              {
+                "__typename": "TournamentSeasonStage",
+                "id": "n1cSbLMF",
+                "tournamentStageTypeId": 2
+              }
+            ]
+          }
+        },
+        {
+          "__typename": "TournamentSeason",
+          "tournamentId": "rRpspmjK",
+          "start": "2021",
+          "end": "2022",
+          "isCurrent": false,
+          "winners": [
+            {
+              "__typename": "Participant",
+              "id": "hnzvnHPS",
+              "name": "Olympiakos",
+              "url": "olympiakos",
+              "images": [
+                {
+                  "__typename": "Image",
+                  "path": "C6DyywyB-lzmp9FUJ.png",
+                  "variantType": 15,
+                  "fallback": "TEAM"
+                }
+              ]
+            }
+          ],
+          "tournamentStages": {
+            "__typename": "TournamentSeasonStages",
+            "other": [
+              {
+                "__typename": "TournamentSeasonStage",
+                "id": "jgPufVmm",
+                "tournamentStageTypeId": 2
+              }
+            ]
+          }
+        },
+        {
+          "__typename": "TournamentSeason",
+          "tournamentId": "xtEyfIgS",
+          "start": "2020",
+          "end": "2021",
+          "isCurrent": false,
+          "winners": [
+            {
+              "__typename": "Participant",
+              "id": "hnzvnHPS",
+              "name": "Olympiakos",
+              "url": "olympiakos",
+              "images": [
+                {
+                  "__typename": "Image",
+                  "path": "C6DyywyB-lzmp9FUJ.png",
+                  "variantType": 15,
+                  "fallback": "TEAM"
+                }
+              ]
+            }
+          ],
+          "tournamentStages": {
+            "__typename": "TournamentSeasonStages",
+            "other": [
+              {
+                "__typename": "TournamentSeasonStage",
+                "id": "trfeqK5U",
+                "tournamentStageTypeId": 2
+              }
+            ]
+          }
+        },
+        {
+          "__typename": "TournamentSeason",
+          "tournamentId": "d0mcimdN",
+          "start": "2019",
+          "end": "2020",
+          "isCurrent": false,
+          "winners": [
+            {
+              "__typename": "Participant",
+              "id": "hnzvnHPS",
+              "name": "Olympiakos",
+              "url": "olympiakos",
+              "images": [
+                {
+                  "__typename": "Image",
+                  "path": "C6DyywyB-lzmp9FUJ.png",
+                  "variantType": 15,
+                  "fallback": "TEAM"
+                }
+              ]
+            }
+          ],
+          "tournamentStages": {
+            "__typename": "TournamentSeasonStages",
+            "other": [
+              {
+                "__typename": "TournamentSeasonStage",
+                "id": "lr6YRvfm",
+                "tournamentStageTypeId": 2
+              }
+            ]
+          }
+        },
+        {
+          "__typename": "TournamentSeason",
+          "tournamentId": "lKPTxmsN",
+          "start": "2018",
+          "end": "2019",
+          "isCurrent": false,
+          "winners": [
+            {
+              "__typename": "Participant",
+              "id": "Kry6HxA9",
+              "name": "PAOK",
+              "url": "paok",
+              "images": [
+                {
+                  "__typename": "Image",
+                  "path": "KQW4V6FG-pvWT1yik.png",
+                  "variantType": 15,
+                  "fallback": "TEAM"
+                }
+              ]
+            }
+          ],
+          "tournamentStages": {
+            "__typename": "TournamentSeasonStages",
+            "other": [
+              {
+                "__typename": "TournamentSeasonStage",
+                "id": "zLTeRiep",
+                "tournamentStageTypeId": 2
+              }
+            ]
+          }
+        },
+        {
+          "__typename": "TournamentSeason",
+          "tournamentId": "vmRJ2rzg",
+          "start": "2017",
+          "end": "2018",
+          "isCurrent": false,
+          "winners": [
+            {
+              "__typename": "Participant",
+              "id": "ANpZncAM",
+              "name": "AEK",
+              "url": "aek",
+              "images": [
+                {
+                  "__typename": "Image",
+                  "path": "vHCp8QeM-Aq4Rjd2q.png",
+                  "variantType": 15,
+                  "fallback": "TEAM"
+                }
+              ]
+            }
+          ],
+          "tournamentStages": {
+            "__typename": "TournamentSeasonStages",
+            "other": [
+              {
+                "__typename": "TournamentSeasonStage",
+                "id": "jDglJBeo",
+                "tournamentStageTypeId": 2
+              }
+            ]
+          }
+        },
+        {
+          "__typename": "TournamentSeason",
+          "tournamentId": "IuLHZ5id",
+          "start": "2016",
+          "end": "2017",
+          "isCurrent": false,
+          "winners": [
+            {
+              "__typename": "Participant",
+              "id": "hnzvnHPS",
+              "name": "Olympiakos",
+              "url": "olympiakos",
+              "images": [
+                {
+                  "__typename": "Image",
+                  "path": "C6DyywyB-lzmp9FUJ.png",
+                  "variantType": 15,
+                  "fallback": "TEAM"
+                }
+              ]
+            }
+          ],
+          "tournamentStages": {
+            "__typename": "TournamentSeasonStages",
+            "other": [
+              {
+                "__typename": "TournamentSeasonStage",
+                "id": "hprPIiHf",
+                "tournamentStageTypeId": 2
+              }
+            ]
+          }
+        },
+        {
+          "__typename": "TournamentSeason",
+          "tournamentId": "IqB4sIFh",
+          "start": "2015",
+          "end": "2016",
+          "isCurrent": false,
+          "winners": [
+            {
+              "__typename": "Participant",
+              "id": "hnzvnHPS",
+              "name": "Olympiakos",
+              "url": "olympiakos",
+              "images": [
+                {
+                  "__typename": "Image",
+                  "path": "C6DyywyB-lzmp9FUJ.png",
+                  "variantType": 15,
+                  "fallback": "TEAM"
+                }
+              ]
+            }
+          ],
+          "tournamentStages": {
+            "__typename": "TournamentSeasonStages",
+            "other": [
+              {
+                "__typename": "TournamentSeasonStage",
+                "id": "rNWgwDhE",
+                "tournamentStageTypeId": 2
+              }
+            ]
+          }
+        },
+        {
+          "__typename": "TournamentSeason",
+          "tournamentId": "rBI9Z2fj",
+          "start": "2014",
+          "end": "2015",
+          "isCurrent": false,
+          "winners": [
+            {
+              "__typename": "Participant",
+              "id": "hnzvnHPS",
+              "name": "Olympiakos",
+              "url": "olympiakos",
+              "images": [
+                {
+                  "__typename": "Image",
+                  "path": "C6DyywyB-lzmp9FUJ.png",
+                  "variantType": 15,
+                  "fallback": "TEAM"
+                }
+              ]
+            }
+          ],
+          "tournamentStages": {
+            "__typename": "TournamentSeasonStages",
+            "other": [
+              {
+                "__typename": "TournamentSeasonStage",
+                "id": "EJYyo33J",
+                "tournamentStageTypeId": 2
+              }
+            ]
+          }
+        },
+        {
+          "__typename": "TournamentSeason",
+          "tournamentId": "Kpc1iYPK",
+          "start": "2013",
+          "end": "2014",
+          "isCurrent": false,
+          "winners": [
+            {
+              "__typename": "Participant",
+              "id": "hnzvnHPS",
+              "name": "Olympiakos",
+              "url": "olympiakos",
+              "images": [
+                {
+                  "__typename": "Image",
+                  "path": "C6DyywyB-lzmp9FUJ.png",
+                  "variantType": 15,
+                  "fallback": "TEAM"
+                }
+              ]
+            }
+          ],
+          "tournamentStages": {
+            "__typename": "TournamentSeasonStages",
+            "other": [
+              {
+                "__typename": "TournamentSeasonStage",
+                "id": "OfqPgzMo",
+                "tournamentStageTypeId": 2
+              }
+            ]
+          }
+        },
+        {
+          "__typename": "TournamentSeason",
+          "tournamentId": "OMaSCMAI",
+          "start": "2012",
+          "end": "2013",
+          "isCurrent": false,
+          "winners": [
+            {
+              "__typename": "Participant",
+              "id": "hnzvnHPS",
+              "name": "Olympiakos",
+              "url": "olympiakos",
+              "images": [
+                {
+                  "__typename": "Image",
+                  "path": "C6DyywyB-lzmp9FUJ.png",
+                  "variantType": 15,
+                  "fallback": "TEAM"
+                }
+              ]
+            }
+          ],
+          "tournamentStages": {
+            "__typename": "TournamentSeasonStages",
+            "other": [
+              {
+                "__typename": "TournamentSeasonStage",
+                "id": "fX8nGjNe",
+                "tournamentStageTypeId": 2
+              }
+            ]
+          }
+        },
+        {
+          "__typename": "TournamentSeason",
+          "tournamentId": "Iw1QrVc9",
+          "start": "2011",
+          "end": "2012",
+          "isCurrent": false,
+          "winners": [
+            {
+              "__typename": "Participant",
+              "id": "hnzvnHPS",
+              "name": "Olympiakos",
+              "url": "olympiakos",
+              "images": [
+                {
+                  "__typename": "Image",
+                  "path": "C6DyywyB-lzmp9FUJ.png",
+                  "variantType": 15,
+                  "fallback": "TEAM"
+                }
+              ]
+            }
+          ],
+          "tournamentStages": {
+            "__typename": "TournamentSeasonStages",
+            "other": [
+              {
+                "__typename": "TournamentSeasonStage",
+                "id": "EaJaw8Eq",
+                "tournamentStageTypeId": 2
+              }
+            ]
+          }
+        },
+        {
+          "__typename": "TournamentSeason",
+          "tournamentId": "tOEjBgUT",
+          "start": "2010",
+          "end": "2011",
+          "isCurrent": false,
+          "winners": [
+            {
+              "__typename": "Participant",
+              "id": "hnzvnHPS",
+              "name": "Olympiakos",
+              "url": "olympiakos",
+              "images": [
+                {
+                  "__typename": "Image",
+                  "path": "C6DyywyB-lzmp9FUJ.png",
+                  "variantType": 15,
+                  "fallback": "TEAM"
+                }
+              ]
+            }
+          ],
+          "tournamentStages": {
+            "__typename": "TournamentSeasonStages",
+            "other": [
+              {
+                "__typename": "TournamentSeasonStage",
+                "id": "2HBNZDMj",
+                "tournamentStageTypeId": 2
+              }
+            ]
+          }
+        },
+        {
+          "__typename": "TournamentSeason",
+          "tournamentId": "xYe7DwID",
+          "start": "2009",
+          "end": "2010",
+          "isCurrent": false,
+          "winners": [
+            {
+              "__typename": "Participant",
+              "id": "SENMmweG",
+              "name": "Panathinaikos",
+              "url": "panathinaikos",
+              "images": [
+                {
+                  "__typename": "Image",
+                  "path": "Me3pW6Ea-GM4Cu0wi.png",
+                  "variantType": 15,
+                  "fallback": "TEAM"
+                }
+              ]
+            }
+          ],
+          "tournamentStages": {
+            "__typename": "TournamentSeasonStages",
+            "other": [
+              {
+                "__typename": "TournamentSeasonStage",
+                "id": "v9CGIu4N",
+                "tournamentStageTypeId": 2
+              }
+            ]
+          }
+        },
+        {
+          "__typename": "TournamentSeason",
+          "tournamentId": "bsc3EJ27",
+          "start": "2008",
+          "end": "2009",
+          "isCurrent": false,
+          "winners": [
+            {
+              "__typename": "Participant",
+              "id": "hnzvnHPS",
+              "name": "Olympiakos",
+              "url": "olympiakos",
+              "images": [
+                {
+                  "__typename": "Image",
+                  "path": "C6DyywyB-lzmp9FUJ.png",
+                  "variantType": 15,
+                  "fallback": "TEAM"
+                }
+              ]
+            }
+          ],
+          "tournamentStages": {
+            "__typename": "TournamentSeasonStages",
+            "other": [
+              {
+                "__typename": "TournamentSeasonStage",
+                "id": "0IDCJLlH",
+                "tournamentStageTypeId": 2
+              }
+            ]
+          }
+        },
+        {
+          "__typename": "TournamentSeason",
+          "tournamentId": "CMBTIThf",
+          "start": "2007",
+          "end": "2008",
+          "isCurrent": false,
+          "winners": [
+            {
+              "__typename": "Participant",
+              "id": "hnzvnHPS",
+              "name": "Olympiakos",
+              "url": "olympiakos",
+              "images": [
+                {
+                  "__typename": "Image",
+                  "path": "C6DyywyB-lzmp9FUJ.png",
+                  "variantType": 15,
+                  "fallback": "TEAM"
+                }
+              ]
+            }
+          ],
+          "tournamentStages": {
+            "__typename": "TournamentSeasonStages",
+            "other": [
+              {
+                "__typename": "TournamentSeasonStage",
+                "id": "fHDVHrjg",
+                "tournamentStageTypeId": 2
+              }
+            ]
+          }
+        },
+        {
+          "__typename": "TournamentSeason",
+          "tournamentId": "MgC5Vm80",
+          "start": "2006",
+          "end": "2007",
+          "isCurrent": false,
+          "winners": [
+            {
+              "__typename": "Participant",
+              "id": "hnzvnHPS",
+              "name": "Olympiakos",
+              "url": "olympiakos",
+              "images": [
+                {
+                  "__typename": "Image",
+                  "path": "C6DyywyB-lzmp9FUJ.png",
+                  "variantType": 15,
+                  "fallback": "TEAM"
+                }
+              ]
+            }
+          ],
+          "tournamentStages": {
+            "__typename": "TournamentSeasonStages",
+            "other": [
+              {
+                "__typename": "TournamentSeasonStage",
+                "id": "Ug8YEMK5",
+                "tournamentStageTypeId": 2
+              }
+            ]
+          }
+        },
+        {
+          "__typename": "TournamentSeason",
+          "tournamentId": "zcG9U7N6",
+          "start": "2005",
+          "end": "2006",
+          "isCurrent": false,
+          "winners": [
+            {
+              "__typename": "Participant",
+              "id": "hnzvnHPS",
+              "name": "Olympiakos",
+              "url": "olympiakos",
+              "images": [
+                {
+                  "__typename": "Image",
+                  "path": "C6DyywyB-lzmp9FUJ.png",
+                  "variantType": 15,
+                  "fallback": "TEAM"
+                }
+              ]
+            }
+          ],
+          "tournamentStages": {
+            "__typename": "TournamentSeasonStages",
+            "other": [
+              {
+                "__typename": "TournamentSeasonStage",
+                "id": "CIcwEtzC",
+                "tournamentStageTypeId": 2
+              }
+            ]
+          }
+        },
+        {
+          "__typename": "TournamentSeason",
+          "tournamentId": "UJFDTRxD",
+          "start": "2004",
+          "end": "2005",
+          "isCurrent": false,
+          "winners": [
+            {
+              "__typename": "Participant",
+              "id": "hnzvnHPS",
+              "name": "Olympiakos",
+              "url": "olympiakos",
+              "images": [
+                {
+                  "__typename": "Image",
+                  "path": "C6DyywyB-lzmp9FUJ.png",
+                  "variantType": 15,
+                  "fallback": "TEAM"
+                }
+              ]
+            }
+          ],
+          "tournamentStages": {
+            "__typename": "TournamentSeasonStages",
+            "other": [
+              {
+                "__typename": "TournamentSeasonStage",
+                "id": "j9dsD0kI",
+                "tournamentStageTypeId": 2
+              }
+            ]
+          }
+        },
+        {
+          "__typename": "TournamentSeason",
+          "tournamentId": "8AEHSohJ",
+          "start": "2003",
+          "end": "2004",
+          "isCurrent": false,
+          "winners": [
+            {
+              "__typename": "Participant",
+              "id": "SENMmweG",
+              "name": "Panathinaikos",
+              "url": "panathinaikos",
+              "images": [
+                {
+                  "__typename": "Image",
+                  "path": "Me3pW6Ea-GM4Cu0wi.png",
+                  "variantType": 15,
+                  "fallback": "TEAM"
+                }
+              ]
+            }
+          ],
+          "tournamentStages": {
+            "__typename": "TournamentSeasonStages",
+            "other": [
+              {
+                "__typename": "TournamentSeasonStage",
+                "id": "bwd7DK4O",
+                "tournamentStageTypeId": 2
+              }
+            ]
+          }
+        },
+        {
+          "__typename": "TournamentSeason",
+          "tournamentId": "n38zKerN",
+          "start": "2002",
+          "end": "2003",
+          "isCurrent": false,
+          "winners": [
+            {
+              "__typename": "Participant",
+              "id": "hnzvnHPS",
+              "name": "Olympiakos",
+              "url": "olympiakos",
+              "images": [
+                {
+                  "__typename": "Image",
+                  "path": "C6DyywyB-lzmp9FUJ.png",
+                  "variantType": 15,
+                  "fallback": "TEAM"
+                }
+              ]
+            }
+          ],
+          "tournamentStages": {
+            "__typename": "TournamentSeasonStages",
+            "other": [
+              {
+                "__typename": "TournamentSeasonStage",
+                "id": "Gz1Zfkwj",
+                "tournamentStageTypeId": 2
+              }
+            ]
+          }
+        },
+        {
+          "__typename": "TournamentSeason",
+          "tournamentId": "UacTVyTG",
+          "start": "2001",
+          "end": "2002",
+          "isCurrent": false,
+          "winners": [
+            {
+              "__typename": "Participant",
+              "id": "hnzvnHPS",
+              "name": "Olympiakos",
+              "url": "olympiakos",
+              "images": [
+                {
+                  "__typename": "Image",
+                  "path": "C6DyywyB-lzmp9FUJ.png",
+                  "variantType": 15,
+                  "fallback": "TEAM"
+                }
+              ]
+            }
+          ],
+          "tournamentStages": {
+            "__typename": "TournamentSeasonStages",
+            "other": [
+              {
+                "__typename": "TournamentSeasonStage",
+                "id": "YBBUeVNq",
+                "tournamentStageTypeId": 2
+              }
+            ]
+          }
+        },
+        {
+          "__typename": "TournamentSeason",
+          "tournamentId": "nizHWHDA",
+          "start": "2000",
+          "end": "2001",
+          "isCurrent": false,
+          "winners": [
+            {
+              "__typename": "Participant",
+              "id": "hnzvnHPS",
+              "name": "Olympiakos",
+              "url": "olympiakos",
+              "images": [
+                {
+                  "__typename": "Image",
+                  "path": "C6DyywyB-lzmp9FUJ.png",
+                  "variantType": 15,
+                  "fallback": "TEAM"
+                }
+              ]
+            }
+          ],
+          "tournamentStages": {
+            "__typename": "TournamentSeasonStages",
+            "other": [
+              {
+                "__typename": "TournamentSeasonStage",
+                "id": "djK20BFS",
+                "tournamentStageTypeId": 2
+              }
+            ]
+          }
+        },
+        {
+          "__typename": "TournamentSeason",
+          "tournamentId": "hUzDXcb4",
+          "start": "1999",
+          "end": "2000",
+          "isCurrent": false,
+          "winners": [
+            {
+              "__typename": "Participant",
+              "id": "hnzvnHPS",
+              "name": "Olympiakos",
+              "url": "olympiakos",
+              "images": [
+                {
+                  "__typename": "Image",
+                  "path": "C6DyywyB-lzmp9FUJ.png",
+                  "variantType": 15,
+                  "fallback": "TEAM"
+                }
+              ]
+            }
+          ],
+          "tournamentStages": {
+            "__typename": "TournamentSeasonStages",
+            "other": [
+              {
+                "__typename": "TournamentSeasonStage",
+                "id": "2TKb1i0M",
+                "tournamentStageTypeId": 2
+              }
+            ]
+          }
+        },
+        {
+          "__typename": "TournamentSeason",
+          "tournamentId": "CILyLwqb",
+          "start": "1998",
+          "end": "1999",
+          "isCurrent": false,
+          "winners": [
+            {
+              "__typename": "Participant",
+              "id": "hnzvnHPS",
+              "name": "Olympiakos",
+              "url": "olympiakos",
+              "images": [
+                {
+                  "__typename": "Image",
+                  "path": "C6DyywyB-lzmp9FUJ.png",
+                  "variantType": 15,
+                  "fallback": "TEAM"
+                }
+              ]
+            }
+          ],
+          "tournamentStages": {
+            "__typename": "TournamentSeasonStages",
+            "other": [
+              {
+                "__typename": "TournamentSeasonStage",
+                "id": "KKcn2XpG",
+                "tournamentStageTypeId": 2
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

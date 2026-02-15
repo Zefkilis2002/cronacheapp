@@ -4,6 +4,7 @@ import NavBar from "./components/NavBar/NavBar";
 import FullTimeEditor from "./FullTimeEditor/FullTimeEditor";
 import NewsEditor from "./NewsEditor/NewsEditor"; // Assicurati che il nome dell'import corrisponda al file
 import BioCreator from "./BioCreator/BioCreator";
+import Classifica from "./Classifica/Classifica";
 import "./App.css"; 
 
 function App() {
@@ -17,6 +18,7 @@ function App() {
           {/* Route aggiuntiva esplicita */}
           <Route path="/fulltime" element={<FullTimeEditor />} />
           <Route path="/bio-creator" element={<BioCreator />} />
+          <Route path="/classifica" element={<Classifica />} />
         </Routes>
       </div>
     </div>

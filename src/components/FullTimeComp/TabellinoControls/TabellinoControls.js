@@ -370,7 +370,7 @@ function TabellinoControls({
       setFilterApplied(true);
     } catch (err) {
       console.error('Errore filtro RAW:', err);
-      alert('Errore durante l’applicazione del filtro RAW.');
+      alert('Errore durante l’applicazione del filtro RAW: ' + (err.message || err));
     } finally {
       setIsFiltering(false);
     }

@@ -4,6 +4,9 @@ const axios = require('axios');
 const cheerio = require('cheerio');
 const cors = require('cors');
 
+// Import scraper from execution folder
+const { getStandings } = require('../execution/scrape_flashscore');
+
 const app = express();
 
 // Automatically allow cross-origin requests
@@ -12,6 +15,17 @@ app.use(express.json());
 
 app.get('/api/health-check', (req, res) => {
   res.status(200).json({ status: true, message: 'Server is running' });
+});
+
+app.get('/api/standings', async (req, res) => {
+  const { country = 'grecia', league = 'super-league' } = req.query;
+  try {
+    const data = await getStandings({ country, league });
+    res.json({ success: true, data });
+  } catch (error) {
+    console.error(`Error scraping standings for ${country}/${league}:`, error);
+    res.status(500).json({ success: false, error: error.message });
+  }
 });
 
 // Funzione per selezionare l'immagine con la qualità più alta
@@ -57,7 +71,7 @@ app.get('/api/instagram-image', async (req, res) => {
 
   try {
     console.log(`Recupero contenuto da: ${url}`);
-    
+
     // Genera un User-Agent random per evitare blocchi
     const userAgents = [
       'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
@@ -93,104 +107,104 @@ app.get('/api/instagram-image', async (req, res) => {
       try {
         const json = JSON.parse($(el).html());
         if (json['@type'] === 'ImageObject' && json.contentUrl) {
-           // Aggiungi solo se non è un thumbnail
-           if (!json.contentUrl.includes('150x150')) {
-             carouselImages.push(json.contentUrl);
-           }
+          // Aggiungi solo se non è un thumbnail
+          if (!json.contentUrl.includes('150x150')) {
+            carouselImages.push(json.contentUrl);
+          }
         }
         if (Array.isArray(json)) {
-            json.forEach(item => {
-                if (item['@type'] === 'ImageObject' && item.contentUrl) carouselImages.push(item.contentUrl);
-            });
+          json.forEach(item => {
+            if (item['@type'] === 'ImageObject' && item.contentUrl) carouselImages.push(item.contentUrl);
+          });
         }
-      } catch(e) {}
+      } catch (e) { }
     });
 
     // Strategia 2: Regex per _sharedData e additionalData
     const scriptTags = $('script').map((i, el) => $(el).html()).get();
-    
+
     for (const scriptContent of scriptTags) {
-        if (!scriptContent) continue;
+      if (!scriptContent) continue;
 
-        // Pattern vari per trovare il JSON
-        const patterns = [
-            /window\._sharedData\s*=\s*({.+?});/,
-            /window\.__additionalDataLoaded\s*\(\s*['"][^'"]+['"],\s*({.+?})\s*\);/,
-            /require\("TimeSliceImpl"\).guard\(\(function\(\){(var .+=({.+?});)/ // Pattern complesso per GraphQL
-        ];
+      // Pattern vari per trovare il JSON
+      const patterns = [
+        /window\._sharedData\s*=\s*({.+?});/,
+        /window\.__additionalDataLoaded\s*\(\s*['"][^'"]+['"],\s*({.+?})\s*\);/,
+        /require\("TimeSliceImpl"\).guard\(\(function\(\){(var .+=({.+?});)/ // Pattern complesso per GraphQL
+      ];
 
-        for (const pattern of patterns) {
-            const match = scriptContent.match(pattern);
-            if (match && match[1]) {
-                try {
-                    // Tentativo di pulizia per casi complessi o parse diretto
-                    let jsonString = match[1];
-                    if (jsonString.startsWith('var')) {
-                         const jsonMatch = jsonString.match(/=\s*({.+?});/);
-                         if(jsonMatch) jsonString = jsonMatch[1];
-                    }
-                    
-                    // Puliamo eventuali trailing functions se presenti in additionalData
-                    if(jsonString.endsWith(');')) jsonString = jsonString.slice(0, -2);
-
-                    const data = JSON.parse(jsonString);
-                    
-                    // Naviga la struttura dati (molto variabile)
-                    const post = data.entry_data?.PostPage?.[0]?.graphql?.shortcode_media || 
-                                 data.graphql?.shortcode_media || 
-                                 data.items?.[0] || 
-                                 data;
-
-                    if (post) {
-                        // Estrazione Carosello
-                        if (getCarouselImages && (post.edge_sidecar_to_children || post.carousel_media)) {
-                             const edges = post.edge_sidecar_to_children?.edges || post.carousel_media;
-                             if (Array.isArray(edges)) {
-                                 edges.forEach(edge => {
-                                     const node = edge.node || edge;
-                                     if (!node.is_video) {
-                                         const img = extractOriginalImageUrl(node);
-                                         if (img) carouselImages.push(img);
-                                     }
-                                 });
-                             }
-                        }
-                        
-                        // Estrazione Immagine Singola (se non abbiamo trovato carosello o se è post singolo)
-                        if (carouselImages.length === 0) {
-                             const img = extractOriginalImageUrl(post);
-                             if (img) carouselImages.push(img);
-                        }
-                    }
-                } catch (e) {
-                    // console.log('Json parse error', e.message);
-                }
+      for (const pattern of patterns) {
+        const match = scriptContent.match(pattern);
+        if (match && match[1]) {
+          try {
+            // Tentativo di pulizia per casi complessi o parse diretto
+            let jsonString = match[1];
+            if (jsonString.startsWith('var')) {
+              const jsonMatch = jsonString.match(/=\s*({.+?});/);
+              if (jsonMatch) jsonString = jsonMatch[1];
             }
+
+            // Puliamo eventuali trailing functions se presenti in additionalData
+            if (jsonString.endsWith(');')) jsonString = jsonString.slice(0, -2);
+
+            const data = JSON.parse(jsonString);
+
+            // Naviga la struttura dati (molto variabile)
+            const post = data.entry_data?.PostPage?.[0]?.graphql?.shortcode_media ||
+              data.graphql?.shortcode_media ||
+              data.items?.[0] ||
+              data;
+
+            if (post) {
+              // Estrazione Carosello
+              if (getCarouselImages && (post.edge_sidecar_to_children || post.carousel_media)) {
+                const edges = post.edge_sidecar_to_children?.edges || post.carousel_media;
+                if (Array.isArray(edges)) {
+                  edges.forEach(edge => {
+                    const node = edge.node || edge;
+                    if (!node.is_video) {
+                      const img = extractOriginalImageUrl(node);
+                      if (img) carouselImages.push(img);
+                    }
+                  });
+                }
+              }
+
+              // Estrazione Immagine Singola (se non abbiamo trovato carosello o se è post singolo)
+              if (carouselImages.length === 0) {
+                const img = extractOriginalImageUrl(post);
+                if (img) carouselImages.push(img);
+              }
+            }
+          } catch (e) {
+            // console.log('Json parse error', e.message);
+          }
         }
+      }
     }
 
     // Strategia 3: Open Graph tags (Fallback affidabile per immagine singola HD)
     if (carouselImages.length === 0) {
-        const ogImage = $('meta[property="og:image"]').attr('content');
-        if (ogImage) carouselImages.push(ogImage);
+      const ogImage = $('meta[property="og:image"]').attr('content');
+      if (ogImage) carouselImages.push(ogImage);
     }
 
     // Pulizia duplicati e null
     carouselImages = [...new Set(carouselImages)].filter(Boolean);
 
     if (carouselImages.length > 0) {
-        mainImageUrl = carouselImages[0];
-        
-        res.json({
-            status: true,
-            imageUrl: mainImageUrl,
-            carouselImages: carouselImages,
-            isCarousel: carouselImages.length > 1,
-            imageCount: carouselImages.length,
-            quality: 'high' 
-        });
+      mainImageUrl = carouselImages[0];
+
+      res.json({
+        status: true,
+        imageUrl: mainImageUrl,
+        carouselImages: carouselImages,
+        isCarousel: carouselImages.length > 1,
+        imageCount: carouselImages.length,
+        quality: 'high'
+      });
     } else {
-        res.status(404).json({ status: false, message: 'Nessuna immagine trovata' });
+      res.status(404).json({ status: false, message: 'Nessuna immagine trovata' });
     }
 
   } catch (error) {
@@ -244,26 +258,26 @@ app.get('/api/scrape', async (req, res) => {
       },
       timeout: 8000 // ridotto timeout
     });
-    
+
     console.log(`[SCRAPE] Direct fetch success: ${response.status}`);
     return res.json({ status: true, content: response.data });
 
   } catch (directError) {
     console.warn(`[SCRAPE] Direct fetch failed: ${directError.message}. Trying fallback...`);
-    
+
     // Tentativo 2: Fallback via AllOrigins (se IP bannato)
     try {
-        const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`;
-        const fallbackResponse = await axios.get(proxyUrl, { timeout: 10000 });
-        
-        if (fallbackResponse.data && fallbackResponse.data.contents) {
-            console.log(`[SCRAPE] Fallback success`);
-            return res.json({ status: true, content: fallbackResponse.data.contents });
-        }
+      const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`;
+      const fallbackResponse = await axios.get(proxyUrl, { timeout: 10000 });
+
+      if (fallbackResponse.data && fallbackResponse.data.contents) {
+        console.log(`[SCRAPE] Fallback success`);
+        return res.json({ status: true, content: fallbackResponse.data.contents });
+      }
     } catch (fallbackError) {
-        console.error(`[SCRAPE] Fallback failed: ${fallbackError.message}`);
+      console.error(`[SCRAPE] Fallback failed: ${fallbackError.message}`);
     }
-    
+
     res.status(500).json({ status: false, message: "Errore scraping (tutti i metodi falliti)", error: directError.message });
   }
 });
@@ -278,9 +292,9 @@ app.get('/api/find-team-info', async (req, res) => {
   let GITHUB_TOKEN = process.env.GITHUB_TOKEN;
   if (!GITHUB_TOKEN) {
     try {
-        GITHUB_TOKEN = functions.config().app.github_token;
+      GITHUB_TOKEN = functions.config().app.github_token;
     } catch (e) {
-        console.warn("Nessun token trovato in functions.config()");
+      console.warn("Nessun token trovato in functions.config()");
     }
   }
 
@@ -311,20 +325,20 @@ app.get('/api/find-team-info', async (req, res) => {
     );
 
     const content = response.data.choices[0].message.content;
-    
+
     // Tentativo di pulizia se il modello restituisce markdown code blocks
     let jsonStr = content.trim();
     if (jsonStr.startsWith("```json")) {
-        jsonStr = jsonStr.replace(/^```json/, "").replace(/```$/, "");
+      jsonStr = jsonStr.replace(/^```json/, "").replace(/```$/, "");
     } else if (jsonStr.startsWith("```")) {
-        jsonStr = jsonStr.replace(/^```/, "").replace(/```$/, "");
+      jsonStr = jsonStr.replace(/^```/, "").replace(/```$/, "");
     }
 
     const teamData = JSON.parse(jsonStr);
-    
+
     res.json({
-        status: true,
-        data: teamData
+      status: true,
+      data: teamData
     });
 
   } catch (error) {

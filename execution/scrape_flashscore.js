@@ -1,14 +1,16 @@
 /**
  * scrape_flashscore.js
  * 
- * Modulo Node.js che usa Puppeteer per estrarre risultati recenti da Flashscore.
+ * Modulo Node.js che usa Puppeteer per estrarre risultati recenti e classifiche da Flashscore.
  * 
  * Uso come modulo:
- *   const { getRecentMatches } = require('./scrape_flashscore');
+ *   const { getRecentMatches, getStandings } = require('./scrape_flashscore');
  *   const matches = await getRecentMatches({ country: 'greece', league: 'super-league', daysBack: 7 });
+ *   const standings = await getStandings({ country: 'greece', league: 'super-league' });
  * 
  * Uso da CLI (per test):
- *   node execution/scrape_flashscore.js --country=greece --league=super-league --daysBack=7
+ *   node execution/scrape_flashscore.js --mode=matches --country=greece --league=super-league --daysBack=7
+ *   node execution/scrape_flashscore.js --mode=standings --country=greece --league=super-league
  */
 
 // Supporta sia puppeteer (locale) che puppeteer-core (Docker/Render)
@@ -52,7 +54,8 @@ async function getBrowser() {
             '--single-process',
             '--disable-features=TranslateUI',
             '--disable-ipc-flooding-protection',
-            '--window-size=1280,720'
+            '--window-size=1920,1080',
+            '--disable-blink-features=AutomationControlled'
         ]
     });
     _browserLastUsed = Date.now();
@@ -81,19 +84,28 @@ const BLOCKED_DOMAINS = [
 
 async function createFastPage(browser) {
     const page = await browser.newPage();
-    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36');
     await page.setViewport({ width: 1280, height: 720 });
 
-    // Blocca risorse pesanti e script di terze parti
+    // Blocca SOLO risorse molto pesanti o inutili per i dati
     await page.setRequestInterception(true);
     page.on('request', (req) => {
+        const rType = req.resourceType();
         const url = req.url();
-        if (BLOCKED_RESOURCES.has(req.resourceType()) ||
-            BLOCKED_DOMAINS.some(d => url.includes(d))) {
+
+        // Allow scripts, xhr, fetch, document
+        if (['image', 'media', 'font', 'stylesheet'].includes(rType)) {
             req.abort();
-        } else {
-            req.continue();
+            return;
         }
+
+        // Block specific ad domains but be careful
+        if (BLOCKED_DOMAINS.some(d => url.includes(d))) {
+            req.abort();
+            return;
+        }
+
+        req.continue();
     });
 
     return page;
@@ -297,6 +309,150 @@ async function getRecentMatches({ country, league, daysBack = 7 }) {
         return filteredMatches;
 
     } catch (error) {
+        if (page) await page.close().catch(() => { });
+        throw error;
+    }
+}
+
+/**
+ * Scrape league standings (classifica).
+ * 
+ * @param {Object} options
+ * @param {string} options.country - Country slug (es. "greece")
+ * @param {string} options.league - League slug (es. "super-league")
+ * @returns {Promise<Array>} Array di { rank, team, p, w, d, l, goals, pts }
+ */
+/**
+ * Scrape league standings (classifica).
+ * 
+ * @param {Object} options
+ * @param {string} options.country - Country slug (es. "greece")
+ * @param {string} options.league - League slug (es. "super-league")
+ * @returns {Promise<Array>} Array di { rank, team, p, w, d, l, goals, gd, pts }
+ */
+async function getStandings({ country, league }) {
+    // URL providing directly by user: https://www.flashscore.com/football/greece/super-league/standings/#/YqOkq45l/standings/overall/
+    // We generalize it to the canonical standings URL which usually redirects correctly or loads the table.
+    // Using flashscore.com (English) as requested.
+    let url = `https://www.flashscore.com/football/${country}/${league}/standings/`;
+
+    // Override for specific request if needed, but the canonical path usually works.
+    if (country === 'greece' && league === 'super-league') {
+        url = 'https://www.flashscore.com/football/greece/super-league/standings/';
+    }
+
+    const browser = await getBrowser();
+    let page;
+    try {
+        page = await createFastPage(browser);
+
+        console.log(`[Flashscore Standings] Navigating to: ${url}`);
+        const t0 = Date.now();
+
+        // Go to page
+        await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 45000 });
+
+        // Handle Cookies (Onetrust) - Generic handler
+        try {
+            const cookieBtn = await page.waitForSelector('#onetrust-accept-btn-handler', { timeout: 4000 });
+            if (cookieBtn) {
+                console.log('[Flashscore Standings] Clicking Cookie Consent...');
+                await cookieBtn.click();
+                await sleep(500);
+            }
+        } catch (e) { /* Ignore */ }
+
+        // Wait for the standings table container
+        console.log('[Flashscore Standings] Waiting for table...');
+
+        // Selectors for Flashscore.com
+        // The container usually has an ID like 'tournament-table-tabs-and-content'
+        await page.waitForSelector('.ui-table__row', { timeout: 15000 });
+
+        // Additional wait to ensure data population
+        await sleep(1000);
+
+        console.log(`[Flashscore Standings] Rows found in ${Date.now() - t0}ms`);
+
+        // Extract Data
+        const standings = await page.evaluate(() => {
+            const rows = document.querySelectorAll('.ui-table__row');
+            const data = [];
+
+            rows.forEach(row => {
+                try {
+                    // Rank: "1." -> "1"
+                    const rankEl = row.querySelector('.tableCellRank');
+                    if (!rankEl) return; // Header row or invalid
+                    const rank = rankEl.textContent.trim().replace('.', '');
+
+                    // Team Name
+                    const teamEl = row.querySelector('.tableCellParticipant__name');
+                    const team = teamEl ? teamEl.textContent.trim() : 'Unknown';
+
+                    // Values: P, W, D, L, Goals, PTS, Form
+                    // These are often in .table__cell--value
+                    // On .com, checking structure:
+                    // .table__cell--value (MP)
+                    // .table__cell--value (W)
+                    // .table__cell--value (D)
+                    // .table__cell--value (L)
+                    // .table__cell--value (Goals e.g. 40:10)
+                    // .table__cell--value (PTS) -- Sometimes distinct class .table__cell--points
+
+                    const valueCells = Array.from(row.querySelectorAll('.table__cell--value'));
+                    const pointsCell = row.querySelector('.table__cell--points');
+
+                    if (valueCells.length >= 5) {
+                        const p = valueCells[0].textContent.trim();
+                        const w = valueCells[1].textContent.trim();
+                        const d = valueCells[2].textContent.trim();
+                        const l = valueCells[3].textContent.trim();
+                        const goalsRaw = valueCells[4].textContent.trim(); // "GS:GA"
+
+                        // Calculate GD
+                        let gd = 0;
+                        if (goalsRaw.includes(':')) {
+                            const [gf, ga] = goalsRaw.split(':').map(n => parseInt(n));
+                            gd = gf - ga;
+                        }
+                        const gdStr = gd > 0 ? `+${gd}` : `${gd}`;
+
+                        // Points: usually distinct cell, or last value cell
+                        const pts = pointsCell ? pointsCell.textContent.trim() : valueCells[valueCells.length - 1].textContent.trim();
+
+                        data.push({
+                            rank,
+                            team,
+                            p,
+                            w,
+                            d,
+                            l,
+                            gd: gdStr,
+                            pts
+                        });
+                    }
+                } catch (e) {
+                    // Skip
+                }
+            });
+            return data;
+        });
+
+        console.log(`[Flashscore Standings] Extracted ${standings.length} teams.`);
+
+        await page.close();
+        page = null;
+
+        // If empty, throw error
+        if (standings.length === 0) {
+            throw new Error('No standings extracted. Page structure might have changed.');
+        }
+
+        return standings;
+
+    } catch (error) {
+        console.error(`[Flashscore Standings] Error: ${error.message}`);
         if (page) await page.close().catch(() => { });
         throw error;
     }
@@ -693,21 +849,34 @@ if (require.main === module) {
         args[key] = value;
     });
 
+    const mode = args.mode || 'matches'; // 'matches' or 'standings'
     const country = args.country || 'grecia';
     const league = args.league || 'super-league';
-    const daysBack = parseInt(args.daysBack) || 7;
 
-    console.log(`\n🔍 Searching matches: ${country}/${league} (last ${daysBack} days)\n`);
-
-    getRecentMatches({ country, league, daysBack })
-        .then(matches => {
-            console.log(JSON.stringify(matches, null, 2));
-            console.log(`\n✅ Total: ${matches.length} matches found`);
-        })
-        .catch(err => {
-            console.error(`\n❌ Error: ${err.message}`);
-            process.exit(1);
-        });
+    if (mode === 'standings') {
+        console.log(`\n🏆 Fetching standings: ${country}/${league}\n`);
+        getStandings({ country, league })
+            .then(standings => {
+                console.log(JSON.stringify(standings, null, 2));
+                console.log(`\n✅ Total: ${standings.length} teams found`);
+            })
+            .catch(err => {
+                console.error(`\n❌ Error: ${err.message}`);
+                process.exit(1);
+            });
+    } else {
+        const daysBack = parseInt(args.daysBack) || 7;
+        console.log(`\n🔍 Searching matches: ${country}/${league} (last ${daysBack} days)\n`);
+        getRecentMatches({ country, league, daysBack })
+            .then(matches => {
+                console.log(JSON.stringify(matches, null, 2));
+                console.log(`\n✅ Total: ${matches.length} matches found`);
+            })
+            .catch(err => {
+                console.error(`\n❌ Error: ${err.message}`);
+                process.exit(1);
+            });
+    }
 }
 
-module.exports = { getRecentMatches, getMatchDetails, prewarmBrowser };
+module.exports = { getRecentMatches, getMatchDetails, getStandings, prewarmBrowser };

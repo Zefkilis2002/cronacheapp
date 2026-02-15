@@ -11,3 +11,18 @@ code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
 }
+
+@font-face {
+  font-family: 'Poppins-Medium';
+  src: url('./fonts/POPPINS-MEDIUM.TTF') format('truetype');
+}
+
+@font-face {
+  font-family: 'Poppins-ExtraBold';
+  src: url('./fonts/POPPINS-EXTRABOLD.TTF') format('truetype');
+}
+
+@font-face {
+  font-family: 'Pretendard-ExtraBold';
+  src: url('./fonts/PRETENDARD-EXTRABOLD.OTF') format('opentype');
+}
