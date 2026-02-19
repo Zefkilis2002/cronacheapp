@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import config from '../../../config';
 import './FlashscoreImport.css';
+import { findTeamLogo } from '../../../utils/LogoConstants';
 
 // Preset competizioni disponibili (flashscore.it)
 // tabellino: nome file in /public/tabellini/
@@ -13,64 +14,25 @@ const COMPETITIONS = [
     { label: 'Conference League', country: 'europa', league: 'conference-league', tabellino: 'conferenceleague.png' },
 ];
 
-// Mapping nome squadra Flashscore → logo locale
-// Chiave: nome in minuscolo come appare su flashscore.it
-const LOGO_MAP = {
-    'aek': '/loghi/aek.png',
-    'aek athens': '/loghi/aek.png',
-    'ael larissa': '/loghi/ael.png',
-    'aris': '/loghi/aris.png',
-    'asteras t.': '/loghi/asteras.png',
-    'asteras tripolis': '/loghi/asteras.png',
-    'atromitos': '/loghi/atromitos.png',
-    'giannina': '/loghi/giannina.png',
-    'pas giannina': '/loghi/giannina.png',
-    'iraklis': '/loghi/iraklis.png',
-    'kalamata': '/loghi/kalamata.png',
-    'kallithea': '/loghi/kallithea.png',
-    'kifisia': '/loghi/kifisia.png',
-    'lamia': '/loghi/lamia.png',
-    'levadiakos': '/loghi/levadiakos.png',
-    'ofi crete': '/loghi/ofi.png',
-    'ofi': '/loghi/ofi.png',
-    'olympiakos': '/loghi/olympiakos.png',
-    'olympiacos': '/loghi/olympiakos.png',
-    'panathinaikos': '/loghi/panathinaikos.png',
-    'panetolikos': '/loghi/panetolikos.png',
-    'panionios': '/loghi/panionios.png',
-    'panserraikos': '/loghi/panseraikos.png',
-    'panserraikos2': '/loghi/panseraikos.png',
-    'paok': '/loghi/paok.png',
-    'volos': '/loghi/volos.png',
-    'volos nfc': '/loghi/volos.png',
-    'grecia': '/loghi/grecia.png',
-};
-
 /**
- * Cerca il logo locale per una squadra. Ritorna il percorso se trovato, null altrimenti.
+ * Cerca il logo locale per una squadra usando la utility centralizzata.
  */
 function findLocalLogo(teamName) {
-    if (!teamName) return null;
-    const lower = teamName.toLowerCase().trim();
-
-    // Cerca corrispondenza esatta
-    if (LOGO_MAP[lower]) return LOGO_MAP[lower];
-
-    // Cerca corrispondenza parziale
-    for (const [key, value] of Object.entries(LOGO_MAP)) {
-        if (lower.includes(key) || key.includes(lower)) return value;
-    }
-
-    return null;
+    return findTeamLogo(teamName);
 }
 
-const FlashscoreImport = ({ onMatchSelect }) => {
-    const [selectedComp, setSelectedComp] = useState(0);
-    const [matches, setMatches] = useState([]);
+const FlashscoreImport = ({ onMatchSelect, flashscoreData, setFlashscoreData }) => {
+    // Destructuring state from props
+    const { matches, selectedComp, selectedMatchId } = flashscoreData;
+
+    // Proxy setters to update parent state
+    const setMatches = (newMatches) => setFlashscoreData(prev => ({ ...prev, matches: newMatches }));
+    const setSelectedComp = (newComp) => setFlashscoreData(prev => ({ ...prev, selectedComp: newComp }));
+    const setSelectedMatchId = (newId) => setFlashscoreData(prev => ({ ...prev, selectedMatchId: newId }));
+
     const [loading, setLoading] = useState(false);
     const [loadingDetails, setLoadingDetails] = useState(false);
     const [error, setError] = useState('');
-    const [selectedMatchId, setSelectedMatchId] = useState(null);
 
     const searchMatches = async () => {
         const comp = COMPETITIONS[selectedComp];

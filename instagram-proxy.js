@@ -1,7 +1,9 @@
 const express = require('express');
+require('dotenv').config(); // Carica le variabili d'ambiente da .env
 const axios = require('axios');
 const cheerio = require('cheerio');
 const cors = require('cors');
+const OpenAI = require('openai'); // Importa SDK OpenAI
 const { getRecentMatches, getMatchDetails, getStandings } = require('./execution/scrape_flashscore');
 
 const app = express();
@@ -10,7 +12,9 @@ app.use(cors({
   origin: '*',
   methods: ['GET', 'POST', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
-}));
+}));// ... (rest of the file remains unchanged until the endpoint)
+
+
 
 app.use(express.json());
 
@@ -428,6 +432,116 @@ app.get('/api/standings', async (req, res) => {
   } catch (error) {
     console.error(`[FLASHSCORE] Standings error:`, error.message);
     res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// --- ENDPOINT AI: Generazione Bio Instagram ---
+app.post('/api/generate-bio', async (req, res) => {
+  const { inputText } = req.body;
+
+  if (!inputText) {
+    return res.status(400).json({ status: false, message: 'Testo mancante' });
+  }
+
+  const token = process.env.GITHUB_TOKEN;
+  if (!token) {
+    return res.status(500).json({ status: false, message: 'GITHUB_TOKEN mancante nel server. Controlla il file .env' });
+  }
+
+  try {
+    // Importa dinamicamente le librerie Azure per compatibilità
+    const { default: ModelClient, isUnexpected } = await import("@azure-rest/ai-inference");
+    const { AzureKeyCredential } = await import("@azure/core-auth");
+
+    const client = ModelClient(
+      "https://models.github.ai/inference",
+      new AzureKeyCredential(token)
+    );
+
+    const response = await client.path("/chat/completions").post({
+      body: {
+        messages: [
+          {
+            role: 'system',
+            content: `
+Obiettivo: Generare una **bio Instagram accattivante e dinamica**, adatta ad una pagina Instagram giornalistica che parla del calcio greco, a partire da un testo iniziale, che può essere scritto in greco ma deve essere **tradotto e adattato in italiano**.
+
+### Struttura della Bio
+1. **Titolo di grande impatto**, scritto in **grassetto maiuscolo Unicode**, per un effetto visivo ottimale sui social.
+2. **Testo breve e diretto**, con frasi concise, ritmo vivace e scorrevolezza.
+3. **Inserimento strategico di emoji** per sottolineare emozioni, concetti chiave e aggiungere personalità.
+4. **Organizzazione in sezioni**, quando utile, per presentare risultati, numeri importanti o momenti chiave.
+5. **Domanda finale**, inerente al contenuto della bio, progettata per invitare il pubblico all'interazione.
+
+### Specifiche
+- Il testo iniziale può essere in greco, ma la bio deve essere **scritta esclusivamente in italiano**.
+- Preferire un linguaggio semplice, **diretto e di forte impatto**, evitando periodi lunghi o complessi.
+
+Ecco degli esempi di bio:
+1. "💚⚽ 𝗜𝗢𝗔𝗡𝗡𝗜𝗗𝗜𝗦 𝗥𝗔𝗚𝗚𝗜𝗨𝗡𝗚𝗘 𝗜 𝟱𝟬 𝗚𝗢𝗟 𝗖𝗢𝗡 𝗜𝗟 𝗧𝗥𝗜𝗙𝗢𝗚𝗟𝗜𝗢, 𝗠𝗔 𝗡𝗢𝗡 𝗕𝗔𝗦𝗧𝗔!
+
+Il Panathinaikos saluta la UEFA Conference League dopo una serata sfortunata al Franchi.
+
+Nonostante l'uscita di scena, i biancoverdi hanno lottato fino all'ultimo, sfiorando il secondo gol in un secondo tempo dominato per intensità e carattere."
+
+2. "🔥 𝗟𝗢𝗧𝗧𝗔 𝗦𝗖𝗨𝗗𝗘𝗧𝗧𝗢: 𝗥𝗜𝗦𝗨𝗟𝗧𝗔𝗧𝗜 𝗖𝗛𝗘 𝗖𝗔𝗠𝗕𝗜𝗔𝗡𝗢 𝗚𝗟𝗜 𝗘𝗤𝗨𝗜𝗟𝗜𝗕𝗥𝗜 𝗜𝗡 𝗚𝗥𝗘𝗖𝗜𝗔! 🇬🇷💥
+
+🟡⚫ AEK travolgente: cinquina e -2 dall'Olympiacos!
+Con una prestazione dominante, l'AEK spazza via l'avversario con un netto 5-0 nell'OPAP Arena a porte chiuse. Marcial e Ljubičić sugli scudi, regalando una vittoria che avvicina i gialloneri alla vetta, ora distante solo due punti.
+
+🟡⚫ L'Aris frena il Panathinaikos con una difesa perfetta!
+Il Panathinaikos cade sotto i colpi dell'Aris, che con una prestazione solida e organizzata mantiene il -3 dal PAOK.
+❌☘️ Prima sconfitta in campionato per la squadra di Vitoria, che resta a -5 dalla vetta sprecando un'occasione d'oro per ridurre il distacco dall'Olympiacos.
+
+💥 Asteras sorprende l'Olympiacos e lo blocca al Pireo!
+I biancorossi non riescono a sfondare nonostante le tante occasioni nel finale e vedono sfumare tre punti importanti nella corsa al titolo.
+
+⚪️⚫ PAOK straripante, travolto l'OFI!
+Con una partenza lampo, il PAOK chiude la partita già nei primi 30 minuti e si impone con autorità sull'OFI.
+😲 Samatta ritrova la via del gol dopo 454 giorni e firma una doppietta.
+I bianconeri si portano a -3 da AEK e Panathinaikos e a -7 dall'Olympiacos, ma con una partita in più.
+
+🔥 La corsa al titolo è apertissima: chi riuscirà a spuntarla? 🤔"
+
+3. "🌟🇬🇷 𝑺𝑻𝑬𝑭𝑨𝑵𝑶𝑺 𝑻𝒁𝑰𝑴𝑨𝑺 𝑨𝑷𝑷𝑹𝑶𝑫𝑨 𝑰𝑵 𝑷𝑹𝑬𝑴𝑰𝑬𝑹 𝑳𝑬𝑨𝑮𝑼𝑬! 🇬🇷🌟
+
+Nel giorno della chiusura del mercato, uno dei talenti emergenti della Grecia, Stefanos Tzimas (19), ha firmato ufficialmente con il Brighton & Hove Albion per una cifra totale di circa 25 milioni di euro.
+
+💰 Affare d'oro per il PAOK!
+L'ex club di Tzimas, il PAOK Salonicco, incasserà circa 22 milioni di euro, grazie alla precedente vendita del giocatore al Norimberga per 18 milioni di euro, più un profitto del 15% su una futura cessione, come stabilito dal contratto con il club tedesco.
+
+🔄 Ultimi mesi in Germania, poi la Premier!
+Tzimas terminerà la stagione in prestito al Norimberga, prima di approdare definitivamente in Premier League con il Brighton all'inizio della prossima stagione.
+
+🔥 Un nuovo talento greco pronto a brillare in Inghilterra! 🔥"
+          `
+          },
+          {
+            role: 'user',
+            content: `Testo di partenza: ${inputText}`
+          }
+        ],
+        model: "gpt-4o",
+        temperature: 0.75,
+        max_tokens: 4096,
+        top_p: 1
+      }
+    });
+
+    if (isUnexpected(response)) {
+      throw new Error(response.body.error.message || JSON.stringify(response.body.error));
+    }
+
+    const bio = response.body.choices[0].message.content;
+    res.json({ status: true, bio });
+
+  } catch (error) {
+    console.error("AI Bio Error:", error);
+    res.status(500).json({
+      status: false,
+      message: "Errore durante la generazione della bio",
+      error: error.message
+    });
   }
 });
 

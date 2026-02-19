@@ -33,8 +33,8 @@ const Canva = ({
 }) => {
   const [background] = useImage(`/tabellini/${selectedTabellino}`);
   const [uploadedImg] = useImage(userImage);
-  const [logo1] = useImage(uploadedLogo1 || `${window.location.origin}${selectedLogo1}`);
-  const [logo2] = useImage(uploadedLogo2 || `${window.location.origin}${selectedLogo2}`);
+  const [logo1] = useImage(uploadedLogo1 || `${window.location.origin}${selectedLogo1}`, 'anonymous');
+  const [logo2] = useImage(uploadedLogo2 || `${window.location.origin}${selectedLogo2}`, 'anonymous');
 
   // 🔧 PINCH ZOOM LOGIC (IMAGE ONLY)
   const lastDistRef = React.useRef(0);
@@ -56,18 +56,18 @@ const Canva = ({
   const handleTouchStart = (e) => {
     const touch1 = e.evt.touches[0];
     const touch2 = e.evt.touches[1];
-    
+
     if (touch1 && touch2) {
       e.evt.preventDefault();
       // Ferma il drag nativo di Konva se attivo, per dare priorità al pinch
       if (e.target.isDragging()) {
         e.target.stopDrag();
       }
-      
+
       isPinchingRef.current = true;
       const p1 = { x: touch1.clientX, y: touch1.clientY };
       const p2 = { x: touch2.clientX, y: touch2.clientY };
-      
+
       lastDistRef.current = getDistance(p1, p2);
       lastCenterRef.current = getCenter(p1, p2);
     }
@@ -80,7 +80,7 @@ const Canva = ({
 
     if (touch1 && touch2 && stage) {
       e.evt.preventDefault();
-      
+
       if (e.target.isDragging()) {
         e.target.stopDrag();
       }
@@ -116,10 +116,10 @@ const Canva = ({
 
         // Recupera stato corrente dai props (o refs se vogliamo evitare chiusure vecchie, ma qui è gestito da react render loop)
         // Nota: imageScale e imagePosition vengono aggiornati ad ogni render.
-        
+
         const oldScaleX = imageScale.scaleX;
         const oldScaleY = imageScale.scaleY;
-        
+
         const newScaleX = oldScaleX * scaleBy;
         const newScaleY = oldScaleY * scaleBy;
 
@@ -132,7 +132,7 @@ const Canva = ({
           // La logica responsive scala tutto lo stage. Noi dobbiamo ragionare in coordinate relative allo stage.
           // stage.getPointerPosition() potrebbe essere utile, ma qui abbiamo clientX/Y.
           // Trasformiamo clientX/Y in coordinate dello Stage "virtuale" (1440x1800)
-          
+
           const stageTransform = stage.getAbsoluteTransform().copy().invert();
           const centerInStage = stageTransform.point(currentCenter);
           const lastCenterInStage = stageTransform.point(lastCenterRef.current);
@@ -142,7 +142,7 @@ const Canva = ({
           // Il punto sotto il dito (centerInStage) deve rimanere sotto il dito.
           // Formula: newPos = mousePoint - (mousePoint - oldPos) * scaleFactor
           // Ma qui abbiamo anche un movimento (pan) delle dita (currentCenter vs lastCenter).
-          
+
           // Delta spostamento dita (pan)
           const dx = centerInStage.x - lastCenterInStage.x;
           const dy = centerInStage.y - lastCenterInStage.y;
@@ -160,13 +160,13 @@ const Canva = ({
           // 1. Applica Pan
           // 2. Applica Zoom compensando lo spostamento del punto di interesse
           const newPos = {
-             x: imgX + dx - (mousePointToImg.x * (scaleBy - 1)),
-             y: imgY + dy - (mousePointToImg.y * (scaleBy - 1))
+            x: imgX + dx - (mousePointToImg.x * (scaleBy - 1)),
+            y: imgY + dy - (mousePointToImg.y * (scaleBy - 1))
           };
 
           setImageScale({ scaleX: newScaleX, scaleY: newScaleY });
           setImagePosition(newPos);
-          
+
           lastDistRef.current = currentDist;
           lastCenterRef.current = currentCenter;
         }
@@ -271,9 +271,9 @@ const Canva = ({
 
   return (
     <div className="canvas-container">
-      <Stage 
-        ref={stageRef} 
-        width={1440} 
+      <Stage
+        ref={stageRef}
+        width={1440}
         height={1800}
       >
         <Layer clipX={0} clipY={0} clipWidth={1440} clipHeight={1800}>

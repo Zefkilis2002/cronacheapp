@@ -6,17 +6,13 @@ module.exports = function (app) {
         createProxyMiddleware({
             target: 'http://localhost:5000',
             changeOrigin: true,
-            // Optional: Log proxy requests for debugging
-            onProxyReq: (proxyReq, req, res) => {
-                // console.log('[Proxy] Request:', req.method, req.url);
+            pathRewrite: {
+                // Manteniamo /api, quindi non serve riscrivere nulla se il backend si aspetta /api/...
+                // Se il backend si aspettasse solo /generate-bio invece di /api/generate-bio, dovremmo usare '^/api': ''
             },
-            onError: (err, req, res) => {
-                console.error('[Proxy] Error:', err);
-            }
         })
     );
 
-    // Also proxy /proxy-image if needed
     app.use(
         '/proxy-image',
         createProxyMiddleware({

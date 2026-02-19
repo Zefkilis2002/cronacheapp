@@ -1,6 +1,7 @@
 import React from 'react';
 import { Group, Text, Image as KonvaImage } from 'react-konva';
 import useImage from 'use-image';
+import { findTeamLogo } from '../../utils/LogoConstants';
 
 export const TEAMS_LIST = [
     'AEK Atene',
@@ -21,25 +22,7 @@ export const TEAMS_LIST = [
     'Athens Kallithea'
 ];
 
-// Mapping team names to logo filenames in public/loghi
-const TEAM_LOGOS = {
-    'AEK Atene': 'aek.png',
-    'Olympiakos': 'olympiakos.png',
-    'PAOK': 'paok.png',
-    'Panathinaikos': 'panathinaikos.png',
-    'Aris Salonicco': 'aris.png',
-    'Levadiakos': 'levadiakos.png',
-    'Volos': 'volos.png',
-    'OFI Creta': 'ofi.png',
-    'Atromitos': 'atromitos.png',
-    'Kifisia': 'kifisia.png',
-    'AEL Larissa': 'ael.png',
-    'Panetolikos': 'panetolikos.png',
-    'Asteras Tripolis': 'asteras.png',
-    'Panserraikos': 'panseraikos.png', // Note: single 'r' in filename
-    'Lamia': 'lamia.png',
-    'Athens Kallithea': 'kallithea.png'
-};
+
 
 export const INITIAL_ROWS = Array(7).fill(null).map((_, i) => ({
     id: i,
@@ -94,8 +77,8 @@ const FONT_SPECS = {
 // Sub-component for individual rows to handle image hooks
 const ClassificaRow = ({ row, y, onTeamClick, onValueClick, colX }) => {
     const teamName = TEAMS_LIST[row.teamIndex];
-    const logoFilename = TEAM_LOGOS[teamName];
-    const [logoImage] = useImage(logoFilename ? `/loghi/${logoFilename}` : null);
+    const logoPath = findTeamLogo(teamName);
+    const [logoImage] = useImage(logoPath || undefined);
 
     // Logo settings
     const LOGO_SIZE = 90;

@@ -1,20 +1,76 @@
-import React, { useState, useRef } from 'react';
-import OpenAI from 'openai';
+import React, { useState, useRef, useEffect } from 'react';
+import Tesseract from 'tesseract.js';
 import './BioCreator.css';
-import sendIcon from './send.png'; 
 
 const BioCreator = () => {
   const [inputText, setInputText] = useState('');
   const [generatedBio, setGeneratedBio] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isOCRLoading, setIsOCRLoading] = useState(false);
   const [error, setError] = useState('');
   const [isEditing, setIsEditing] = useState(false);
-  
-  // Utilizziamo un ref per l'elemento contentEditable in modalità modifica
+  const [selectedImage, setSelectedImage] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
+
   const editableRef = useRef(null);
+  const textareaRef = useRef(null);
+  const fileInputRef = useRef(null);
+
+  // Auto-resize textarea logic
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
+    }
+  }, [inputText]);
 
   const handleInputChange = (event) => {
     setInputText(event.target.value);
+  };
+
+  const handleImageChange = async (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        setError('L\'immagine è troppo grande. Massimo 5MB.');
+        return;
+      }
+      setSelectedImage(file);
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        setImagePreview(reader.result);
+        
+        // Esegui OCR
+        setIsOCRLoading(true);
+        setError('');
+        try {
+          const { data: { text } } = await Tesseract.recognize(
+            reader.result,
+            'ita+eng+ell',
+            { logger: m => console.log(m) }
+          );
+          if (text && text.trim()) {
+            setInputText(prev => prev ? `${prev}\n${text.trim()}` : text.trim());
+          }
+        } catch (err) {
+          console.error('Errore OCR:', err);
+          setError('Errore durante la lettura del testo dall\'immagine.');
+        } finally {
+          setIsOCRLoading(false);
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const removeImage = () => {
+    setSelectedImage(null);
+    setImagePreview(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const triggerFileInput = () => {
+    fileInputRef.current.click();
   };
 
   const generateBio = async () => {
@@ -27,91 +83,24 @@ const BioCreator = () => {
     setError('');
 
     try {
-      const client = new OpenAI({
-        baseURL: "https://models.inference.ai.azure.com",
-        apiKey: process.env.REACT_APP_OPENAI_API_KEY,
-        dangerouslyAllowBrowser: true,
+      const response = await fetch('http://localhost:5000/api/generate-bio', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ inputText }),
       });
 
-      const completion = await client.chat.completions.create({
-        messages: [
-          {
-            role: 'system',
-            content: `
-Obiettivo: Generare una **bio Instagram accattivante e dinamica**, adatta ad una pagina Instagram giornalistica che parla del calcio greco, a partire da un testo iniziale, che può essere scritto in greco ma deve essere **tradotto e adattato in italiano**.
+      const data = await response.json();
 
-### Struttura della Bio
-1. **Titolo di grande impatto**, scritto in **grassetto maiuscolo Unicode**, per un effetto visivo ottimale sui social.
-2. **Testo breve e diretto**, con frasi concise, ritmo vivace e scorrevolezza.
-3. **Inserimento strategico di emoji** per sottolineare emozioni, concetti chiave e aggiungere personalità.
-4. **Organizzazione in sezioni**, quando utile, per presentare risultati, numeri importanti o momenti chiave.
-5. **Domanda finale**, inerente al contenuto della bio, progettata per invitare il pubblico all'interazione.
+      if (!response.ok || !data.status) {
+        throw new Error(data.message || 'Errore nella generazione della bio');
+      }
 
-### Specifiche
-- Il testo iniziale può essere in greco, ma la bio deve essere **scritta esclusivamente in italiano**.
-- Preferire un linguaggio semplice, **diretto e di forte impatto**, evitando periodi lunghi o complessi.
-
-Ecco degli esempi di bio:
-1. "💚⚽ 𝗜𝗢𝗔𝗡𝗡𝗜𝗗𝗜𝗦 𝗥𝗔𝗚𝗚𝗜𝗨𝗡𝗚𝗘 𝗜 𝟱𝟬 𝗚𝗢𝗟 𝗖𝗢𝗡 𝗜𝗟 𝗧𝗥𝗜𝗙𝗢𝗚𝗟𝗜𝗢, 𝗠𝗔 𝗡𝗢𝗡 𝗕𝗔𝗦𝗧𝗔!
-
-Il Panathinaikos saluta la UEFA Conference League dopo una serata sfortunata al Franchi.
-
-Nonostante l'uscita di scena, i biancoverdi hanno lottato fino all'ultimo, sfiorando il secondo gol in un secondo tempo dominato per intensità e carattere."
-
-2. "🔥 𝗟𝗢𝗧𝗧𝗔 𝗦𝗖𝗨𝗗𝗘𝗧𝗧𝗢: 𝗥𝗜𝗦𝗨𝗟𝗧𝗔𝗧𝗜 𝗖𝗛𝗘 𝗖𝗔𝗠𝗕𝗜𝗔𝗡𝗢 𝗚𝗟𝗜 𝗘𝗤𝗨𝗜𝗟𝗜𝗕𝗥𝗜 𝗜𝗡 𝗚𝗥𝗘𝗖𝗜𝗔! 🇬🇷💥
-
-🟡⚫ AEK travolgente: cinquina e -2 dall'Olympiacos!
-Con una prestazione dominante, l'AEK spazza via l'avversario con un netto 5-0 nell'OPAP Arena a porte chiuse. Marcial e Ljubičić sugli scudi, regalando una vittoria che avvicina i gialloneri alla vetta, ora distante solo due punti.
-
-🟡⚫ L'Aris frena il Panathinaikos con una difesa perfetta!
-Il Panathinaikos cade sotto i colpi dell'Aris, che con una prestazione solida e organizzata mantiene il -3 dal PAOK.
-❌☘️ Prima sconfitta in campionato per la squadra di Vitoria, che resta a -5 dalla vetta sprecando un'occasione d'oro per ridurre il distacco dall'Olympiacos.
-
-💥 Asteras sorprende l'Olympiacos e lo blocca al Pireo!
-I biancorossi non riescono a sfondare nonostante le tante occasioni nel finale e vedono sfumare tre punti importanti nella corsa al titolo.
-
-⚪️⚫ PAOK straripante, travolto l'OFI!
-Con una partenza lampo, il PAOK chiude la partita già nei primi 30 minuti e si impone con autorità sull'OFI.
-😲 Samatta ritrova la via del gol dopo 454 giorni e firma una doppietta.
-I bianconeri si portano a -3 da AEK e Panathinaikos e a -7 dall'Olympiacos, ma con una partita in più.
-
-🔥 La corsa al titolo è apertissima: chi riuscirà a spuntarla? 🤔"
-
-3. "🌟🇬🇷 𝑺𝑻𝑬𝑭𝑨𝑵𝑶𝑺 𝑻𝒁𝑰𝑴𝑨𝑺 𝑨𝑷𝑷𝑹𝑶𝑫𝑨 𝑰𝑵 𝑷𝑹𝑬𝑴𝑰𝑬𝑹 𝑳𝑬𝑨𝑮𝑼𝑬! 🇬🇷🌟
-
-Nel giorno della chiusura del mercato, uno dei talenti emergenti della Grecia, Stefanos Tzimas (19), ha firmato ufficialmente con il Brighton & Hove Albion per una cifra totale di circa 25 milioni di euro.
-
-💰 Affare d'oro per il PAOK!
-L'ex club di Tzimas, il PAOK Salonicco, incasserà circa 22 milioni di euro, grazie alla precedente vendita del giocatore al Norimberga per 18 milioni di euro, più un profitto del 15% su una futura cessione, come stabilito dal contratto con il club tedesco.
-
-🔄 Ultimi mesi in Germania, poi la Premier!
-Tzimas terminerà la stagione in prestito al Norimberga, prima di approdare definitivamente in Premier League con il Brighton all'inizio della prossima stagione.
-
-🔥 Un nuovo talento greco pronto a brillare in Inghilterra! 🔥"
-            `
-          },
-          {
-            role: 'user',
-            content: `Testo di partenza: ${inputText}`
-          }
-        ],
-        model: "gpt-4o",
-        temperature: 0.75,
-        max_tokens: 4096,
-        top_p: 1,
-      });
-
-      const bio = completion.choices[0].message.content;
-      setGeneratedBio(bio);
+      setGeneratedBio(data.bio);
     } catch (error) {
       console.error('Errore nella generazione della bio:', error);
-      if (error.status === 429) {
-        setError('Hai superato la tua quota API. Controlla il tuo piano e i dettagli di fatturazione.');
-      } else if (error.status) {
-        setError(`Errore API: ${error.status} - ${error.message || 'Errore sconosciuto'}`);
-      } else {
-        setError(`Si è verificato un errore: ${error.message}`);
-      }
+      setError(`Si è verificato un errore: ${error.message}`);
     } finally {
       setIsLoading(false);
     }
@@ -122,7 +111,6 @@ Tzimas terminerà la stagione in prestito al Norimberga, prima di approdare defi
     alert('Bio copiata negli appunti!');
   };
 
-  // Quando clicchi su "Salva" in modalità modifica, prendiamo il contenuto corrente dal ref
   const handleSave = () => {
     if (editableRef.current) {
       setGeneratedBio(editableRef.current.innerText);
@@ -130,83 +118,145 @@ Tzimas terminerà la stagione in prestito al Norimberga, prima di approdare defi
     setIsEditing(false);
   };
 
-  // Se non siamo in editing, il bottone "Modifica" attiva la modalità di modifica
   const handleEdit = () => {
     setIsEditing(true);
-    // Nota: il ref manterrà il contenuto e il cursore non verrà reimpostato
+  };
+
+  // Aggiornati per essere simili all'immagine: senza titolo marcato, focus sull'azione
+  const suggestions = [
+    {
+      icon: "👤",
+      prompt: "Genera una bio per un post post-partita. Includi il risultato, i marcatori e un commento sulla prestazione."
+    },
+    {
+      icon: "✉️",
+      prompt: "Crea una bio per una notizia di calciomercato o un aggiornamento importante."
+    },
+    {
+      icon: "🧠",
+      prompt: "Scrivi una bio generica sulla passione per il calcio e la cultura sportiva."
+    }
+  ];
+
+  const handleSuggestionClick = (prompt) => {
+    setInputText(prompt);
   };
 
   return (
-    <div className="App">
-      <div className="bio-creator-container">
-        <h1>Generatore Bio Instagram</h1>
-        
-        <div className="prompt-section">
-          <h3 className="prompt-section-text">Cronache AI: Crea la tua bio</h3>
-          <textarea
-            className="prompt-input"
-            value={inputText}
-            onChange={handleInputChange}
-            placeholder="Incolla o scrivi il testo qui (può essere in greco)..."
-            rows="8"
-          />
-          
-          <div className="prompt-actions">
-            <button
-              className={`action-button send-button ${isLoading ? 'disabled' : ''}`}
-              onClick={generateBio}
-              disabled={isLoading}
-            >
-              <img src={sendIcon} alt="Send" />
-            </button>
-          </div>
-          
-          {error && (
-            <div className="error-message">
-              {error}
-            </div>
-          )}
-        </div>
-        
-        <div className="output-section">
-          <h3>La tua Bio Instagram</h3>
-          {isEditing ? (
-            <div
-              className="bio-output editable"
-              contentEditable={true}
-              ref={editableRef}
-              suppressContentEditableWarning={true}
-            >
-              {generatedBio}
-            </div>
-          ) : (
-            <div className="bio-output">
-              {generatedBio || 'La tua bio apparirà qui...'}
-            </div>
-          )}
-          <div className="output-actions">
-            <button 
-              className="copy-button" 
-              onClick={handleCopy}
-              disabled={!generatedBio}
-            >
-              Copia negli appunti
-            </button>
-            {isEditing ? (
-              <button className="edit-button" onClick={handleSave}>
-                Salva
-              </button>
-            ) : (
-              <button 
-                className="edit-button" 
-                onClick={handleEdit}
-                disabled={!generatedBio}
+    <div className="bio-creator-page">
+      <div className="bio-content-wrapper">
+        <div className="bio-header">
+          <h1>CREA LA TUA BIO !</h1>
+          <p className="subtitle">Incolla il testo da cui vuoi partire per creare la tua bio, oppure raccontami l’argomento su cui desideri che la realizzi.</p>        </div>
+
+        {!generatedBio && (
+          <div className="suggestions-grid">
+            {suggestions.map((item, index) => (
+              <div
+                key={index}
+                className="suggestion-card"
+                onClick={() => handleSuggestionClick(item.prompt)}
               >
-                Modifica
-              </button>
-            )}
+                <div className="card-icon">{item.icon}</div>
+                <p>{item.prompt}</p>
+              </div>
+            ))}
           </div>
+        )}
+
+        {generatedBio && (
+          <div className="output-section-new">
+            <div className="output-header">
+              <h3>La tua Bio Generata</h3>
+              <div className="output-actions-top">
+                <button onClick={() => setGeneratedBio('')} className="close-output-btn">✕</button>
+              </div>
+            </div>
+
+            {isEditing ? (
+              <div
+                className="bio-output-new editable"
+                contentEditable={true}
+                ref={editableRef}
+                suppressContentEditableWarning={true}
+              >
+                {generatedBio}
+              </div>
+            ) : (
+              <div className="bio-output-new">
+                {generatedBio}
+              </div>
+            )}
+
+            <div className="output-actions-new">
+              <button className="action-btn copy-btn" onClick={handleCopy}>
+                Copia
+              </button>
+              {isEditing ? (
+                <button className="action-btn save-btn" onClick={handleSave}>
+                  Salva
+                </button>
+              ) : (
+                <button className="action-btn edit-btn" onClick={handleEdit}>
+                  Modifica
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="input-bar-container">
+        <div className="input-bar-wrapper">
+          <input
+            type="file"
+            accept="image/*"
+            style={{ display: 'none' }}
+            ref={fileInputRef}
+            onChange={handleImageChange}
+          />
+          <button className="attachment-btn" onClick={triggerFileInput}>
+            {/* SVG pulito per l'icona "link/allegato" come nell'immagine */}
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path d="M16 11V6C16 3.79086 14.2091 2 12 2C9.79086 2 8 3.79086 8 6V15C8 16.1046 8.89543 17 10 17C11.1046 17 12 16.1046 12 15V7H13.5V15C13.5 16.933 11.933 18.5 10 18.5C8.067 18.5 6.5 16.933 6.5 15V6C6.5 2.96243 8.96243 0.5 12 0.5C15.0376 0.5 17.5 2.96243 17.5 6V11H16Z" />
+            </svg>
+          </button>
+          
+          <div className="input-content-area">
+            {imagePreview && (
+              <div className="image-preview-container">
+                <img src={imagePreview} alt="Preview" className="image-preview-thumb" />
+                <button className="remove-image-btn" onClick={removeImage}>✕</button>
+              </div>
+            )}
+            {isOCRLoading && (
+              <div className="ocr-loader">Analisi testo in corso...</div>
+            )}
+            <textarea
+              ref={textareaRef}
+              className="modern-input"
+              value={inputText}
+              onChange={handleInputChange}
+              placeholder="Chiedi qualsiasi cosa..."
+              rows="1"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  generateBio();
+                }
+              }}
+            />
+          </div>
+
+          <button
+            className={`send-btn-modern ${isLoading ? 'loading' : ''}`}
+            onClick={generateBio}
+            disabled={isLoading || (!inputText.trim() && !selectedImage)}
+          >
+            {isLoading ? '...' : '→'}
+          </button>
         </div>
+        {error && <div className="error-toast">{error}</div>}
       </div>
     </div>
   );

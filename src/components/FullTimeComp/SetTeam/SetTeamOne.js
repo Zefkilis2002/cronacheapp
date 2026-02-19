@@ -3,30 +3,10 @@ import React, { useState } from 'react';
 import './SetTeam.css';
 import LogoFetcher from '../LogoFetcher/LogoFetcher';
 
+import { ALL_LOGOS } from '../../../utils/LogoConstants';
+
 // Se il padre non passa l'array di loghi, puoi definirlo come default:
-const defaultLogos = [
-  '/loghi/panathinaikos.png',
-  '/loghi/olympiakos.png',
-  '/loghi/panetolikos.png',
-  '/loghi/ofi.png',
-  '/loghi/panseraikos.png',
-  '/loghi/paok.png',
-  '/loghi/lamia.png',
-  '/loghi/aris.png',
-  '/loghi/asteras.png',
-  '/loghi/kallithea.png',
-  '/loghi/aek.png',
-  '/loghi/volos.png',
-  '/loghi/levadiakos.png',
-  '/loghi/atromitos.png',
-  '/loghi/grecia.png',
-  '/loghi/ael.png',
-  '/loghi/giannina.png',
-  '/loghi/kalamata.png',
-  '/loghi/kifisia.png',
-  '/loghi/panionios.png',
-  '/loghi/iraklis.png'
-];
+const defaultLogos = ALL_LOGOS;
 
 const SetTeamOne = ({
   logos = defaultLogos,
@@ -71,7 +51,7 @@ const SetTeamOne = ({
         <button className="upload-logo" onClick={() => document.getElementById('logoUpload1').click()}>
           Carica Logo
         </button>
-        <button className="upload-logo" style={{backgroundColor: '#007bff'}} onClick={() => setShowFetcher(true)}>
+        <button className="upload-logo" style={{ backgroundColor: '#007bff' }} onClick={() => setShowFetcher(true)}>
           Cerca Web
         </button>
         <input
@@ -83,9 +63,9 @@ const SetTeamOne = ({
         />
       </div>
       {showFetcher && (
-        <LogoFetcher 
-          onLogoSelect={setUploadedLogo1} 
-          onClose={() => setShowFetcher(false)} 
+        <LogoFetcher
+          onLogoSelect={setUploadedLogo1}
+          onClose={() => setShowFetcher(false)}
         />
       )}
       <div className="scorer-section">

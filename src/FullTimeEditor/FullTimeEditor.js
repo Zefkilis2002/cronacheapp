@@ -6,6 +6,7 @@ import Toolbar from '../components/FullTimeComp/ToolBar/ToolBar';
 import Canva from '../components/FullTimeComp/Canva/Canva';
 import FlashscoreImport from '../components/FullTimeComp/FlashscoreImport/FlashscoreImport';
 import './FullTimeEditor.css';
+import { TEAM_LOGOS } from '../utils/LogoConstants';
 
 const FullTimeEditor = () => {
   const [selectedTabellino, setSelectedTabellino] = useState('superleague.png');
@@ -16,8 +17,8 @@ const FullTimeEditor = () => {
   const [score2, setScore2] = useState(0);
   const [scorersTeam1, setScorersTeam1] = useState(Array(7).fill(''));
   const [scorersTeam2, setScorersTeam2] = useState(Array(7).fill(''));
-  const [selectedLogo1, setSelectedLogo1] = useState('/loghi/panathinaikos.png');
-  const [selectedLogo2, setSelectedLogo2] = useState('/loghi/olympiakos.png');
+  const [selectedLogo1, setSelectedLogo1] = useState(TEAM_LOGOS.PANATHINAIKOS);
+  const [selectedLogo2, setSelectedLogo2] = useState(TEAM_LOGOS.OLYMPIAKOS);
   const [uploadedLogo1, setUploadedLogo1] = useState(null);
   const [uploadedLogo2, setUploadedLogo2] = useState(null);
   const [logo1Position, setLogo1Position] = useState({ x: 215, y: 1270 });
@@ -29,6 +30,11 @@ const FullTimeEditor = () => {
   const [imagePosition, setImagePosition] = useState({ x: 100, y: 100 });
   const [imageScale, setImageScale] = useState({ scaleX: 1, scaleY: 1 });
   const [activeTab, setActiveTab] = useState('general');
+  const [flashscoreData, setFlashscoreData] = useState({
+    matches: [],
+    selectedComp: 0,
+    selectedMatchId: null
+  });
 
   const stageRef = useRef(null);
   const borderRef = useRef(null);
@@ -165,7 +171,11 @@ const FullTimeEditor = () => {
         )}
 
         {activeTab === 'flashscore' && (
-          <FlashscoreImport onMatchSelect={handleFlashscoreMatch} />
+          <FlashscoreImport
+            onMatchSelect={handleFlashscoreMatch}
+            flashscoreData={flashscoreData}
+            setFlashscoreData={setFlashscoreData}
+          />
         )}
 
         {activeTab === 'team1' && (
