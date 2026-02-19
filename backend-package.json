@@ -7,12 +7,17 @@
         "start": "node instagram-proxy.js"
     },
     "dependencies": {
+        "@azure-rest/ai-inference": "^1.0.0-beta.6",
+        "@azure/core-auth": "^1.10.1",
+        "@azure/core-sse": "^2.3.0",
         "axios": "^1.8.3",
         "cheerio": "^1.2.0",
         "cors": "^2.8.5",
+        "dotenv": "^17.3.1",
         "express": "^4.21.2",
         "firebase-admin": "^13.6.1",
         "openai": "^4.87.3",
-        "puppeteer-core": "^24.36.1"
+        "puppeteer-core": "^24.36.1",
+        "tesseract.js": "^5.1.1"
     }
 }

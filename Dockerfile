@@ -13,9 +13,10 @@ ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 
 WORKDIR /app
 
-# Copia solo i file necessari al backend
+# Copia i file delle dipendenze
 COPY backend-package.json ./package.json
-RUN npm install --production
+# Se esiste un package-lock.json compatibile, usalo, altrimenti npm install
+RUN npm install --production || npm install --production
 
 COPY instagram-proxy.js ./
 COPY execution/ ./execution/
