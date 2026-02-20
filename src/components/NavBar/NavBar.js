@@ -32,7 +32,7 @@ const NavBar = () => {
         <li><Link to="/news" onClick={() => setIsOpen(false)}>News</Link></li>
         <li><Link to="/classifica" onClick={() => setIsOpen(false)}>Classifica</Link></li>
         <li><Link to="/bio-creator" onClick={() => setIsOpen(false)}>Bio Creator</Link></li>
-        <li><Link to="/about" onClick={() => setIsOpen(false)}>About Us</Link></li>
+        <li><Link to="/lineup" onClick={() => setIsOpen(false)}>LineUp</Link></li>
       </ul>
       <button className="hamburger" aria-label="Toggle menu" onClick={toggleMenu}>
         <span className="bar"></span>

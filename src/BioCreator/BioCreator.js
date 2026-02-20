@@ -39,7 +39,7 @@ const BioCreator = () => {
       const reader = new FileReader();
       reader.onloadend = async () => {
         setImagePreview(reader.result);
-        
+
         // Esegui OCR
         setIsOCRLoading(true);
         setError('');
@@ -126,7 +126,7 @@ const BioCreator = () => {
   const suggestions = [
     {
       icon: "👤",
-      prompt: "Genera una bio per un post post-partita. Includi il risultato, i marcatori e un commento sulla prestazione."
+      prompt: "Genera una bio per un post post-partita. Includi titolo d'effetto in unicode e descrizione del match divisa in paragrafi."
     },
     {
       icon: "✉️",
@@ -134,7 +134,7 @@ const BioCreator = () => {
     },
     {
       icon: "🧠",
-      prompt: "Scrivi una bio generica sulla passione per il calcio e la cultura sportiva."
+      prompt: "Scrivi una bio sulla storia di questo club o giocatore."
     }
   ];
 
@@ -146,7 +146,7 @@ const BioCreator = () => {
     <div className="bio-creator-page">
       <div className="bio-content-wrapper">
         <div className="bio-header">
-          <h1>CREA LA TUA BIO !</h1>
+          <h1>CREA LA TUA BIO</h1>
           <p className="subtitle">Incolla il testo da cui vuoi partire per creare la tua bio, oppure raccontami l’argomento su cui desideri che la realizzi.</p>        </div>
 
         {!generatedBio && (
@@ -221,7 +221,7 @@ const BioCreator = () => {
               <path d="M16 11V6C16 3.79086 14.2091 2 12 2C9.79086 2 8 3.79086 8 6V15C8 16.1046 8.89543 17 10 17C11.1046 17 12 16.1046 12 15V7H13.5V15C13.5 16.933 11.933 18.5 10 18.5C8.067 18.5 6.5 16.933 6.5 15V6C6.5 2.96243 8.96243 0.5 12 0.5C15.0376 0.5 17.5 2.96243 17.5 6V11H16Z" />
             </svg>
           </button>
-          
+
           <div className="input-content-area">
             {imagePreview && (
               <div className="image-preview-container">
@@ -253,7 +253,14 @@ const BioCreator = () => {
             onClick={generateBio}
             disabled={isLoading || (!inputText.trim() && !selectedImage)}
           >
-            {isLoading ? '...' : '→'}
+            {isLoading ? (
+              <div style={{ width: '20px', height: '20px', border: '2px solid rgba(0,0,0,0.2)', borderTopColor: '#000', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
+            ) : (
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ marginLeft: '2px', marginTop: '1px' }}>
+                <path d="M22 2L11 13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            )}
           </button>
         </div>
         {error && <div className="error-toast">{error}</div>}

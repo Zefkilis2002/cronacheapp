@@ -4,7 +4,6 @@ import React, { useState, useRef } from 'react';
 import config from '../../../config';
 import { applyAcrSportFilterToSrc, applyUpscaleFilterToSrc } from '../../../filters/acrSport';
 import axios from 'axios';
-import sendIcon from '../../../BioCreator/send.png';
 import './TabellinoControls.css';
 
 function TabellinoControls({
@@ -468,7 +467,7 @@ function TabellinoControls({
           onClick={fetchInstagramPost}
           disabled={isLoading}
         >
-          {isLoading ? '...' : <img src={sendIcon} alt="Send" className="send-icon-img" />}
+          {isLoading ? '...' : "->"}
         </button>
       </div>
 

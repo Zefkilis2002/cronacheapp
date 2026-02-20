@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="it">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lineup Creator - Graphic Edition</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome per icone -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Poppins:wght@400;600;700&display=swap"
+        rel="stylesheet">
+    <!-- html2canvas per esportare l'immagine -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+    <style>
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: #111827;
+        }
+
+        /* Area di esportazione (Il Poster) */
+        .export-poster {
+            width: 100%;
+            max-width: 600px;
+            aspect-ratio: 4 / 5;
+            background-color: #0f0f0f;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Il gradiente colorato in cima al poster */
+        .poster-top-glow {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 40%;
+            z-index: 0;
+            /* Il background viene iniettato via JS per matchare il colore primario */
+        }
+
+        /* Il campo stilizzato in prospettiva (SVG Container) */
+        .pitch-perspective {
+            position: absolute;
+            bottom: -5%;
+            left: 5%;
+            width: 90%;
+            height: 75%;
+            z-index: 1;
+            opacity: 0.35;
+            pointer-events: none;
+        }
+
+        /* Header con Nome e Anno */
+        .poster-header {
+            position: relative;
+            z-index: 2;
+            padding: 25px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        .team-title {
+            font-family: 'Bebas Neue', cursive;
+            color: white;
+            font-size: 4.5rem;
+            line-height: 0.85;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        }
+
+        .team-subtitle {
+            font-family: 'Bebas Neue', cursive;
+            color: white;
+            font-size: 2rem;
+            line-height: 1;
+            letter-spacing: 2px;
+            text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.5);
+        }
+
+        .fake-logo {
+            font-family: 'Bebas Neue', cursive;
+            color: white;
+            font-size: 3rem;
+            display: flex;
+            align-items: center;
+        }
+
+        /* Stili Giocatori */
+        .players-layer {
+            position: absolute;
+            inset: 0;
+            z-index: 10;
+        }
+
+        .player-node {
+            position: absolute;
+            /* FIX HTML2CANVAS: Rimosso transform: translate, usiamo margin per non rompere il render */
+            margin-left: -50px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100px;
+        }
+
+        .player-glow {
+            position: absolute;
+            bottom: 10px;
+            width: 90px;
+            height: 110px;
+            border-radius: 50% 50% 0 0;
+            filter: blur(12px);
+            opacity: 0.65;
+            z-index: 1;
+        }
+
+        .player-img {
+            width: 85px;
+            height: 105px;
+            object-fit: cover;
+            object-position: top;
+            z-index: 2;
+            /* Sfuma la base dell'immagine per farla fondere nel nameplate */
+            -webkit-mask-image: linear-gradient(to bottom, black 75%, transparent 100%);
+            mask-image: linear-gradient(to bottom, black 75%, transparent 100%);
+        }
+
+        .player-img-placeholder {
+            width: 85px;
+            height: 105px;
+            z-index: 2;
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            padding-bottom: 15px;
+            color: rgba(255, 255, 255, 0.2);
+            font-size: 2.5rem;
+            -webkit-mask-image: linear-gradient(to bottom, black 75%, transparent 100%);
+        }
+
+        .player-nameplate {
+            background-color: black;
+            color: white;
+            font-family: 'Bebas Neue', cursive;
+            font-size: 1.15rem;
+            padding: 2px 8px;
+            letter-spacing: 1px;
+            z-index: 3;
+            margin-top: -10px;
+            /* Sovrappone leggermente l'immagine */
+            text-transform: uppercase;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.8);
+            border-bottom: 3px solid #fff;
+            /* Verrà sovrascritto via JS dal primary color */
+            min-width: 80px;
+            text-align: center;
+            white-space: nowrap;
+        }
+
+        /* Input file stilizzato */
+        .file-upload-label {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background-color: #374151;
+            color: #d1d5db;
+            padding: 6px 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.75rem;
+            font-weight: 600;
+            transition: all 0.2s;
+            border: 1px solid #4b5563;
+        }
+
+        .file-upload-label:hover {
+            background-color: #4b5563;
+            color: white;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #1f2937;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #4b5563;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #6b7280;
+        }
+
+        /* Color picker */
+        input[type="color"] {
+            -webkit-appearance: none;
+            border: none;
+            width: 40px;
+            height: 40px;
+            border-radius: 6px;
+            cursor: pointer;
+            padding: 0;
+        }
+
+        input[type="color"]::-webkit-color-swatch-wrapper {
+            padding: 0;
+        }
+
+        input[type="color"]::-webkit-color-swatch {
+            border: 2px solid #4b5563;
+            border-radius: 6px;
+        }
+    </style>
+</head>
+
+<body class="h-screen flex flex-col md:flex-row overflow-hidden text-gray-200">
+
+    <!-- Sidebar Controlli -->
+    <aside
+        class="w-full md:w-[450px] h-[50vh] md:h-screen bg-gray-900 border-r border-gray-800 flex flex-col shadow-2xl z-20 overflow-hidden shrink-0">
+
+        <div class="p-5 border-b border-gray-800 bg-gray-950 flex justify-between items-center shrink-0">
+            <h1
+                class="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-500 font-[Bebas Neue] tracking-wider">
+                LINEUP CREATOR PRO
+            </h1>
+            <button onclick="exportImage()"
+                class="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded font-bold shadow transition-all text-sm flex items-center">
+                <i class="fa-solid fa-camera retro mr-2"></i> Esporta PNG
+            </button>
+        </div>
+
+        <div class="flex-1 overflow-y-auto p-5 pb-20">
+            <!-- Impostazioni Generali -->
+            <div class="mb-6 bg-gray-800 p-4 rounded-xl shadow-inner border border-gray-700">
+                <h2
+                    class="text-xs uppercase tracking-widest text-gray-400 font-bold mb-4 border-b border-gray-700 pb-2">
+                    Impostazioni Grafica</h2>
+
+                <div class="grid grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label class="block text-xs font-semibold mb-1 text-gray-300">Titolo (Squadra)</label>
+                        <input type="text" id="teamNameInput" placeholder="Es. CHELSEA"
+                            class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-indigo-500 font-bold"
+                            value="CHELSEA">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold mb-1 text-gray-300">Sottotitolo (Anno)</label>
+                        <input type="text" id="seasonInput" placeholder="Es. 2025/26"
+                            class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-indigo-500 font-bold"
+                            value="2025/26">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label class="block text-xs font-semibold mb-1 text-gray-300">Modulo Tattico</label>
+                        <select id="formationSelect"
+                            class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-indigo-500 cursor-pointer">
+                            <option value="4-3-3">4-3-3</option>
+                            <option value="4-4-2">4-4-2</option>
+                            <option value="4-4-2-rombo">4-4-2 (Rombo)</option>
+                            <option value="4-2-3-1">4-2-3-1</option>
+                            <option value="4-3-1-2">4-3-1-2</option>
+                            <option value="4-3-2-1">4-3-2-1</option>
+                            <option value="3-5-2">3-5-2</option>
+                            <option value="3-4-3">3-4-3</option>
+                            <option value="5-3-2">5-3-2</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold mb-1 text-gray-300">Colore Glow & Dettagli</label>
+                        <div class="flex items-center space-x-2">
+                            <input type="color" id="primaryColor" value="#0047AB">
+                            <span class="text-xs text-gray-400">Tinta Squadra</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Lista Giocatori -->
+            <h2 class="text-xs uppercase tracking-widest text-gray-400 font-bold mb-3 flex justify-between items-end">
+                <span>Giocatori</span>
+                <span class="text-[10px] text-gray-500 font-normal normal-case">Consigliate PNG trasparenti</span>
+            </h2>
+            <div id="playersList" class="space-y-2">
+                <!-- Generato via JS -->
+            </div>
+        </div>
+    </aside>
+
+    <!-- Area Principale (Preview) -->
+    <main class="flex-1 bg-[#050505] h-[50vh] md:h-screen flex items-center justify-center p-4 relative overflow-y-auto"
+        id="mainArea">
+
+        <!-- Container da esportare (Il Poster) -->
+        <div id="exportContainer" class="export-poster rounded-xl mx-auto">
+
+            <!-- Sfondo Colorato Alto -->
+            <div id="posterGlow" class="poster-top-glow"
+                style="background: linear-gradient(to bottom, #0047AB 0%, transparent 100%);"></div>
+
+            <!-- Il Campo in Prospettiva (SVG) -->
+            <svg class="pitch-perspective" viewBox="0 0 1000 1200" preserveAspectRatio="none">
+                <!-- Linea esterna trapezio -->
+                <path d="M 150 200 L 850 200 L 980 1100 L 20 1100 Z" fill="none" stroke="#ffffff" stroke-width="5"
+                    stroke-opacity="0.6" />
+                <!-- Linea di centrocampo -->
+                <line x1="85" y1="650" x2="915" y2="650" stroke="#ffffff" stroke-width="5" stroke-opacity="0.6" />
+                <!-- Cerchio di centrocampo -->
+                <ellipse cx="500" cy="650" rx="150" ry="60" fill="none" stroke="#ffffff" stroke-width="5"
+                    stroke-opacity="0.6" />
+                <!-- Area di rigore superiore -->
+                <path d="M 350 200 L 650 200 L 680 380 L 320 380 Z" fill="none" stroke="#ffffff" stroke-width="5"
+                    stroke-opacity="0.6" />
+                <!-- Area di rigore inferiore -->
+                <path d="M 300 1100 L 700 1100 L 650 900 L 350 900 Z" fill="none" stroke="#ffffff" stroke-width="5"
+                    stroke-opacity="0.6" />
+                <!-- Lunetta superiore -->
+                <path d="M 430 380 C 430 450, 570 450, 570 380" fill="none" stroke="#ffffff" stroke-width="5"
+                    stroke-opacity="0.6" />
+                <!-- Lunetta inferiore -->
+                <path d="M 410 900 C 410 820, 590 820, 590 900" fill="none" stroke="#ffffff" stroke-width="5"
+                    stroke-opacity="0.6" />
+            </svg>
+
+            <!-- Header Grafica -->
+            <div class="poster-header">
+                <div>
+                    <div id="displayTeamName" class="team-title">CHELSEA</div>
+                    <div id="displaySeason" class="team-subtitle">2025/26</div>
+                </div>
+                <div class="fake-logo">
+                    IF<i class="fa-solid fa-futbol text-[1.8rem] ml-1 opacity-90"></i>
+                </div>
+            </div>
+
+            <!-- Layer Giocatori -->
+            <div id="playersLayer" class="players-layer"></div>
+
+        </div>
+    </main>
+
+    <script>
+        // Coordinate per la vista in prospettiva.
+        // Y va da 0 (alto) a 100 (basso). X da 0 a 100.
+        const formationsData = {
+            '4-3-3': [
+                { role: 'POR', x: 50, y: 98 },
+                { role: 'TS', x: 18, y: 83 }, { role: 'DC', x: 38, y: 83 }, { role: 'DC', x: 62, y: 83 }, { role: 'TD', x: 82, y: 83 },
+                { role: 'CC', x: 28, y: 63 }, { role: 'MED', x: 50, y: 66 }, { role: 'CC', x: 72, y: 63 },
+                { role: 'AS', x: 22, y: 45 }, { role: 'ATT', x: 50, y: 42 }, { role: 'AD', x: 78, y: 45 }
+            ],
+            '4-4-2': [
+                { role: 'POR', x: 50, y: 98 },
+                { role: 'TS', x: 18, y: 83 }, { role: 'DC', x: 38, y: 83 }, { role: 'DC', x: 62, y: 83 }, { role: 'TD', x: 82, y: 83 },
+                { role: 'ES', x: 18, y: 63 }, { role: 'CC', x: 38, y: 63 }, { role: 'CC', x: 62, y: 63 }, { role: 'ED', x: 82, y: 63 },
+                { role: 'ATT', x: 38, y: 42 }, { role: 'ATT', x: 62, y: 42 }
+            ],
+            '4-4-2-rombo': [
+                { role: 'POR', x: 50, y: 98 },
+                { role: 'TS', x: 18, y: 83 }, { role: 'DC', x: 38, y: 83 }, { role: 'DC', x: 62, y: 83 }, { role: 'TD', x: 82, y: 83 },
+                { role: 'MED', x: 50, y: 70 },
+                { role: 'CCS', x: 30, y: 60 }, { role: 'CCD', x: 70, y: 60 },
+                { role: 'TRQ', x: 50, y: 50 },
+                { role: 'ATT', x: 38, y: 40 }, { role: 'ATT', x: 62, y: 40 }
+            ],
+            '4-2-3-1': [
+                { role: 'POR', x: 50, y: 98 },
+                { role: 'TS', x: 18, y: 83 }, { role: 'DC', x: 38, y: 83 }, { role: 'DC', x: 62, y: 83 }, { role: 'TD', x: 82, y: 83 },
+                { role: 'MED', x: 38, y: 71 }, { role: 'MED', x: 62, y: 71 },
+                { role: 'ES', x: 20, y: 55 }, { role: 'TRQ', x: 50, y: 57 }, { role: 'ED', x: 80, y: 55 },
+                { role: 'ATT', x: 50, y: 40 }
+            ],
+            '4-3-1-2': [
+                { role: 'POR', x: 50, y: 98 },
+                { role: 'TS', x: 18, y: 83 }, { role: 'DC', x: 38, y: 83 }, { role: 'DC', x: 62, y: 83 }, { role: 'TD', x: 82, y: 83 },
+                { role: 'CCS', x: 28, y: 63 }, { role: 'MED', x: 50, y: 66 }, { role: 'CCD', x: 72, y: 63 },
+                { role: 'TRQ', x: 50, y: 52 },
+                { role: 'ATT', x: 38, y: 40 }, { role: 'ATT', x: 62, y: 40 }
+            ],
+            '4-3-2-1': [
+                { role: 'POR', x: 50, y: 98 },
+                { role: 'TS', x: 18, y: 83 }, { role: 'DC', x: 38, y: 83 }, { role: 'DC', x: 62, y: 83 }, { role: 'TD', x: 82, y: 83 },
+                { role: 'CCS', x: 28, y: 65 }, { role: 'MED', x: 50, y: 67 }, { role: 'CCD', x: 72, y: 65 },
+                { role: 'TRQS', x: 38, y: 52 }, { role: 'TRQD', x: 62, y: 52 },
+                { role: 'ATT', x: 50, y: 40 }
+            ],
+            '3-5-2': [
+                { role: 'POR', x: 50, y: 98 },
+                { role: 'DCS', x: 25, y: 85 }, { role: 'DC', x: 50, y: 87 }, { role: 'DCD', x: 75, y: 85 },
+                { role: 'ES', x: 15, y: 63 }, { role: 'CCS', x: 34, y: 65 }, { role: 'REG', x: 50, y: 68 }, { role: 'CCD', x: 66, y: 65 }, { role: 'ED', x: 85, y: 63 },
+                { role: 'ATT', x: 38, y: 42 }, { role: 'ATT', x: 62, y: 42 }
+            ],
+            '3-4-3': [
+                { role: 'POR', x: 50, y: 98 },
+                { role: 'DCS', x: 25, y: 85 }, { role: 'DC', x: 50, y: 87 }, { role: 'DCD', x: 75, y: 85 },
+                { role: 'ES', x: 18, y: 66 }, { role: 'CC', x: 38, y: 64 }, { role: 'CC', x: 62, y: 64 }, { role: 'ED', x: 82, y: 66 },
+                { role: 'AS', x: 25, y: 45 }, { role: 'ATT', x: 50, y: 42 }, { role: 'AD', x: 75, y: 45 }
+            ],
+            '5-3-2': [
+                { role: 'POR', x: 50, y: 98 },
+                { role: 'ASA', x: 15, y: 78 }, { role: 'DCS', x: 32, y: 85 }, { role: 'DC', x: 50, y: 87 }, { role: 'DCD', x: 68, y: 85 }, { role: 'ADA', x: 85, y: 78 },
+                { role: 'CCS', x: 30, y: 63 }, { role: 'MED', x: 50, y: 65 }, { role: 'CCD', x: 70, y: 63 },
+                { role: 'ATT', x: 38, y: 42 }, { role: 'ATT', x: 62, y: 42 }
+            ]
+        };
+
+        const state = {
+            teamName: 'CHELSEA',
+            season: '2025/26',
+            formation: '4-3-3',
+            colors: {
+                primary: '#0047AB' // Blu Chelsea
+            },
+            players: Array.from({ length: 11 }, (_, i) => ({
+                id: i,
+                name: '',
+                image: null,
+                role: ''
+            }))
+        };
+
+        const els = {
+            teamNameInput: document.getElementById('teamNameInput'),
+            seasonInput: document.getElementById('seasonInput'),
+            displayTeamName: document.getElementById('displayTeamName'),
+            displaySeason: document.getElementById('displaySeason'),
+            formationSelect: document.getElementById('formationSelect'),
+            primaryColor: document.getElementById('primaryColor'),
+            posterGlow: document.getElementById('posterGlow'),
+            playersList: document.getElementById('playersList'),
+            playersLayer: document.getElementById('playersLayer')
+        };
+
+        function init() {
+            setupEventListeners();
+            applyFormation(state.formation);
+            renderSidebarInputs();
+            updatePitch();
+        }
+
+        function setupEventListeners() {
+            els.teamNameInput.addEventListener('input', (e) => {
+                state.teamName = e.target.value.toUpperCase() || 'SQUADRA';
+                els.displayTeamName.textContent = state.teamName;
+            });
+
+            els.seasonInput.addEventListener('input', (e) => {
+                state.season = e.target.value.toUpperCase();
+                els.displaySeason.textContent = state.season;
+            });
+
+            els.formationSelect.addEventListener('change', (e) => {
+                state.formation = e.target.value;
+                applyFormation(state.formation);
+                renderSidebarInputs();
+                updatePitch();
+            });
+
+            els.primaryColor.addEventListener('input', (e) => {
+                state.colors.primary = e.target.value;
+                // Aggiorna il gradiente in alto
+                els.posterGlow.style.background = `linear-gradient(to bottom, ${state.colors.primary} 0%, transparent 100%)`;
+                updatePitch(); // Ridisegna per applicare il colore al glow dei giocatori
+            });
+        }
+
+        function applyFormation(formationKey) {
+            const layout = formationsData[formationKey];
+            state.players.forEach((player, index) => {
+                player.role = layout[index].role;
+                player.x = layout[index].x;
+                player.y = layout[index].y;
+            });
+        }
+
+        function renderSidebarInputs() {
+            els.playersList.innerHTML = '';
+
+            state.players.forEach((player, index) => {
+                const item = document.createElement('div');
+                item.className = 'bg-gray-800 rounded-lg p-3 shadow-sm border border-gray-700 flex flex-col space-y-2';
+
+                // Genera l'ID unico per l'input file
+                const fileInputId = `fileUpload_${index}`;
+
+                item.innerHTML = `
+                    <div class="flex items-center space-x-2">
+                        <span class="text-[10px] font-bold text-gray-400 bg-gray-900 px-2 py-1 rounded w-10 text-center shrink-0 border border-gray-700">${player.role}</span>
+                        <input type="text" value="${player.name}" oninput="updatePlayerName(${index}, this.value)" class="flex-1 bg-gray-900 border border-gray-600 rounded px-2 py-1.5 text-white text-sm font-bold focus:border-indigo-500 outline-none uppercase" placeholder="NOME GIOCATORE">
+                    </div>
+                    <div class="flex items-center justify-between pl-12">
+                        <div class="flex items-center space-x-2">
+                            <label for="${fileInputId}" class="file-upload-label">
+                                <i class="fa-solid fa-image mr-1.5"></i> ${player.image ? 'Cambia Foto' : 'Carica Foto'}
+                            </label>
+                            <input type="file" id="${fileInputId}" accept="image/*" onchange="handleImageUpload(${index}, this)">
+                            ${player.image ? `<button onclick="removeImage(${index})" class="text-red-400 hover:text-red-300 text-xs ml-2"><i class="fa-solid fa-trash"></i></button>` : ''}
+                        </div>
+                    </div>
+                `;
+                els.playersList.appendChild(item);
+            });
+        }
+
+        window.updatePlayerName = function (index, value) {
+            state.players[index].name = value.toUpperCase();
+            updatePitch();
+        };
+
+        window.handleImageUpload = function (index, input) {
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function (e) {
+                    state.players[index].image = e.target.result;
+                    renderSidebarInputs(); // Aggiorna UI per mostrare tasto 'Elimina'
+                    updatePitch();
+                }
+                reader.readAsDataURL(input.files[0]);
+            }
+        };
+
+        window.removeImage = function (index) {
+            state.players[index].image = null;
+            renderSidebarInputs();
+            updatePitch();
+        };
+
+        function updatePitch() {
+            els.playersLayer.innerHTML = '';
+
+            state.players.forEach(player => {
+                const node = document.createElement('div');
+                node.className = 'player-node';
+                node.style.left = `${player.x}%`;
+
+                // FIX HTML2CANVAS: Usiamo 'bottom' invece di 'top + translate(-100%)'
+                node.style.bottom = `${100 - player.y}%`;
+
+                node.style.zIndex = Math.round(player.y);
+
+                const displayName = player.name || player.role;
+
+                // Immagine o Placeholder
+                let imageHTML = '';
+                if (player.image) {
+                    imageHTML = `<img src="${player.image}" class="player-img" alt="${displayName}">`;
+                } else {
+                    imageHTML = `
+                        <div class="player-img-placeholder">
+                            <i class="fa-solid fa-user"></i>
+                        </div>
+                    `;
+                }
+
+                node.innerHTML = `
+                    <div class="player-glow" style="background: linear-gradient(to top, ${state.colors.primary}, transparent);"></div>
+                    ${imageHTML}
+                    <div class="player-nameplate" style="border-bottom-color: ${state.colors.primary};">
+                        ${displayName}
+                    </div>
+                `;
+
+                els.playersLayer.appendChild(node);
+            });
+        }
+
+        window.exportImage = function () {
+            const container = document.getElementById('exportContainer');
+
+            // FIX HTML2CANVAS: Scrolliamo forzatamente in cima per evitare sfasamenti dovuti allo scroll
+            const currentScrollY = window.scrollY;
+            window.scrollTo(0, 0);
+
+            // Per esportare togliamo momentaneamente il border radius per evitare artefatti negli angoli
+            const originalRadius = container.style.borderRadius;
+            container.style.borderRadius = '0px';
+
+            // Assicuriamoci che i font custom siano pronti prima dello scatto
+            document.fonts.ready.then(() => {
+                html2canvas(container, {
+                    scale: 2,
+                    useCORS: true,
+                    backgroundColor: '#0f0f0f',
+                    logging: false,
+                    scrollX: 0,
+                    scrollY: 0
+                }).then(canvas => {
+                    container.style.borderRadius = originalRadius;
+                    window.scrollTo(0, currentScrollY); // Ripristina lo scroll originale
+
+                    const link = document.createElement('a');
+                    const safeName = state.teamName.replace(/[^a-z0-9]/gi, '_').toLowerCase() || 'formazione';
+                    link.download = `poster_lineup_${safeName}.png`;
+                    link.href = canvas.toDataURL('image/png');
+                    link.click();
+                });
+            });
+        };
+
+        init();
+    </script>
+</body>
+
+</html>

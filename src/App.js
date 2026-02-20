@@ -5,7 +5,8 @@ import FullTimeEditor from "./FullTimeEditor/FullTimeEditor";
 import NewsEditor from "./NewsEditor/NewsEditor"; // Assicurati che il nome dell'import corrisponda al file
 import BioCreator from "./BioCreator/BioCreator";
 import Classifica from "./Classifica/Classifica";
-import "./App.css"; 
+import LineUp from "./LineUp/LineUp";
+import "./App.css";
 
 function App() {
   return (
@@ -19,6 +20,7 @@ function App() {
           <Route path="/fulltime" element={<FullTimeEditor />} />
           <Route path="/bio-creator" element={<BioCreator />} />
           <Route path="/classifica" element={<Classifica />} />
+          <Route path="/lineup" element={<LineUp />} />
         </Routes>
       </div>
     </div>
