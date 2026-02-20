@@ -487,7 +487,7 @@ function NewsEditor() {
 
   return (
     <div className="App">
-      <h1 className="page-title">CRONACHE ELLENICHE NEWS</h1>
+      <h1 className="page-title">NEWS CREATOR</h1>
       <div className="editor-container">
 
         <CanvasNews
