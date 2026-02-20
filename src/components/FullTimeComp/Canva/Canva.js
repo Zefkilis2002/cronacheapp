@@ -388,10 +388,10 @@ const Canva = ({
         <Layer>
           <Rect
             ref={borderRef}
-            x={0}
-            y={0}
-            width={1440}
-            height={1800}
+            x={2.5}
+            y={2.5}
+            width={1435}
+            height={1795}
             stroke="white"
             strokeWidth={5}
             listening={false}
