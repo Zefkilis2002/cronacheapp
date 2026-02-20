@@ -95,7 +95,7 @@ const FullTimeEditor = () => {
 
   return (
     <div className="App">
-      <h1>CRONACHE ELLENICHE <br /> FULL TIME</h1>
+      <h1 className="page-title">CRONACHE ELLENICHE <br /> FULL TIME</h1>
 
       <Canva
         stageRef={stageRef}

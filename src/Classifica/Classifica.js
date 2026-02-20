@@ -5,7 +5,7 @@ import ClassificaComp from '../components/ClassificaComp/ClassificaComp';
 const Classifica = () => {
   return (
     <div className="classifica-container">
-      <h1>Gestione Classifica</h1>
+      <h1 className="page-title">Gestione Classifica</h1>
       <ClassificaComp />
     </div>
   );

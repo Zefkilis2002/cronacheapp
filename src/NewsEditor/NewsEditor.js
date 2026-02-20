@@ -16,7 +16,7 @@ function NewsEditor() {
   // States for text content
   const [title, setTitle] = useState('');
   const [text, setText] = useState('');
-  const [richText, setRichText] = useState([]); 
+  const [richText, setRichText] = useState([]);
 
 
   const [titleColor, setTitleColor] = useState('#FFFFFF');
@@ -26,23 +26,23 @@ function NewsEditor() {
   const [titleFontSize, setTitleFontSize] = useState(180);
   const [textFontSize, setTextFontSize] = useState(100);
 
-  
+
   // States for background images
   const [backgroundImages, setBackgroundImages] = useState([]);
-  const [backgroundImage, setBackgroundImage] = useState('/sfondoNotizie/sfumatura.png');  
+  const [backgroundImage, setBackgroundImage] = useState('/sfondoNotizie/sfumatura.png');
   const [background] = useImage(backgroundImage);
   const [showSelection, setShowSelection] = useState(true);
 
   const [busyFilter, setBusyFilter] = useState(false);
 
-  
+
   // States for logos
   const [logos, setLogos] = useState([]);
-  
+
   // States for positioning
   const [titlePosition, setTitlePosition] = useState({ x: 0, y: 1200 });
   const [textPosition, setTextPosition] = useState({ x: 0, y: 1385 });
-  
+
   // States for selection
   const [selectedBackground, setSelectedBackground] = useState(null);
   const [selectedLogo, setSelectedLogo] = useState(null);
@@ -52,9 +52,9 @@ function NewsEditor() {
   const [activeTab, setActiveTab] = useState('text');
 
   // Passi unificati per controlli UI
-  const MOVE_STEP  = 2;    // px
+  const MOVE_STEP = 2;    // px
   const SCALE_STEP = 0.02; // 2%
-  const FONT_STEP  = 2;    // px
+  const FONT_STEP = 2;    // px
 
 
   const handleBackgroundChange = (e) => {
@@ -98,7 +98,7 @@ function NewsEditor() {
     const rgbToHex = (rgb) => {
       if (!rgb || rgb === 'inherit' || rgb === 'initial') return null;
       if (rgb.startsWith('#')) return rgb;
-      
+
       const match = rgb.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
       if (match) {
         const r = parseInt(match[1]);
@@ -111,12 +111,12 @@ function NewsEditor() {
 
     const walk = (node, inheritedColor = null) => {
       if (!node) return;
-      
+
       if (node.nodeType === 3) { // TEXT_NODE
         pushText(node.nodeValue, inheritedColor);
         return;
       }
-      
+
       if (node.nodeType !== 1) return; // non ELEMENT_NODE
 
       const tag = node.tagName;
@@ -130,11 +130,11 @@ function NewsEditor() {
       }
 
       // Gestione dei tag che creano nuove righe
-      if (tag === 'BR') { 
-        flush(); 
-        return; 
+      if (tag === 'BR') {
+        flush();
+        return;
       }
-      
+
       if (tag === 'DIV') {
         // Se il DIV non è il primo nodo, crea una nuova riga prima
         if (current.length > 0) flush();
@@ -142,7 +142,7 @@ function NewsEditor() {
         flush(); // Flush dopo il DIV per creare la nuova riga
         return;
       }
-      
+
       if (tag === 'P') {
         // Simile ai DIV, i paragrafi creano nuove righe
         if (current.length > 0) flush();
@@ -150,19 +150,19 @@ function NewsEditor() {
         flush();
         return;
       }
-      
+
       // Per tutti gli altri tag, processa i figli con il colore corrente
       Array.from(node.childNodes).forEach(child => walk(child, nodeColor));
     };
 
     Array.from(container.childNodes).forEach(n => walk(n, null));
-    
+
     // Se non ci sono state flush, flush l'ultima riga
     if (current.length > 0) flush();
-    
+
     // Non filtrare le righe vuote - sono necessarie per preservare gli a capo
     setRichText(lines);
-    
+
     console.log('Rich text parsed:', lines); // Debug
   };
 
@@ -171,12 +171,12 @@ function NewsEditor() {
   const handleBackgroundUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    
+
     if (backgroundImages.length >= 5) {
       alert("Puoi caricare al massimo 5 immagini di sfondo");
       return;
     }
-    
+
     const reader = new FileReader();
     reader.onload = (ev) => {
       const newImage = {
@@ -199,12 +199,12 @@ function NewsEditor() {
   const handleLogoUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    
+
     if (logos.length >= 8) {
       alert("Puoi caricare al massimo 8 loghi");
       return;
     }
-    
+
     const reader = new FileReader();
     reader.onload = (ev) => {
       const newLogo = {
@@ -241,11 +241,11 @@ function NewsEditor() {
   const moveElement = (item, setter, items, direction) => {
     const itemIndex = items.findIndex(i => i.id === item.id);
     if (itemIndex === -1) return;
-    
+
     const delta = MOVE_STEP;
     const updatedItems = [...items];
     const updatedItem = { ...updatedItems[itemIndex] };
-    
+
     if (direction === 'left') {
       updatedItem.position.x -= delta;
     } else if (direction === 'right') {
@@ -255,7 +255,7 @@ function NewsEditor() {
     } else if (direction === 'down') {
       updatedItem.position.y += delta;
     }
-    
+
     updatedItems[itemIndex] = updatedItem;
     setter(updatedItems);
   };
@@ -263,11 +263,11 @@ function NewsEditor() {
   const resizeElement = (item, setter, items, type) => {
     const itemIndex = items.findIndex(i => i.id === item.id);
     if (itemIndex === -1) return;
-    
+
     const scaleChange = SCALE_STEP;
     const updatedItems = [...items];
     const updatedItem = { ...updatedItems[itemIndex] };
-    
+
     if (type === 'increase') {
       updatedItem.scale.scaleX += scaleChange;
       updatedItem.scale.scaleY += scaleChange;
@@ -275,7 +275,7 @@ function NewsEditor() {
       updatedItem.scale.scaleX = Math.max(0.1, updatedItem.scale.scaleX - scaleChange);
       updatedItem.scale.scaleY = Math.max(0.1, updatedItem.scale.scaleY - scaleChange);
     }
-    
+
     updatedItems[itemIndex] = updatedItem;
     setter(updatedItems);
   };
@@ -283,19 +283,19 @@ function NewsEditor() {
   const updateItemPosition = (id, newPosition, items, setter) => {
     const itemIndex = items.findIndex(item => item.id === id);
     if (itemIndex === -1) return;
-    
+
     const updatedItems = [...items];
     updatedItems[itemIndex] = {
       ...updatedItems[itemIndex],
       position: newPosition
     };
-    
+
     setter(updatedItems);
   };
 
 
-// Cache per risultati filtrati per ogni immagine (evita ricalcoli)
-const filteredCacheRef = useRef(new Map());
+  // Cache per risultati filtrati per ogni immagine (evita ricalcoli)
+  const filteredCacheRef = useRef(new Map());
 
   const applyAcrSportToSelectedBackground = async () => {
     if (!selectedBackground) return;
@@ -324,18 +324,18 @@ const filteredCacheRef = useRef(new Map());
     const idx = backgroundImages.findIndex(i => i.id === selectedBackground);
     if (idx < 0) return;
     const item = backgroundImages[idx];
-    
+
     try {
       setBusyFilter(true);
       const cached = await applyUpscaleFilterToSrc(item.originalSrc || item.src);
-      
+
       const updated = [...backgroundImages];
-      updated[idx] = { 
-        ...item, 
-        originalSrc: item.originalSrc || item.src, 
-        src: cached.url, 
-        _revoke: cached._revoke, 
-        _acr: 'hd' 
+      updated[idx] = {
+        ...item,
+        originalSrc: item.originalSrc || item.src,
+        src: cached.url,
+        _revoke: cached._revoke,
+        _acr: 'hd'
       };
       setBackgroundImages(updated);
     } catch (err) {
@@ -353,14 +353,14 @@ const filteredCacheRef = useRef(new Map());
     const item = backgroundImages[idx];
     // ripristina la sorgente originale e libera l’URL blob
     if (item._revoke && item.src && item.src.startsWith('blob:')) {
-      try { item._revoke(); } catch(_) {}
+      try { item._revoke(); } catch (_) { }
     }
     const updated = [...backgroundImages];
-    updated[idx] = { 
-      ...item, 
-      src: item.originalSrc || item.src, 
-      _revoke: undefined, 
-      _acr: undefined 
+    updated[idx] = {
+      ...item,
+      src: item.originalSrc || item.src,
+      _revoke: undefined,
+      _acr: undefined
     };
     setBackgroundImages(updated);
   };
@@ -430,67 +430,67 @@ const filteredCacheRef = useRef(new Map());
   const reorderItems = (dragIndex, hoverIndex, items, setter) => {
     const draggedItem = items[dragIndex];
     const updatedItems = [...items];
-    
+
     // Remove the dragged item
     updatedItems.splice(dragIndex, 1);
     // Insert it at the new position
     updatedItems.splice(hoverIndex, 0, draggedItem);
-    
+
     setter(updatedItems);
   };
 
   const enlargeTextSize = (setter, step = FONT_STEP) =>
     setter(prev => prev + step);
-  const shrinkTextSize  = (setter, step = FONT_STEP) =>
+  const shrinkTextSize = (setter, step = FONT_STEP) =>
     setter(prev => Math.max(20, prev - step));
 
-    // ... existing code ...
-  
-    const downloadImage = async () => {
-      const stage = stageRef.current;
-      setShowSelection(false);
-      await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+  // ... existing code ...
 
-      const originalWidth = stage.width();
-      const originalHeight = stage.height();
-      const originalScale = stage.scale();
+  const downloadImage = async () => {
+    const stage = stageRef.current;
+    setShowSelection(false);
+    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
 
-      stage.scale({ x: 1, y: 1 });
-      stage.width(1440);
-      stage.height(1800);
-      stage.batchDraw();
+    const originalWidth = stage.width();
+    const originalHeight = stage.height();
+    const originalScale = stage.scale();
 
-      const uri = stage.toDataURL({
-        pixelRatio: 3,
-        mimeType: 'image/jpeg',
-        quality: 0.92,
-        width: 1440,
-        height: 1800
-      });
+    stage.scale({ x: 1, y: 1 });
+    stage.width(1440);
+    stage.height(1800);
+    stage.batchDraw();
 
-      stage.scale(originalScale);
-      stage.width(originalWidth);
-      stage.height(originalHeight);
-      stage.batchDraw();
+    const uri = stage.toDataURL({
+      pixelRatio: 3,
+      mimeType: 'image/jpeg',
+      quality: 0.92,
+      width: 1440,
+      height: 1800
+    });
 
-      const link = document.createElement('a');
-      link.download = 'final_image.jpg';
-      link.href = uri;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+    stage.scale(originalScale);
+    stage.width(originalWidth);
+    stage.height(originalHeight);
+    stage.batchDraw();
 
-      setShowSelection(true);
-    };
-    
-    
+    const link = document.createElement('a');
+    link.download = 'final_image.jpg';
+    link.href = uri;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    setShowSelection(true);
+  };
+
+
 
   return (
     <div className="App">
-      <h1>CRONACHE ELLENICHE NEWS</h1>
+      <h1 className="page-title">CRONACHE ELLENICHE NEWS</h1>
       <div className="editor-container">
-        
-        <CanvasNews 
+
+        <CanvasNews
           stageRef={stageRef}
           backgroundImages={backgroundImages}
           setBackgroundImages={setBackgroundImages}
@@ -520,13 +520,13 @@ const filteredCacheRef = useRef(new Map());
         />
 
         <div className="news-tab-header">
-          <button 
+          <button
             className={`news-tab-button ${activeTab === 'text' ? 'active' : ''}`}
             onClick={() => setActiveTab('text')}
           >
             Testi
           </button>
-          <button 
+          <button
             className={`news-tab-button ${activeTab === 'images' ? 'active' : ''}`}
             onClick={() => setActiveTab('images')}
           >
@@ -536,7 +536,7 @@ const filteredCacheRef = useRef(new Map());
 
         <div className="controls-container">
           {activeTab === 'text' && (
-            <NewsCreator 
+            <NewsCreator
               title={title}
               setTitle={setTitle}
               titleColor={titleColor}
@@ -556,9 +556,9 @@ const filteredCacheRef = useRef(new Map());
               downloadImage={downloadImage}
             />
           )}
-          
+
           {activeTab === 'images' && (
-            <ImagesSelector 
+            <ImagesSelector
               handleBackgroundUpload={handleBackgroundUpload}
               handleLogoUpload={handleLogoUpload}
               backgroundImages={backgroundImages}
@@ -579,8 +579,8 @@ const filteredCacheRef = useRef(new Map());
             />
           )}
         </div>
-        
-        <ToolbarNews 
+
+        <ToolbarNews
           moveElement={moveElement}
           resizeElement={resizeElement}
           enlargeTextSize={enlargeTextSize}

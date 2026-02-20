@@ -432,7 +432,7 @@ function TabellinoControls({
     <div className="controls-top">
 
       {/* Selettore tabellino */}
-      <label htmlFor="tabellinoSelect">Scegli Tabellino:</label>
+      <h3><label htmlFor="tabellinoSelect">Scegli Tabellino:</label></h3>
       <select
         id="tabellinoSelect"
         value={selectedTabellino}
