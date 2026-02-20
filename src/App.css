@@ -1,8 +1,10 @@
-html, body {
+html,
+body {
     min-height: 100%;
     height: auto;
     overflow-x: hidden;
     position: relative;
+    background-color: #00061c;
 }
 
 
@@ -11,7 +13,8 @@ html, body {
     flex-direction: column;
     min-height: 100vh;
     padding: 0.5rem;
-    padding-top: 60px; /* Ridotto da 80px */
+    padding-top: 60px;
+    /* Ridotto da 80px */
     padding-bottom: 120px;
     box-sizing: border-box;
 }
@@ -25,23 +28,27 @@ html, body {
 /* Mobile styles */
 @media (max-width: 768px) {
     .App {
-        padding-bottom: 100px; /* Increased padding for mobile toolbar */
+        padding-bottom: 100px;
+        /* Increased padding for mobile toolbar */
     }
-    
+
     .main-content {
         padding-bottom: 250px;
     }
 }
 
 html {
-  -webkit-text-size-adjust: 100%; /* disabilita il resize automatico del testo su iOS */
-  touch-action: pan-y;           /* consente solo lo scroll verticale */
-  overscroll-behavior: none;     /* blocca bounce/zoom di sistema */
+    -webkit-text-size-adjust: 100%;
+    /* disabilita il resize automatico del testo su iOS */
+    touch-action: pan-y;
+    /* consente solo lo scroll verticale */
+    overscroll-behavior: none;
+    /* blocca bounce/zoom di sistema */
 }
+
 body {
-  margin: 0;
-  padding: 0;
-  overflow-x: hidden;            /* previene scroll orizzontale indesiderato */
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+    /* previene scroll orizzontale indesiderato */
 }
-
-

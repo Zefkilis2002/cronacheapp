@@ -1,4 +1,16 @@
-/* News Editor Tabs */
+/* News Editor Header & Tabs */
+h1 {
+  font-family: 'Poppins-ExtraBold', 'Poppins', sans-serif;
+  font-size: 2.2rem;
+  font-weight: 800;
+  color: #b4ff00;
+  text-align: center;
+  margin-top: 0.5rem;
+  margin-bottom: 1rem;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+
 .news-tab-header {
   display: flex;
   justify-content: center;
@@ -32,9 +44,11 @@
 
 /* Ensure controls container fits the single tab content */
 .controls-container {
-  display: block; /* Override flex if needed, or keep flex but with single child */
+  display: block;
+  /* Override flex if needed, or keep flex but with single child */
   width: 100%;
-  max-width: 800px; /* Limit width for readability */
+  max-width: 800px;
+  /* Limit width for readability */
   margin: 0 auto;
 }
 
@@ -50,7 +64,7 @@
   .news-tab-header {
     gap: 0.5rem;
   }
-  
+
   .news-tab-button {
     padding: 0.6rem 1rem;
     font-size: 0.9rem;
