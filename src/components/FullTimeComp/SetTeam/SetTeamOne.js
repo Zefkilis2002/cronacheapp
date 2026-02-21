@@ -37,8 +37,9 @@ const SetTeamOne = ({
   return (
     <div className="logo-section">
       <h3 className='logo-text'>Logo Squadra 1</h3>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+      <div className="logo-actions">
         <select
+          className="logo-select"
           value={selectedLogo1}
           onChange={(e) => setSelectedLogo1(e.target.value)}
         >

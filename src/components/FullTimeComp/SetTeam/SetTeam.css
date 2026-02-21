@@ -1,112 +1,160 @@
 /* Contenitore principale per le informazioni della Squadra 1 */
 .logo-section {
-    margin-bottom: 1.5rem;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 0.75rem;
-    z-index: 10;
-  }
-  
-  /* Stile per le etichette all'interno della Squadra 1 */
-  .logo-section label {
-    font-size: 1.1rem;
-    font-weight: bold;
-    color: #b4ff00;
-  }
-  
-  /* Stile per i gruppi di input (es. risultato o marcatori) */
-  .result-group {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-  }
-  
-  /* Etichette dei gruppi di input */
-  .result-group label {
-    font-size: 1rem;
-    font-weight: 600;
-    color: #b4ff00;
-    margin-bottom: 0.5rem;
-    text-align: center;
-  }
-  
-  /* Input numerici (ad esempio, per inserire il risultato) */
-  .result-group input[type="number"] {
-    width: 60px;
-    background-color: #1e1e2d;
-    color: #b4ff00;
-    border: 2px solid #b4ff00;
-    border-radius: 25px;
-    padding: 0.5rem;
-    font-size: 1rem;
-    text-align: center;
+  margin-bottom: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  z-index: 10;
+}
+
+/* Stile per le etichette all'interno della Squadra 1 */
+.logo-section label {
+  font-size: 1.1rem;
+  font-weight: bold;
+  color: #b4ff00;
+}
+
+/* Stile per i gruppi di input (es. risultato o marcatori) */
+.result-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* Etichette dei gruppi di input */
+.result-group label {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #b4ff00;
+  margin-bottom: 0.5rem;
+  text-align: center;
+}
+
+/* Input numerici (ad esempio, per inserire il risultato) */
+.result-group input[type="number"] {
+  width: 60px;
+  background-color: #1e1e2d;
+  color: #b4ff00;
+  border: 2px solid #b4ff00;
+  border-radius: 25px;
+  padding: 0.5rem;
+  font-size: 1rem;
+  text-align: center;
+}
+
+.text-marcatori {
+  font-size: 1.17rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  text-align: left;
+  text-align: center;
+  margin-top: 1rem;
+}
+
+.scorer-section {
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.scorer-input {
+  align-items: center;
+  width: 180px;
+  margin-left: 8px;
+}
+
+
+.logo-text {
+  display: block;
+  font-size: 1.17em;
+  margin-block-start: 1em;
+  margin-block-end: 1em;
+  margin-inline-start: 0px;
+  margin-inline-end: 0px;
+  font-weight: bold;
+  unicode-bidi: isolate;
+  margin-top: 1.5rem;
+}
+
+.logo-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  justify-content: center;
+}
+
+.logo-select {
+  height: 45px;
+  border-radius: 25px;
+  border: 2px solid #b4ff00;
+  background-color: #1e1e2d;
+  color: #fff;
+  padding: 0 10px;
+  box-sizing: border-box;
+  font-size: 1rem;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.logo-select:focus {
+  outline: none;
+  box-shadow: 0px 0px 5px rgba(180, 255, 0, 0.4);
+}
+
+.upload-logo {
+  padding: 5px 10px;
+  border: 2px solid #b4ff00;
+  border-radius: 25px;
+  background-color: #00061b;
+  font-size: 1rem;
+  color: #b4ff00;
+  font-weight: bold;
+  cursor: pointer;
+  height: 45px;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+}
+
+
+.upload-logo:hover {
+  background-color: #b4ff00;
+  color: #00061b;
+  box-shadow: 0px 6px 12px rgba(180, 255, 0, 0.4);
+}
+
+@media (max-width: 768px) {
+  .logo-actions {
+    flex-wrap: wrap;
+    padding: 0 10px;
   }
 
-  .text-marcatori{
-    font-size: 1.17rem;
-    font-weight: 600;
-    margin-bottom: 1rem;
-    text-align: left;
-    text-align: center;
-    margin-top: 1rem;
+  .logo-select {
+    flex: 1 1 100%;
+    margin-bottom: 5px;
+  }
+
+  .upload-logo {
+    flex: 1;
+    font-size: 0.9rem;
   }
 
   .scorer-section {
+    display: flex;
+    justify-content: center;
+    /* Centra orizzontalmente */
     align-items: center;
-    gap: 0.2rem;
+    /* Centra verticalmente (opzionale) */
+    flex-direction: column;
+    /* Disporre gli elementi in colonna */
   }
-  
-  .scorer-input{
+
+  .scorer-input {
     align-items: center;
-    width: 180px;
-    margin-left: 8px;
+    height: 40px;
+    margin-top: 5px;
   }
-
-
-  .logo-text {
-    display: block;
-    font-size: 1.17em;
-    margin-block-start: 1em;
-    margin-block-end: 1em;
-    margin-inline-start: 0px;
-    margin-inline-end: 0px;
-    font-weight: bold;
-    unicode-bidi: isolate;
-    margin-top: 1.5rem;
-  }
-
-
-  .upload-logo{
-    padding: 5px 10px;
-    border: 2px solid #b4ff00;
-    border-radius: 25px;
-    background-color: #00061b;
-    font-size: 1rem;
-    color: #b4ff00;
-    font-weight: bold;
-    cursor: pointer;
-    height: 45px;
-  }
-
-  
-  .upload-logo:hover {
-    background-color: #b4ff00;
-    color: #00061b;
-    box-shadow: 0px 6px 12px rgba(180, 255, 0, 0.4);
-  }
-
-  @media (max-width: 768px) {
-    .scorer-section {
-      display: flex;
-      justify-content: center; /* Centra orizzontalmente */
-      align-items: center;    /* Centra verticalmente (opzionale) */
-      flex-direction: column;  /* Disporre gli elementi in colonna */
-    }
-
-    .scorer-input{
-      align-items: center;
-      height: 40px;
-      margin-top: 5px;
-    }
-  }
+}
