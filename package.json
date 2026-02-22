@@ -36,12 +36,12 @@
     "web-vitals": "^2.1.4"
   },
   "scripts": {
-    "server": "node instagram-proxy.js",
+    "server": "node server.js",
     "client": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
-    "start": "node instagram-proxy.js",
+    "start": "node server.js",
     "dev": "concurrently \"npm run server\" \"npm:client\" --kill-others-on-fail"
   },
   "eslintConfig": {

@@ -4,7 +4,7 @@
     "private": true,
     "description": "Backend API per CronacheApp (Express + Puppeteer)",
     "scripts": {
-        "start": "node instagram-proxy.js"
+        "start": "node server.js"
     },
     "dependencies": {
         "@azure-rest/ai-inference": "^1.0.0-beta.6",

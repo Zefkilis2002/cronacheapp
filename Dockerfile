@@ -18,9 +18,9 @@ COPY backend-package.json ./package.json
 # Se esiste un package-lock.json compatibile, usalo, altrimenti npm install
 RUN npm install --production || npm install --production
 
-COPY instagram-proxy.js ./
+COPY server.js ./
 COPY execution/ ./execution/
 
 EXPOSE 5000
 
-CMD ["node", "instagram-proxy.js"]
+CMD ["node", "server.js"]
