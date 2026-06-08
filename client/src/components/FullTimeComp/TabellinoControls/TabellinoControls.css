@@ -1,0 +1,307 @@
+/* Container dei controlli superiori */
+.controls-top {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  width: 100%;
+  padding: 1.5rem;
+  background-color: #1e1e2d;
+  border-radius: 25px;
+  box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.4);
+  margin-bottom: 0.5rem;
+}
+
+/* Selettore dei tabellini */
+#tabellinoSelect {
+  font-size: 1.1rem;
+  color: #ffffff;
+  border-radius: 25px;
+  margin-top: -1rem;
+  width: 100%;
+  padding: 0.8rem 1rem;
+  box-sizing: border-box;
+}
+
+/* Gruppo Input Instagram + Load */
+.instagram-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  margin-top: -0.8rem;
+}
+
+.instagramInput {
+  flex: 1;
+  border: 2px solid #b4ff00;
+  border-radius: 25px;
+  padding: 0.8rem 3.5rem 0.8rem 1rem;
+  /* Spazio a destra per il pallino */
+  background: #00061b;
+  color: white;
+  font-size: 1rem;
+  outline: none;
+  margin: 0;
+}
+
+.load-btn-circle {
+  position: absolute;
+  right: 8px;
+  width: 38px;
+  height: 38px;
+  border-radius: 50% !important;
+  background-color: #b4ff00 !important;
+  border: none !important;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  padding: 0 !important;
+  margin: 0 !important;
+  min-width: 0 !important;
+  box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.3) !important;
+}
+
+.load-btn-circle:hover {
+  background-color: #99d600 !important;
+  transform: scale(1.1);
+}
+
+.send-icon-img {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+  filter: brightness(0);
+  /* Rende l'icona nera */
+}
+
+/* Riga bottoni azioni */
+.action-buttons-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  margin-top: -0.5rem;
+}
+
+.action-buttons-row>button,
+.action-buttons-row>.customFileUpload {
+  flex: 1;
+  white-space: nowrap;
+  font-size: 0.85rem;
+  padding: 0.6rem 0.2rem;
+  min-width: 0 !important;
+  margin: 0 !important;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+
+/* Stile specifico per i due bottoni */
+.instagramButton,
+.customFileUpload {
+  background-color: #00061b;
+  color: #b4ff00;
+  border: 2px solid #b4ff00;
+  padding: 0.6rem 1.2rem;
+  font-size: 1rem;
+  font-weight: bold;
+  border-radius: 25px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.3);
+  text-align: center;
+  flex: 1 1 auto;
+  min-width: 160px;
+}
+
+/* Effetto hover */
+.instagramButton:hover,
+.customFileUpload:hover {
+  background-color: #b4ff00;
+  color: #00061b;
+  box-shadow: 0px 6px 12px rgba(180, 255, 0, 0.4);
+}
+
+/* Pulsante Download specifico */
+.download-button {
+  margin-top: 1.5rem;
+  display: block;
+  background-color: #00061b;
+  color: #b4ff00;
+  border: 2px solid #b4ff00;
+  padding: 0.6rem 1.2rem;
+  font-size: 1rem;
+  font-weight: bold;
+  border-radius: 25px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.3);
+  display: inline-block;
+  text-align: center;
+  margin-left: auto;
+  /* Spinge il bottone verso il margine destro */
+}
+
+.download-button:hover {
+  background-color: #b4ff00;
+  color: #00061b;
+  box-shadow: 0px 6px 12px rgba(180, 255, 0, 0.4);
+}
+
+/* Sezione risultati */
+.result-inputs {
+  display: flex;
+  flex-direction: row;
+  gap: 1.5rem;
+  justify-content: left;
+  align-items: center;
+  margin-top: 0.6rem;
+}
+
+.result-group label {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #b4ff00;
+  margin-bottom: 0.5rem;
+  text-align: center;
+}
+
+.result-group input[type="number"] {
+  width: 60px;
+  background-color: #1e1e2d;
+  color: #b4ff00;
+  border: 2px solid #b4ff00;
+  border-radius: 25px;
+  padding: 0.5rem;
+  font-size: 1rem;
+  text-align: center;
+}
+
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .controls-top {
+    padding: 1rem;
+    gap: 1rem;
+  }
+
+  .upload-button {
+    gap: 0.8rem;
+    row-gap: 1rem;
+    column-gap: 1rem;
+  }
+
+  .result-inputs {
+    flex-direction: row;
+  }
+
+  .download-button {
+    margin-left: auto;
+  }
+
+  .instagramButton,
+  .customFileUpload {
+    margin: 0;
+    flex: 1 1 45%;
+    min-width: 160px;
+  }
+}
+
+/* Titoli e etichette */
+.controls-top h3 {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: #b4ff00;
+  margin-bottom: 0.1rem;
+}
+
+.controls-top label {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: #b4ff00;
+  margin-bottom: 0.5rem;
+}
+
+
+/* Stile per il selettore del carosello */
+.carousel-selector {
+  background-color: #1e1e2d;
+  border-radius: 15px;
+  padding: 15px;
+  margin-top: 15px;
+  box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.4);
+}
+
+.carousel-selector h4 {
+  color: #b4ff00;
+  margin-bottom: 10px;
+  font-size: 1.1rem;
+}
+
+.carousel-images {
+  display: flex;
+  flex-wrap: nowrap;
+  /* Imposta lo scroll orizzontale */
+  overflow-x: auto;
+  gap: 10px;
+  margin-top: 10px;
+  padding-bottom: 10px;
+  /* Spazio per la scrollbar */
+  justify-content: flex-start;
+  /* Allinea a sinistra per lo scroll */
+  -webkit-overflow-scrolling: touch;
+  /* Scroll fluido su iOS */
+}
+
+/* Scrollbar personalizzata per il carosello */
+.carousel-images::-webkit-scrollbar {
+  height: 8px;
+}
+
+.carousel-images::-webkit-scrollbar-track {
+  background: #1e1e2d;
+  border-radius: 4px;
+}
+
+.carousel-images::-webkit-scrollbar-thumb {
+  background: #b4ff00;
+  border-radius: 4px;
+}
+
+.carousel-image-item {
+  flex: 0 0 auto;
+  /* Impedisce il restringimento */
+  cursor: pointer;
+  border: 2px solid #ccc;
+  padding: 2px;
+  border-radius: 8px;
+  width: 80px;
+  height: 80px;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.carousel-image-item:hover {
+  transform: scale(1.05);
+  box-shadow: 0px 0px 8px rgba(180, 255, 0, 0.6);
+}
+
+.carousel-image-item.selected {
+  border: 2px solid #b4ff00;
+  box-shadow: 0px 0px 8px rgba(180, 255, 0, 0.8);
+}
+
+.carousel-image-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.resultTeam {
+  border-radius: 50px;
+}

@@ -1,0 +1,122 @@
+import { useState, useCallback } from 'react';
+
+export function useTextEditor() {
+  const [title, setTitle] = useState('');
+  const [text, setText] = useState('');
+  const [richText, setRichText] = useState([]);
+  
+  const [titleColor, setTitleColor] = useState('#FFFFFF');
+  const [textColor, setTextColor] = useState('#FFFFFF');
+  const [titleFont, setTitleFont] = useState('Kenyan Coffee Bold');
+  const [textFont, setTextFont] = useState('Kenyan Coffee Regular');
+  const [titleFontSize, setTitleFontSize] = useState(180);
+  const [textFontSize, setTextFontSize] = useState(100);
+
+  const [titlePosition, setTitlePosition] = useState({ x: 0, y: 1200 });
+  const [textPosition, setTextPosition] = useState({ x: 0, y: 1385 });
+
+  const [textAboveImages, setTextAboveImages] = useState(true);
+
+  const handleTextChange = useCallback((textContainerRef) => {
+    if (!textContainerRef.current) return;
+    const html = textContainerRef.current.innerHTML;
+    const plain = textContainerRef.current.innerText;
+    setText(plain);
+
+    const container = document.createElement('div');
+    container.innerHTML = html;
+
+    const lines = [];
+    let current = [];
+
+    const flush = () => {
+      const merged = [];
+      for (const seg of current) {
+        if (!seg.text && seg.text !== '') continue;
+        if (merged.length && merged[merged.length - 1].color === seg.color) {
+          merged[merged.length - 1].text += seg.text;
+        } else {
+          merged.push({ text: seg.text, color: seg.color });
+        }
+      }
+      lines.push(merged.length > 0 ? merged : [{ text: '', color: null }]);
+      current = [];
+    };
+
+    const pushText = (t, color) => {
+      const textValue = (t || '').replace(/\u00A0/g, ' ');
+      current.push({ text: textValue, color: color || null });
+    };
+
+    const rgbToHex = (rgb) => {
+      if (!rgb || rgb === 'inherit' || rgb === 'initial') return null;
+      if (rgb.startsWith('#')) return rgb;
+
+      const match = rgb.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+      if (match) {
+        const r = parseInt(match[1], 10);
+        const g = parseInt(match[2], 10);
+        const b = parseInt(match[3], 10);
+        return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
+      }
+      return rgb;
+    };
+
+    const walk = (node, inheritedColor = null) => {
+      if (!node) return;
+      if (node.nodeType === 3) { // TEXT_NODE
+        pushText(node.nodeValue, inheritedColor);
+        return;
+      }
+      if (node.nodeType !== 1) return; // NOT ELEMENT_NODE
+
+      const tag = node.tagName;
+      let nodeColor = inheritedColor;
+
+      if (node.style && node.style.color) {
+        nodeColor = rgbToHex(node.style.color);
+      } else if (node.getAttribute && node.getAttribute('color')) {
+        nodeColor = node.getAttribute('color');
+      }
+
+      if (tag === 'BR') {
+        flush();
+        return;
+      }
+
+      if (tag === 'DIV' || tag === 'P') {
+        if (current.length > 0) flush();
+        Array.from(node.childNodes).forEach(child => walk(child, nodeColor));
+        flush();
+        return;
+      }
+
+      Array.from(node.childNodes).forEach(child => walk(child, nodeColor));
+    };
+
+    Array.from(container.childNodes).forEach(n => walk(n, null));
+    if (current.length > 0) flush();
+
+    setRichText(lines);
+  }, []);
+
+  const enlargeTextSize = useCallback((setter, step = 2) => setter(prev => prev + step), []);
+  const shrinkTextSize = useCallback((setter, step = 2) => setter(prev => Math.max(20, prev - step)), []);
+
+  return {
+    title, setTitle,
+    text, setText,
+    richText, setRichText,
+    titleColor, setTitleColor,
+    textColor, setTextColor,
+    titleFont, setTitleFont,
+    textFont, setTextFont,
+    titleFontSize, setTitleFontSize,
+    textFontSize, setTextFontSize,
+    titlePosition, setTitlePosition,
+    textPosition, setTextPosition,
+    textAboveImages, setTextAboveImages,
+    handleTextChange,
+    enlargeTextSize, shrinkTextSize
+  };
+}

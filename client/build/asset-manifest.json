@@ -1,0 +1,26 @@
+{
+  "files": {
+    "main.css": "/static/css/main.34847878.css",
+    "main.js": "/static/js/main.da93e216.js",
+    "static/media/PRETENDARD-EXTRABOLD.OTF": "/static/media/PRETENDARD-EXTRABOLD.6a8d330cb367af8c7a57.OTF",
+    "static/media/POPPINS-MEDIUM.TTF": "/static/media/POPPINS-MEDIUM.b59f6a636397975c5409.TTF",
+    "static/media/POPPINS-EXTRABOLD.TTF": "/static/media/POPPINS-EXTRABOLD.ea0f2525d7e28cedeaa2.TTF",
+    "static/media/bbtorsospro-ultra.otf": "/static/media/bbtorsospro-ultra.4d447cb747311d2b661b.otf",
+    "static/media/kenyan coffee rg it.otf": "/static/media/kenyan coffee rg it.451d74807cccd4dac120.otf",
+    "static/media/kenyan coffee bd it.otf": "/static/media/kenyan coffee bd it.1559870a1e3e274df2df.otf",
+    "static/media/Benzin-Bold.ttf": "/static/media/Benzin-Bold.f4826ddcf24e7e1ed982.ttf",
+    "static/media/Benzin-Semibold.ttf": "/static/media/Benzin-Semibold.a371ca0b2838d632a7d2.ttf",
+    "static/media/Benzin-Medium.ttf": "/static/media/Benzin-Medium.1f2b26b6dbe053c35971.ttf",
+    "static/media/Benzin-ExtraBold.ttf": "/static/media/Benzin-ExtraBold.e813bfe9bc8d5143f12e.ttf",
+    "static/media/Benzin-Regular.ttf": "/static/media/Benzin-Regular.a1717d5bc4d7fd99e902.ttf",
+    "static/media/kenyan coffee bd.otf": "/static/media/kenyan coffee bd.ff4f8651289d6763aa98.otf",
+    "static/media/kenyan coffee rg.otf": "/static/media/kenyan coffee rg.f422e407e44f177b62ab.otf",
+    "index.html": "/index.html",
+    "main.34847878.css.map": "/static/css/main.34847878.css.map",
+    "main.da93e216.js.map": "/static/js/main.da93e216.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.34847878.css",
+    "static/js/main.da93e216.js"
+  ]
+}

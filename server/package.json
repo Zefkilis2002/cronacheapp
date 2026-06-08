@@ -1,0 +1,26 @@
+{
+  "name": "cronacheapp-server",
+  "version": "1.0.0",
+  "private": true,
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@azure-rest/ai-inference": "^1.0.0-beta.6",
+    "@azure/core-auth": "^1.10.1",
+    "@azure/core-sse": "^2.3.0",
+    "axios": "^1.8.3",
+    "cheerio": "^1.2.0",
+    "cors": "^2.8.5",
+    "dotenv": "^17.3.1",
+    "express": "^4.21.2",
+    "firebase-admin": "^13.6.1",
+    "node-cache": "^5.1.2",
+    "openai": "^4.87.3",
+    "puppeteer": "^24.36.1"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  }
+}

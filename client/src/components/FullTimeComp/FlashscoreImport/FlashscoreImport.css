@@ -1,0 +1,239 @@
+.flashscore-import {
+  padding: 15px;
+  max-width: 500px;
+  margin: 0 auto;
+}
+
+.flashscore-title {
+  color: #f0f0f0;
+  font-size: 16px;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.flashscore-icon {
+  font-size: 20px;
+}
+
+.flashscore-controls {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.flashscore-select {
+  flex: 1;
+  padding: 10px 12px;
+  background: #2a2a2a;
+  color: #e0e0e0;
+  border: 1px solid #444;
+  border-radius: 8px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.flashscore-select:hover {
+  border-color: #e6a817;
+}
+
+.flashscore-select:focus {
+  outline: none;
+  border-color: #e6a817;
+  box-shadow: 0 0 0 2px rgba(230, 168, 23, 0.2);
+}
+
+.flashscore-search-btn {
+  padding: 10px 18px;
+  background: linear-gradient(135deg, #e6a817, #d4941a);
+  color: #1a1a1a;
+  border: none;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 140px;
+  justify-content: center;
+}
+
+.flashscore-search-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(230, 168, 23, 0.3);
+}
+
+.flashscore-search-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Spinner */
+.flashscore-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2.5px solid rgba(26, 26, 26, 0.3);
+  border-top-color: #1a1a1a;
+  border-radius: 50%;
+  animation: fs-spin 0.7s linear infinite;
+  display: inline-block;
+}
+
+@keyframes fs-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Loading bar */
+.flashscore-loading {
+  text-align: center;
+  padding: 20px 0;
+  color: #999;
+  font-size: 13px;
+}
+
+.flashscore-loading p {
+  margin-top: 10px;
+}
+
+.flashscore-loading-bar {
+  height: 3px;
+  background: #333;
+  border-radius: 3px;
+  overflow: hidden;
+  position: relative;
+}
+
+.flashscore-loading-bar::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -40%;
+  width: 40%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, #e6a817, transparent);
+  animation: fs-loading 1.4s ease-in-out infinite;
+}
+
+@keyframes fs-loading {
+  0% { left: -40%; }
+  100% { left: 100%; }
+}
+
+/* Error */
+.flashscore-error {
+  background: rgba(220, 53, 69, 0.12);
+  border: 1px solid rgba(220, 53, 69, 0.3);
+  border-radius: 8px;
+  padding: 12px 14px;
+  color: #ff6b7a;
+  font-size: 13px;
+}
+
+.flashscore-error span {
+  margin-right: 4px;
+}
+
+.flashscore-error-hint {
+  color: #999;
+  font-size: 11px;
+  margin-top: 6px;
+}
+
+/* Results */
+.flashscore-results {
+  margin-top: 4px;
+}
+
+.flashscore-results-count {
+  color: #888;
+  font-size: 11px;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.flashscore-match-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 320px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.flashscore-match-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.flashscore-match-list::-webkit-scrollbar-track {
+  background: #222;
+  border-radius: 4px;
+}
+
+.flashscore-match-list::-webkit-scrollbar-thumb {
+  background: #555;
+  border-radius: 4px;
+}
+
+.flashscore-match-item {
+  background: #2a2a2a;
+  border: 1px solid #3a3a3a;
+  border-radius: 8px;
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.flashscore-match-item:hover {
+  border-color: #e6a817;
+  background: #333;
+}
+
+.flashscore-match-item.selected {
+  border-color: #e6a817;
+  background: rgba(230, 168, 23, 0.1);
+  box-shadow: 0 0 0 1px rgba(230, 168, 23, 0.3);
+}
+
+.flashscore-match-date {
+  display: block;
+  font-size: 10px;
+  color: #777;
+  margin-bottom: 4px;
+  letter-spacing: 0.3px;
+}
+
+.flashscore-match-teams {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.flashscore-team {
+  flex: 1;
+  font-size: 13px;
+  color: #e0e0e0;
+  font-weight: 500;
+}
+
+.flashscore-team.home {
+  text-align: right;
+}
+
+.flashscore-team.away {
+  text-align: left;
+}
+
+.flashscore-match-score {
+  font-size: 15px;
+  font-weight: 800;
+  color: #e6a817;
+  min-width: 50px;
+  text-align: center;
+  flex-shrink: 0;
+}
