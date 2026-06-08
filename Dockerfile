@@ -14,12 +14,14 @@ ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 WORKDIR /app
 
 # Copia i file delle dipendenze
-COPY backend-package.json ./package.json
+COPY server/package.json ./package.json
+COPY server/package-lock.json* ./
 # Se esiste un package-lock.json compatibile, usalo, altrimenti npm install
 RUN npm install --production || npm install --production
 
-COPY server.js ./
-COPY execution/ ./execution/
+COPY server/server.js ./
+COPY server/database.js* ./
+COPY server/execution/ ./execution/
 
 EXPOSE 5000
 
