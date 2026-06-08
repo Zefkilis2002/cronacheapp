@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { Stage, Layer, Rect, Image as KonvaImage } from 'react-konva';
 import useImage from 'use-image';
 import DatiClassifica from './DatiClassifica';
+import { CLASSIFICA_LAYOUT } from '../../config/layoutConstants';
 import './CanvaClassifica.css';
 
 const CanvaClassifica = ({
@@ -126,8 +127,8 @@ const CanvaClassifica = ({
       const stage = stageRef.current;
       if (!stage) return;
 
-      const originalWidth = 2000;
-      const originalHeight = 2500;
+      const originalWidth = CLASSIFICA_LAYOUT.STAGE.WIDTH;
+      const originalHeight = CLASSIFICA_LAYOUT.STAGE.HEIGHT;
 
       const containerWidth = window.innerWidth * 0.9;
       const containerHeight = window.innerHeight * 0.9;
@@ -183,14 +184,14 @@ const CanvaClassifica = ({
 
   return (
     <div className="canvas-classifica-container">
-      <Stage ref={stageRef} width={2000} height={2500}>
-        <Layer clipX={0} clipY={0} clipWidth={2000} clipHeight={2500}>
+      <Stage ref={stageRef} width={CLASSIFICA_LAYOUT.STAGE.WIDTH} height={CLASSIFICA_LAYOUT.STAGE.HEIGHT}>
+        <Layer clipX={0} clipY={0} clipWidth={CLASSIFICA_LAYOUT.STAGE.WIDTH} clipHeight={CLASSIFICA_LAYOUT.STAGE.HEIGHT}>
           {/* Rettangolo di sfondo per visibilità */}
           <Rect
             x={0}
             y={0}
-            width={2000}
-            height={2500}
+            width={CLASSIFICA_LAYOUT.STAGE.WIDTH}
+            height={CLASSIFICA_LAYOUT.STAGE.HEIGHT}
             fill="#00061b"
           />
 
@@ -216,8 +217,8 @@ const CanvaClassifica = ({
           {background && (
             <KonvaImage
               image={background}
-              width={2000}
-              height={2500}
+              width={CLASSIFICA_LAYOUT.STAGE.WIDTH}
+              height={CLASSIFICA_LAYOUT.STAGE.HEIGHT}
               listening={false}
             />
           )}
@@ -233,12 +234,12 @@ const CanvaClassifica = ({
         <Layer>
           <Rect
             ref={borderRef}
-            x={0}
-            y={0}
-            width={2000}
-            height={2500}
-            stroke="white"
-            strokeWidth={5}
+            x={CLASSIFICA_LAYOUT.STAGE.BORDER.X}
+            y={CLASSIFICA_LAYOUT.STAGE.BORDER.Y}
+            width={CLASSIFICA_LAYOUT.STAGE.BORDER.WIDTH}
+            height={CLASSIFICA_LAYOUT.STAGE.BORDER.HEIGHT}
+            stroke={CLASSIFICA_LAYOUT.STAGE.BORDER.STROKE}
+            strokeWidth={CLASSIFICA_LAYOUT.STAGE.BORDER.STROKE_WIDTH}
             listening={false}
           />
         </Layer>

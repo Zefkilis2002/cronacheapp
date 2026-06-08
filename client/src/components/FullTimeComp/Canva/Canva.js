@@ -2,6 +2,7 @@ import React, { useEffect, memo } from 'react';
 import config from '../../../config';
 import { Stage, Layer, Image as KonvaImage, Text, Rect } from 'react-konva';
 import useImage from 'use-image';
+import { FULLTIME_LAYOUT } from '../../../config/layoutConstants';
 import './Canva.css';
 
 const Canva = ({
@@ -124,8 +125,8 @@ const Canva = ({
         const newScaleY = oldScaleY * scaleBy;
 
         // Limiti min/max
-        const MIN_SCALE = 0.1;
-        const MAX_SCALE = 5;
+        const MIN_SCALE = FULLTIME_LAYOUT.USER_IMAGE.minScale;
+        const MAX_SCALE = FULLTIME_LAYOUT.USER_IMAGE.maxScale;
 
         if (newScaleX >= MIN_SCALE && newScaleX <= MAX_SCALE) {
           // Calcolo del punto sullo stage (in coordinate locali del canvas non scalato, ma stage stesso è scalato dal responsive logic)
@@ -193,8 +194,8 @@ const Canva = ({
       const stage = stageRef.current;
       if (!stage) return;
 
-      const originalWidth = 1440;
-      const originalHeight = 1800;
+      const originalWidth = FULLTIME_LAYOUT.STAGE.WIDTH;
+      const originalHeight = FULLTIME_LAYOUT.STAGE.HEIGHT;
 
       const containerWidth = window.innerWidth * 0.9;
       const containerHeight = window.innerHeight * 0.9;
@@ -263,20 +264,20 @@ const Canva = ({
   };
 
   // Calcola le dimensioni scalate per l'immagine
-  const imageDimensions = getScaledDimensions(instaImg || uploadedImg, 1440, 1800);
+  const imageDimensions = getScaledDimensions(instaImg || uploadedImg, FULLTIME_LAYOUT.STAGE.WIDTH, FULLTIME_LAYOUT.STAGE.HEIGHT);
 
   // Calcola la posizione per centrare l'immagine
-  const centeredX = (1440 - imageDimensions.width) / 2;
-  const centeredY = (1800 - imageDimensions.height) / 2;
+  const centeredX = (FULLTIME_LAYOUT.STAGE.WIDTH - imageDimensions.width) / 2;
+  const centeredY = (FULLTIME_LAYOUT.STAGE.HEIGHT - imageDimensions.height) / 2;
 
   return (
     <div className="canvas-container">
       <Stage
         ref={stageRef}
-        width={1440}
-        height={1800}
+        width={FULLTIME_LAYOUT.STAGE.WIDTH}
+        height={FULLTIME_LAYOUT.STAGE.HEIGHT}
       >
-        <Layer clipX={0} clipY={0} clipWidth={1440} clipHeight={1800}>
+        <Layer clipX={0} clipY={0} clipWidth={FULLTIME_LAYOUT.STAGE.WIDTH} clipHeight={FULLTIME_LAYOUT.STAGE.HEIGHT}>
           {uploadedImg && (
             <KonvaImage
               image={uploadedImg}
@@ -312,7 +313,7 @@ const Canva = ({
             />
           )}
           {background && (
-            <KonvaImage image={background} width={1440} height={1800} listening={false} />
+            <KonvaImage image={background} width={FULLTIME_LAYOUT.STAGE.WIDTH} height={FULLTIME_LAYOUT.STAGE.HEIGHT} listening={false} />
           )}
           {logo1 && (
             <KonvaImage
@@ -321,8 +322,8 @@ const Canva = ({
               y={logo1Position.y}
               scaleX={logo1Scale.scaleX}
               scaleY={logo1Scale.scaleY}
-              width={getScaledDimensions(logo1, 200, 200).width}
-              height={getScaledDimensions(logo1, 200, 200).height}
+              width={getScaledDimensions(logo1, FULLTIME_LAYOUT.LOGO_1.maxWidth, FULLTIME_LAYOUT.LOGO_1.maxHeight).width}
+              height={getScaledDimensions(logo1, FULLTIME_LAYOUT.LOGO_1.maxWidth, FULLTIME_LAYOUT.LOGO_1.maxHeight).height}
             />
           )}
           {logo2 && (
@@ -332,38 +333,38 @@ const Canva = ({
               y={logo2Position.y}
               scaleX={logo2Scale.scaleX}
               scaleY={logo2Scale.scaleY}
-              width={getScaledDimensions(logo2, 200, 200).width}
-              height={getScaledDimensions(logo2, 200, 200).height}
+              width={getScaledDimensions(logo2, FULLTIME_LAYOUT.LOGO_2.maxWidth, FULLTIME_LAYOUT.LOGO_2.maxHeight).width}
+              height={getScaledDimensions(logo2, FULLTIME_LAYOUT.LOGO_2.maxWidth, FULLTIME_LAYOUT.LOGO_2.maxHeight).height}
             />
           )}
           <Text
             text={String(score1)}
-            fontSize={160}
+            fontSize={FULLTIME_LAYOUT.SCORE_1.fontSize}
             fontFamily="BBTorsosPro-Ultra"
             fill="white"
-            x={485}
-            scaleX={0.8}
+            x={FULLTIME_LAYOUT.SCORE_1.startX}
+            scaleX={FULLTIME_LAYOUT.SCORE_1.scaleX}
             y={score1Y}
           />
           <Text
             text={String(score2)}
-            fontSize={160}
+            fontSize={FULLTIME_LAYOUT.SCORE_2.fontSize}
             fontFamily="BBTorsosPro-Ultra"
             fill="white"
-            x={848}
-            scaleX={0.8}
+            x={FULLTIME_LAYOUT.SCORE_2.startX}
+            scaleX={FULLTIME_LAYOUT.SCORE_2.scaleX}
             y={score2Y}
           />
           {scorersTeam1.map((scorer, index) => (
             <Text
               key={index}
               text={scorer}
-              fontSize={30}
-              fontFamily="Benzin-Medium"
+              fontSize={FULLTIME_LAYOUT.SCORERS.TEAM_1.fontSize}
+              fontFamily={FULLTIME_LAYOUT.SCORERS.TEAM_1.fontFamily}
               fill="white"
               letterSpacing={0.2}
-              x={180}
-              y={1510 + index * 40}
+              x={FULLTIME_LAYOUT.SCORERS.TEAM_1.startX}
+              y={FULLTIME_LAYOUT.SCORERS.TEAM_1.startY + index * FULLTIME_LAYOUT.SCORERS.TEAM_1.yOffset}
             />
           ))}
           {scorersTeam2.map((scorer, index) => {
@@ -371,14 +372,14 @@ const Canva = ({
               <Text
                 key={index}
                 text={scorer}
-                fontSize={30}
-                fontFamily="Benzin-SemiBold"
+                fontSize={FULLTIME_LAYOUT.SCORERS.TEAM_2.fontSize}
+                fontFamily={FULLTIME_LAYOUT.SCORERS.TEAM_2.fontFamily}
                 fill="white"
                 align="right"
                 letterSpacing={0.2}
-                width={600}
-                x={680}
-                y={1510 + index * 40}
+                width={FULLTIME_LAYOUT.SCORERS.TEAM_2.width}
+                x={FULLTIME_LAYOUT.SCORERS.TEAM_2.startX}
+                y={FULLTIME_LAYOUT.SCORERS.TEAM_2.startY + index * FULLTIME_LAYOUT.SCORERS.TEAM_2.yOffset}
                 wrap="none"
                 listening={false}
               />
@@ -388,12 +389,12 @@ const Canva = ({
         <Layer>
           <Rect
             ref={borderRef}
-            x={2.5}
-            y={2.5}
-            width={1435}
-            height={1795}
-            stroke="white"
-            strokeWidth={5}
+            x={FULLTIME_LAYOUT.STAGE.BORDER.X}
+            y={FULLTIME_LAYOUT.STAGE.BORDER.Y}
+            width={FULLTIME_LAYOUT.STAGE.BORDER.WIDTH}
+            height={FULLTIME_LAYOUT.STAGE.BORDER.HEIGHT}
+            stroke={FULLTIME_LAYOUT.STAGE.BORDER.STROKE}
+            strokeWidth={FULLTIME_LAYOUT.STAGE.BORDER.STROKE_WIDTH}
             listening={false}
           />
         </Layer>

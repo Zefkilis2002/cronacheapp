@@ -1,19 +1,20 @@
 import { useState, useCallback } from 'react';
+import { NEWS_LAYOUT } from '../config/layoutConstants';
 
 export function useTextEditor() {
   const [title, setTitle] = useState('');
   const [text, setText] = useState('');
   const [richText, setRichText] = useState([]);
   
-  const [titleColor, setTitleColor] = useState('#FFFFFF');
-  const [textColor, setTextColor] = useState('#FFFFFF');
-  const [titleFont, setTitleFont] = useState('Kenyan Coffee Bold');
-  const [textFont, setTextFont] = useState('Kenyan Coffee Regular');
-  const [titleFontSize, setTitleFontSize] = useState(180);
-  const [textFontSize, setTextFontSize] = useState(100);
+  const [titleColor, setTitleColor] = useState(NEWS_LAYOUT.TITLE.color);
+  const [textColor, setTextColor] = useState(NEWS_LAYOUT.TEXT.color);
+  const [titleFont, setTitleFont] = useState(NEWS_LAYOUT.TITLE.fontFamily);
+  const [textFont, setTextFont] = useState(NEWS_LAYOUT.TEXT.fontFamily);
+  const [titleFontSize, setTitleFontSize] = useState(NEWS_LAYOUT.TITLE.fontSize);
+  const [textFontSize, setTextFontSize] = useState(NEWS_LAYOUT.TEXT.fontSize);
 
-  const [titlePosition, setTitlePosition] = useState({ x: 0, y: 1200 });
-  const [textPosition, setTextPosition] = useState({ x: 0, y: 1385 });
+  const [titlePosition, setTitlePosition] = useState({ x: NEWS_LAYOUT.TITLE.startX, y: NEWS_LAYOUT.TITLE.startY });
+  const [textPosition, setTextPosition] = useState({ x: NEWS_LAYOUT.TEXT.startX, y: NEWS_LAYOUT.TEXT.startY });
 
   const [textAboveImages, setTextAboveImages] = useState(true);
 
@@ -101,7 +102,7 @@ export function useTextEditor() {
   }, []);
 
   const enlargeTextSize = useCallback((setter, step = 2) => setter(prev => prev + step), []);
-  const shrinkTextSize = useCallback((setter, step = 2) => setter(prev => Math.max(20, prev - step)), []);
+  const shrinkTextSize = useCallback((setter, step = 2) => setter(prev => Math.max(NEWS_LAYOUT.MIN_FONT_SIZE, prev - step)), []);
 
   return {
     title, setTitle,

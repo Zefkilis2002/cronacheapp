@@ -2,6 +2,7 @@ import React from 'react';
 import { Group, Text, Image as KonvaImage } from 'react-konva';
 import useImage from 'use-image';
 import { findTeamLogo } from '../../utils/LogoConstants';
+import { CLASSIFICA_LAYOUT } from '../../config/layoutConstants';
 
 export const TEAMS_LIST = [
     'AEK Atene',
@@ -68,11 +69,7 @@ export const normalizeTeamName = (scrapedName) => {
 };
 
 // Font styling
-const FONT_SPECS = {
-    TEAM_NAME: { family: 'Pretendard-ExtraBold', size: 70 },
-    STATS: { family: 'Poppins-Medium', size: 68 },
-    PTS: { family: 'Poppins-ExtraBold', size: 68 }
-};
+const FONT_SPECS = CLASSIFICA_LAYOUT.FONT_SPECS;
 
 // Sub-component for individual rows to handle image hooks
 const ClassificaRow = ({ row, y, onTeamClick, onValueClick, colX }) => {
@@ -81,8 +78,8 @@ const ClassificaRow = ({ row, y, onTeamClick, onValueClick, colX }) => {
     const [logoImage] = useImage(logoPath || undefined);
 
     // Logo settings
-    const LOGO_SIZE = 90;
-    const LOGO_X = colX.TEAM_NAME - LOGO_SIZE - 45; // 20px padding
+    const LOGO_SIZE = CLASSIFICA_LAYOUT.LOGO.size;
+    const LOGO_X = colX.TEAM_NAME - LOGO_SIZE - CLASSIFICA_LAYOUT.LOGO.padding;
     const LOGO_OFFSET_Y = LOGO_SIZE / 2;
 
     return (
@@ -221,18 +218,10 @@ const ClassificaRow = ({ row, y, onTeamClick, onValueClick, colX }) => {
 
 const DatiClassifica = ({ rows = INITIAL_ROWS, onTeamClick, onValueClick }) => {
     // Specific Y positions for each of the 7 rows
-    const ROW_Y = [1460, 1605, 1741, 1886, 2026, 2165, 2310];
+    const ROW_Y = CLASSIFICA_LAYOUT.ROW_Y;
 
     // Specific X positions
-    const COL_X = {
-        TEAM_NAME: 476,
-        P: 1090,
-        W: 1220,
-        D: 1334,
-        L: 1458,
-        GD: 1595,
-        PTS: 1746
-    };
+    const COL_X = CLASSIFICA_LAYOUT.COL_X;
 
     return (
         <Group>

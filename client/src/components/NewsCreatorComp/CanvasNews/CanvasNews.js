@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef, useCallback, memo } from 'react';
 import { Stage, Layer, Image as KonvaImage, Text, Group } from 'react-konva';
 import useImage from 'use-image';
+import { NEWS_LAYOUT } from '../../../config/layoutConstants';
 import './CanvasNews.css';
 
 // Componente per le immagini di sfondo
@@ -207,16 +208,16 @@ function CanvasNews({
   }, [setSelectedLogo, setSelectedBackground]);
 
   // 🔧 COSTANTI FISSE - NON CAMBIANO MAI
-  const ORIGINAL_WIDTH = 1440;
-  const ORIGINAL_HEIGHT = 1800;
+  const ORIGINAL_WIDTH = NEWS_LAYOUT.STAGE.WIDTH;
+  const ORIGINAL_HEIGHT = NEWS_LAYOUT.STAGE.HEIGHT;
   
   const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
   const nudgePos = (p, dx, dy) => ({ x: p.x + dx, y: p.y + dy });
 
   // Sensibilità per i tasti
-  const KEY_MOVE_STEP = 2;
-  const KEY_SCALE_STEP = 0.02;
-  const KEY_ROTATE_STEP = 2;
+  const KEY_MOVE_STEP = NEWS_LAYOUT.KEY_MOVE_STEP;
+  const KEY_SCALE_STEP = NEWS_LAYOUT.KEY_SCALE_STEP;
+  const KEY_ROTATE_STEP = NEWS_LAYOUT.KEY_ROTATE_STEP;
   const normalizeAngle = (a) => ((a % 360) + 360) % 360;
 
   const measureCtxRef = useRef(null);

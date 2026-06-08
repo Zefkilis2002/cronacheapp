@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { TEAM_LOGOS } from '../utils/LogoConstants';
+import { FULLTIME_LAYOUT } from '../config/layoutConstants';
 
 export function useFullTimeState() {
   const [selectedTabellino, setSelectedTabellino] = useState('superleague.png');
@@ -17,16 +18,16 @@ export function useFullTimeState() {
   const [uploadedLogo1, setUploadedLogo1] = useState(null);
   const [uploadedLogo2, setUploadedLogo2] = useState(null);
 
-  const [logo1Position, setLogo1Position] = useState({ x: 215, y: 1270 });
-  const [logo2Position, setLogo2Position] = useState({ x: 1052, y: 1274 });
-  const [logo1Scale, setLogo1Scale] = useState({ scaleX: 0.90, scaleY: 0.90 });
-  const [logo2Scale, setLogo2Scale] = useState({ scaleX: 0.90, scaleY: 0.90 });
+  const [logo1Position, setLogo1Position] = useState({ x: FULLTIME_LAYOUT.LOGO_1.startX, y: FULLTIME_LAYOUT.LOGO_1.startY });
+  const [logo2Position, setLogo2Position] = useState({ x: FULLTIME_LAYOUT.LOGO_2.startX, y: FULLTIME_LAYOUT.LOGO_2.startY });
+  const [logo1Scale, setLogo1Scale] = useState({ scaleX: FULLTIME_LAYOUT.LOGO_1.defaultScaleX, scaleY: FULLTIME_LAYOUT.LOGO_1.defaultScaleY });
+  const [logo2Scale, setLogo2Scale] = useState({ scaleX: FULLTIME_LAYOUT.LOGO_2.defaultScaleX, scaleY: FULLTIME_LAYOUT.LOGO_2.defaultScaleY });
 
-  const [score1Y, setScore1Y] = useState(1282);
-  const [score2Y, setScore2Y] = useState(1282);
+  const [score1Y, setScore1Y] = useState(FULLTIME_LAYOUT.SCORE_1.startY);
+  const [score2Y, setScore2Y] = useState(FULLTIME_LAYOUT.SCORE_2.startY);
 
-  const [imagePosition, setImagePosition] = useState({ x: 100, y: 100 });
-  const [imageScale, setImageScale] = useState({ scaleX: 1, scaleY: 1 });
+  const [imagePosition, setImagePosition] = useState({ x: FULLTIME_LAYOUT.USER_IMAGE.startX, y: FULLTIME_LAYOUT.USER_IMAGE.startY });
+  const [imageScale, setImageScale] = useState({ scaleX: FULLTIME_LAYOUT.USER_IMAGE.defaultScaleX, scaleY: FULLTIME_LAYOUT.USER_IMAGE.defaultScaleY });
 
   const [activeTab, setActiveTab] = useState('general');
   const [flashscoreData, setFlashscoreData] = useState({
@@ -46,27 +47,27 @@ export function useFullTimeState() {
   const moveLogo = useCallback((logo, direction) => {
     const setter = logo === 1 ? setLogo1Position : setLogo2Position;
     setter(prev => ({
-      x: direction === 'left' ? prev.x - 4 : direction === 'right' ? prev.x + 4 : prev.x,
-      y: direction === 'up' ? prev.y - 4 : direction === 'down' ? prev.y + 4 : prev.y,
+      x: direction === 'left' ? prev.x - FULLTIME_LAYOUT.MOVE_STEP : direction === 'right' ? prev.x + FULLTIME_LAYOUT.MOVE_STEP : prev.x,
+      y: direction === 'up' ? prev.y - FULLTIME_LAYOUT.MOVE_STEP : direction === 'down' ? prev.y + FULLTIME_LAYOUT.MOVE_STEP : prev.y,
     }));
   }, []);
 
   const resizeLogo = useCallback((logo, type) => {
     const setter = logo === 1 ? setLogo1Scale : setLogo2Scale;
     setter(prev => ({
-      scaleX: type === 'increase' ? prev.scaleX + 0.1 : Math.max(0.1, prev.scaleX - 0.1),
-      scaleY: type === 'increase' ? prev.scaleY + 0.1 : Math.max(0.1, prev.scaleY - 0.1),
+      scaleX: type === 'increase' ? prev.scaleX + FULLTIME_LAYOUT.SCALE_STEP : Math.max(FULLTIME_LAYOUT.USER_IMAGE.minScale, prev.scaleX - FULLTIME_LAYOUT.SCALE_STEP),
+      scaleY: type === 'increase' ? prev.scaleY + FULLTIME_LAYOUT.SCALE_STEP : Math.max(FULLTIME_LAYOUT.USER_IMAGE.minScale, prev.scaleY - FULLTIME_LAYOUT.SCALE_STEP),
     }));
   }, []);
 
   const increaseImageSize = useCallback(() => {
-    setImageScale(prev => ({ scaleX: prev.scaleX + 0.1, scaleY: prev.scaleY + 0.1 }));
+    setImageScale(prev => ({ scaleX: prev.scaleX + FULLTIME_LAYOUT.SCALE_STEP, scaleY: prev.scaleY + FULLTIME_LAYOUT.SCALE_STEP }));
   }, []);
 
   const decreaseImageSize = useCallback(() => {
     setImageScale(prev => ({
-      scaleX: Math.max(0.1, prev.scaleX - 0.1),
-      scaleY: Math.max(0.1, prev.scaleY - 0.1),
+      scaleX: Math.max(FULLTIME_LAYOUT.USER_IMAGE.minScale, prev.scaleX - FULLTIME_LAYOUT.SCALE_STEP),
+      scaleY: Math.max(FULLTIME_LAYOUT.USER_IMAGE.minScale, prev.scaleY - FULLTIME_LAYOUT.SCALE_STEP),
     }));
   }, []);
 

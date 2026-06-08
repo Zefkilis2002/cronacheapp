@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { NEWS_LAYOUT } from '../config/layoutConstants';
 
 export function useCanvasElements() {
   const [backgroundImages, setBackgroundImages] = useState([]);
@@ -36,8 +37,8 @@ export function useCanvasElements() {
       const newImage = {
         id: `bg-${Date.now()}`,
         src: objectUrl,
-        position: { x: 0, y: 0 },
-        scale: { scaleX: 1, scaleY: 1 }
+        position: { x: NEWS_LAYOUT.USER_IMAGE.startX, y: NEWS_LAYOUT.USER_IMAGE.startY },
+        scale: { scaleX: NEWS_LAYOUT.USER_IMAGE.defaultScaleX, scaleY: NEWS_LAYOUT.USER_IMAGE.defaultScaleY }
       };
       
       setSelectedBackground(newImage.id);
@@ -64,8 +65,8 @@ export function useCanvasElements() {
       const newLogo = {
         id: `logo-${Date.now()}`,
         src: objectUrl,
-        position: { x: 65, y: 1260 },
-        scale: { scaleX: 1, scaleY: 1 }
+        position: { x: NEWS_LAYOUT.LOGO.startX, y: NEWS_LAYOUT.LOGO.startY },
+        scale: { scaleX: NEWS_LAYOUT.LOGO.defaultScaleX, scaleY: NEWS_LAYOUT.LOGO.defaultScaleY }
       };
 
       setSelectedLogo(newLogo.id);
