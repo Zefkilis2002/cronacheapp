@@ -7,7 +7,6 @@ import Toolbar from '../components/FullTimeComp/ToolBar/ToolBar';
 import Canva from '../components/FullTimeComp/Canva/Canva';
 import FlashscoreImport from '../components/FullTimeComp/FlashscoreImport/FlashscoreImport';
 import './FullTimeEditor.css';
-import { TEAM_LOGOS } from '../utils/LogoConstants';
 
 const FullTimeEditor = () => {
   const state = useFullTimeState();

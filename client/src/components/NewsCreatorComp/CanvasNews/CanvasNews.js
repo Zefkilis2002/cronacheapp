@@ -158,6 +158,9 @@ const MultiLineText = memo(({ text, x, y, fontFamily, fontSize, color, width, se
     );
 });
 
+const ORIGINAL_WIDTH = NEWS_LAYOUT.STAGE.WIDTH;
+const ORIGINAL_HEIGHT = NEWS_LAYOUT.STAGE.HEIGHT;
+
 function CanvasNews({
   stageRef,
   backgroundImages,
@@ -207,10 +210,6 @@ function CanvasNews({
     setSelectedBackground(null);
   }, [setSelectedLogo, setSelectedBackground]);
 
-  // 🔧 COSTANTI FISSE - NON CAMBIANO MAI
-  const ORIGINAL_WIDTH = NEWS_LAYOUT.STAGE.WIDTH;
-  const ORIGINAL_HEIGHT = NEWS_LAYOUT.STAGE.HEIGHT;
-  
   const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
   const nudgePos = (p, dx, dy) => ({ x: p.x + dx, y: p.y + dy });
 

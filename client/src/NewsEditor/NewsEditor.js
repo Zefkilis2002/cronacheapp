@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { useCanvasElements } from '../hooks/useCanvasElements';
 import { useTextEditor } from '../hooks/useTextEditor';
 import NewsCreator from '../components/NewsCreatorComp/NewsCreator/NewsCreator';
@@ -28,8 +28,8 @@ function NewsEditor() {
 
   const {
     title, setTitle,
-    text, setText,
-    richText, setRichText,
+    text,
+    richText,
     titleColor, setTitleColor,
     textColor, setTextColor,
     titleFont, setTitleFont,
@@ -51,7 +51,6 @@ function NewsEditor() {
 
   // Passi unificati per controlli UI
   const MOVE_STEP = 2;    // px
-  const SCALE_STEP = 0.02; // 2%
   const FONT_STEP = 2;    // px
 
 
