@@ -379,7 +379,7 @@ app.get('/api/get-matches', async (req, res) => {
     });
   }
 
-  const days = parseInt(daysBack) || 7;
+  const days = parseInt(daysBack) || 365;
   const cacheKey = `matches_${country}_${league}_${days}`;
 
   // Verifica cache

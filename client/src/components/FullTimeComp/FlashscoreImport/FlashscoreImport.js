@@ -43,14 +43,14 @@ const FlashscoreImport = ({ onMatchSelect, flashscoreData, setFlashscoreData }) 
 
         try {
             const response = await fetch(
-                `${config.API_BASE_URL}/api/get-matches?country=${comp.country}&league=${comp.league}&daysBack=7`
+                `${config.API_BASE_URL}/api/get-matches?country=${comp.country}&league=${comp.league}&daysBack=365`
             );
             const data = await response.json();
 
             if (data.status && data.matches && data.matches.length > 0) {
                 setMatches(data.matches);
             } else {
-                setError(data.message || 'Nessuna partita trovata negli ultimi 7 giorni.');
+                setError(data.message || "Nessuna partita trovata nell'ultimo anno.");
             }
         } catch (err) {
             console.error('Flashscore fetch error:', err);
