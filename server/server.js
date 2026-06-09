@@ -613,7 +613,56 @@ Tzimas terminerà la stagione in prestito al Norimberga, prima di approdare defi
   }
 });
 
-// --- NUOVO ENDPOINT: Ricerca Loghi (Proxy per TheSportsDB con Cache) ---
+// Lista delle squadre greche locali e nazionali per ricerca istantanea
+const LOCAL_TEAMS = [
+  // Super League
+  { name: "AEK Athens", logoUrl: "/loghi/SuperLeague/aek.png" },
+  { name: "AEL Larissa", logoUrl: "/loghi/SuperLeague/ael.png" },
+  { name: "Aris Thessaloniki", logoUrl: "/loghi/SuperLeague/aris.png" },
+  { name: "Asteras Tripolis", logoUrl: "/loghi/SuperLeague/asteras.png" },
+  { name: "Atromitos", logoUrl: "/loghi/SuperLeague/atromitos.png" },
+  { name: "Kifisia", logoUrl: "/loghi/SuperLeague/kifisia.png" },
+  { name: "Levadiakos", logoUrl: "/loghi/SuperLeague/levadiakos.png" },
+  { name: "OFI Crete", logoUrl: "/loghi/SuperLeague/ofi.png" },
+  { name: "Olympiakos", logoUrl: "/loghi/SuperLeague/olympiakos.png" },
+  { name: "Panathinaikos", logoUrl: "/loghi/SuperLeague/panathinaikos.png" },
+  { name: "Panetolikos", logoUrl: "/loghi/SuperLeague/panetolikos.png" },
+  { name: "Panserraikos", logoUrl: "/loghi/SuperLeague/panseraikos.png" },
+  { name: "PAOK", logoUrl: "/loghi/SuperLeague/paok.png" },
+  { name: "Volos", logoUrl: "/loghi/SuperLeague/volos.png" },
+  // Super League 2
+  { name: "Chrisoupolis", logoUrl: "/loghi/SuperLeague2/chrisoupolis.png" },
+  { name: "Egaleo", logoUrl: "/loghi/SuperLeague2/egaleo.png" },
+  { name: "Giannina", logoUrl: "/loghi/SuperLeague2/giannina.png" },
+  { name: "Hellas Syrou", logoUrl: "/loghi/SuperLeague2/hellas_syrou.png" },
+  { name: "Ilioupoli", logoUrl: "/loghi/SuperLeague2/ilioupoli.png" },
+  { name: "Iraklis", logoUrl: "/loghi/SuperLeague2/iraklis.png" },
+  { name: "Kalamata", logoUrl: "/loghi/SuperLeague2/kalamata.png" },
+  { name: "Kallithea", logoUrl: "/loghi/SuperLeague2/kallithea.png" },
+  { name: "Kampaniakos", logoUrl: "/loghi/SuperLeague2/kampaniakos.png" },
+  { name: "Karditsa", logoUrl: "/loghi/SuperLeague2/karditsa.png" },
+  { name: "Kavala", logoUrl: "/loghi/SuperLeague2/kavala.png" },
+  { name: "Marko", logoUrl: "/loghi/SuperLeague2/marko.png" },
+  { name: "Niki Volou", logoUrl: "/loghi/SuperLeague2/niki_volou.png" },
+  { name: "Panionios", logoUrl: "/loghi/SuperLeague2/panionios.png" },
+  // Gamma Ethniki
+  { name: "Aris Petroupolis", logoUrl: "/loghi/GammaEthniki/aris_petroupolis.png" },
+  { name: "Doxa Dramas", logoUrl: "/loghi/GammaEthniki/doxa_dramas.png" },
+  { name: "Elassona", logoUrl: "/loghi/GammaEthniki/elassona.png" },
+  { name: "Ethnikos Pireas", logoUrl: "/loghi/GammaEthniki/ethnikos_pireas.png" },
+  { name: "Ionikos", logoUrl: "/loghi/GammaEthniki/ionikos.png" },
+  { name: "Kalamaria", logoUrl: "/loghi/GammaEthniki/Kalamaria.png" },
+  { name: "Lamia", logoUrl: "/loghi/GammaEthniki/lamia.png" },
+  { name: "Panahaiki", logoUrl: "/loghi/GammaEthniki/panahaiki.png" },
+  { name: "Panthrakikos", logoUrl: "/loghi/GammaEthniki/panthrakikos.png" },
+  { name: "Pirgos", logoUrl: "/loghi/GammaEthniki/pirgos.png" },
+  { name: "Trikala", logoUrl: "/loghi/GammaEthniki/trikala.png" },
+  { name: "Zakhintos", logoUrl: "/loghi/GammaEthniki/zakhintos.png" },
+  // Nazionali / Altri
+  { name: "Grecia", logoUrl: "/loghi/grecia.png" }
+];
+
+// --- NUOVO ENDPOINT: Ricerca Loghi Ibrida (Locale + TheSportsDB con Cache e Timeout) ---
 app.get('/api/search-logos', async (req, res) => {
   const query = req.query.q;
   if (!query || query.length < 2) {
@@ -630,33 +679,67 @@ app.get('/api/search-logos', async (req, res) => {
 
   console.log(`[LOGOS] Ricerca in corso per: ${query}`);
 
-  try {
-    const apiUrl = `https://www.thesportsdb.com/api/v1/json/3/searchteams.php?t=${encodeURIComponent(query)}`;
-    const response = await axios.get(apiUrl, { timeout: 8000 });
-    
+  // 1. Ricerca locale greca/nazionale (istantanea)
+  const qLower = query.toLowerCase().trim();
+  const localResults = LOCAL_TEAMS.filter(t => t.name.toLowerCase().includes(qLower));
+
+  // 2. Chiamata esterna a TheSportsDB con hard timeout di 600ms e AbortController
+  const apiUrl = `https://www.thesportsdb.com/api/v1/json/3/searchteams.php?t=${encodeURIComponent(query)}`;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 600);
+
+  const sportsDbPromise = axios.get(apiUrl, {
+    signal: controller.signal,
+    timeout: 600
+  })
+  .then(response => {
+    clearTimeout(timeoutId);
     if (response.data && response.data.teams) {
-      // Filtra solo le squadre di calcio e con logo
-      const footballTeams = response.data.teams
+      return response.data.teams
         .filter(team => team.strSport === "Soccer" && team.strBadge)
         .map(team => ({
           name: team.strTeam,
-          logo_url: team.strBadge,
-          country: team.strCountry
-        }))
-        .slice(0, 5); // Limita a 5 risultati
-        
-      // Salva in cache per 24 ore (86400 secondi)
-      cache.set(cacheKey, footballTeams, 86400); 
-      
-      return res.json({ status: true, results: footballTeams });
-    } else {
-      // Nessun risultato
-      cache.set(cacheKey, [], 300); // Salva vuoto per 5 minuti
-      return res.json({ status: true, results: [] });
+          logoUrl: team.strBadge
+        }));
     }
+    return [];
+  })
+  .catch(error => {
+    clearTimeout(timeoutId);
+    console.warn(`[LOGOS] Chiamata TheSportsDB fallita o timeout per "${query}":`, error.message);
+    return []; // Restituisce array vuoto in caso di errore/timeout
+  });
+
+  try {
+    // Risolvi in parallelo per non rallentare l'utente mobile
+    const results = await Promise.allSettled([
+      Promise.resolve(localResults),
+      sportsDbPromise
+    ]);
+
+    const finalLocal = results[0].status === 'fulfilled' ? results[0].value : [];
+    const finalExternal = results[1].status === 'fulfilled' ? results[1].value : [];
+
+    // Unione dei risultati con precedenza ai locali
+    const combined = [...finalLocal];
+    for (const team of finalExternal) {
+      if (!combined.some(c => c.name.toLowerCase() === team.name.toLowerCase())) {
+        combined.push(team);
+      }
+    }
+
+    const slicedResults = combined.slice(0, 5);
+
+    // Salva in cache
+    const cacheTtl = slicedResults.length > 0 ? 86400 : 300;
+    cache.set(cacheKey, slicedResults, cacheTtl);
+
+    return res.json({ status: true, results: slicedResults });
+
   } catch (error) {
-    console.error("[LOGOS] Errore durante la ricerca:", error.message);
-    return res.status(500).json({ status: false, message: "Errore durante la ricerca dei loghi", error: error.message });
+    console.error("[LOGOS] Errore parallelo:", error.message);
+    // Fallback: restituisci almeno quelli locali senza mandare in crash l'app
+    return res.json({ status: true, results: localResults.slice(0, 5) });
   }
 });
 

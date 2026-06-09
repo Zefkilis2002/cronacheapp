@@ -71,7 +71,7 @@ function ImagesSelector({
       id: `logo-${Date.now()}`,
       src: url,
       position: { x: 65, y: 1260 },
-      scale: { scaleX: 1.2, scaleY: 1.2 } // Raddoppiata la dimensione (2.2) per gerarchia visiva News
+      scale: { scaleX: 2.2, scaleY: 2.2 } // Raddoppiata la dimensione (2.2) per gerarchia visiva News
     };
     setLogos([...logos, newLogo]);
     setSelectedLogo(newLogo.id);
