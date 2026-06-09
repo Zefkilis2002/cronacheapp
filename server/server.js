@@ -8,9 +8,9 @@ const NodeCache = require('node-cache'); // Importa node-cache
 const { getRecentMatches, getMatchDetails, getStandings } = require('./execution/scrape_flashscore');
 
 const app = express();
-const cache = new NodeCache({ stdTTL: 300 }); // TTL di 5 minuti (300 secondi)
+const cache = new NodeCache({ stdTTL: 300, maxKeys: 10000, useClones: false }); // Ottimizzazione RAM
 
-const ALLOWED_DOMAINS = ['instagram.com', 'cdninstagram.com', 'flashscore.com', 'flashscore.it'];
+const ALLOWED_DOMAINS = ['instagram.com', 'cdninstagram.com', 'flashscore.com', 'flashscore.it', 'thesportsdb.com'];
 
 function validateRequestUrl(urlString) {
   try {
@@ -252,6 +252,7 @@ app.get('/proxy-image', async (req, res) => {
 
     res.set('Content-Type', response.headers['content-type']);
     res.set('Access-Control-Allow-Origin', '*');
+    res.set('Cache-Control', 'public, max-age=31536000, immutable'); // Salva immagine nel browser per 1 anno
     response.data.pipe(res);
   } catch (error) {
     res.status(500).send('Proxy Error');
@@ -609,6 +610,53 @@ Tzimas terminerà la stagione in prestito al Norimberga, prima di approdare defi
       message: "Errore durante la generazione della bio",
       error: error.message
     });
+  }
+});
+
+// --- NUOVO ENDPOINT: Ricerca Loghi (Proxy per TheSportsDB con Cache) ---
+app.get('/api/search-logos', async (req, res) => {
+  const query = req.query.q;
+  if (!query || query.length < 2) {
+    return res.json({ status: true, results: [] });
+  }
+
+  const cacheKey = `logos_${query.toLowerCase()}`;
+  const cachedData = cache.get(cacheKey);
+
+  if (cachedData) {
+    console.log(`[CACHE] Restituiti loghi per: ${query}`);
+    return res.json({ status: true, results: cachedData });
+  }
+
+  console.log(`[LOGOS] Ricerca in corso per: ${query}`);
+
+  try {
+    const apiUrl = `https://www.thesportsdb.com/api/v1/json/3/searchteams.php?t=${encodeURIComponent(query)}`;
+    const response = await axios.get(apiUrl, { timeout: 8000 });
+    
+    if (response.data && response.data.teams) {
+      // Filtra solo le squadre di calcio e con logo
+      const footballTeams = response.data.teams
+        .filter(team => team.strSport === "Soccer" && team.strBadge)
+        .map(team => ({
+          name: team.strTeam,
+          logo_url: team.strBadge,
+          country: team.strCountry
+        }))
+        .slice(0, 5); // Limita a 5 risultati
+        
+      // Salva in cache per 24 ore (86400 secondi)
+      cache.set(cacheKey, footballTeams, 86400); 
+      
+      return res.json({ status: true, results: footballTeams });
+    } else {
+      // Nessun risultato
+      cache.set(cacheKey, [], 300); // Salva vuoto per 5 minuti
+      return res.json({ status: true, results: [] });
+    }
+  } catch (error) {
+    console.error("[LOGOS] Errore durante la ricerca:", error.message);
+    return res.status(500).json({ status: false, message: "Errore durante la ricerca dei loghi", error: error.message });
   }
 });
 

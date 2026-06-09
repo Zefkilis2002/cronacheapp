@@ -9,103 +9,179 @@
   justify-content: center;
   align-items: center;
   z-index: 2000;
+  backdrop-filter: blur(5px);
 }
 
 .logo-fetcher-modal {
-  background: #2a2a2a;
+  background: #1e1e1e;
   padding: 25px;
-  border-radius: 12px;
-  width: 380px;
+  border-radius: 16px;
+  width: 400px;
   color: white;
   display: flex;
   flex-direction: column;
   gap: 15px;
-  box-shadow: 0 10px 25px rgba(0,0,0,0.5);
-  border: 1px solid #444;
+  box-shadow: 0 15px 35px rgba(0,0,0,0.6);
+  border: 1px solid #333;
 }
 
-.logo-fetcher-modal.simple-mode {
+.logo-fetcher-modal.modern-mode {
   text-align: center;
 }
 
 .logo-fetcher-modal h3 {
   margin: 0;
   color: #fff;
-  font-size: 1.2rem;
+  font-size: 1.4rem;
+  font-weight: 700;
 }
 
 .instruction {
   font-size: 0.9rem;
-  color: #ccc;
-  margin: 5px 0 15px;
+  color: #aaa;
+  margin: 0 0 10px;
   line-height: 1.4;
 }
 
-.simple-input {
-  padding: 12px;
-  border-radius: 8px;
-  border: 1px solid #555;
-  background: #1f1f1f;
-  color: white;
-  font-size: 1rem;
+.search-container {
+  position: relative;
   width: 100%;
-  box-sizing: border-box;
-  text-align: center;
 }
 
-.simple-input:focus {
+.modern-input {
+  padding: 14px 14px 14px 40px;
+  border-radius: 10px;
+  border: 1px solid #444;
+  background: #252525 url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="%23999" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>') no-repeat 14px center;
+  color: white;
+  font-size: 1.05rem;
+  width: 100%;
+  box-sizing: border-box;
+  transition: all 0.3s ease;
+}
+
+.modern-input:focus {
   outline: none;
   border-color: #007bff;
+  background-color: #2a2a2a;
+  box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25);
+}
+
+.spinner-small {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 1.1rem;
+  animation: spin 1.5s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: translateY(-50%) rotate(0deg); }
+  to { transform: translateY(-50%) rotate(360deg); }
+}
+
+.results-dropdown {
+  list-style: none;
+  margin: 0;
+  padding: 0;
   background: #252525;
+  border-radius: 10px;
+  border: 1px solid #444;
+  max-height: 250px;
+  overflow-y: auto;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+  text-align: left;
+}
+
+/* Custom Scrollbar for Dropdown */
+.results-dropdown::-webkit-scrollbar {
+  width: 8px;
+}
+.results-dropdown::-webkit-scrollbar-track {
+  background: #1e1e1e;
+  border-radius: 10px;
+}
+.results-dropdown::-webkit-scrollbar-thumb {
+  background: #555;
+  border-radius: 10px;
+}
+.results-dropdown::-webkit-scrollbar-thumb:hover {
+  background: #777;
+}
+
+.result-item {
+  display: flex;
+  align-items: center;
+  padding: 12px 15px;
+  gap: 15px;
+  cursor: pointer;
+  transition: background 0.2s;
+  border-bottom: 1px solid #333;
+}
+
+.result-item:last-child {
+  border-bottom: none;
+}
+
+.result-item:hover {
+  background: #333;
+}
+
+.result-logo {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  padding: 4px;
+}
+
+.result-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.result-name {
+  font-weight: 600;
+  font-size: 1rem;
+  color: #fff;
+}
+
+.result-country {
+  font-size: 0.8rem;
+  color: #aaa;
 }
 
 .error-msg {
   color: #ff6b6b;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   background: rgba(255, 107, 107, 0.1);
-  padding: 8px;
-  border-radius: 4px;
+  padding: 10px;
+  border-radius: 8px;
+  text-align: center;
+  border: 1px solid rgba(255, 107, 107, 0.3);
 }
 
 .simple-actions {
   display: flex;
-  flex-direction: column;
-  gap: 10px;
+  justify-content: center;
   margin-top: 10px;
 }
 
-.confirm-btn {
-  background: #007bff;
-  color: white;
-  border: none;
-  padding: 12px;
+.cancel-btn {
+  background: #333;
+  color: #ddd;
+  border: 1px solid #444;
+  padding: 10px 20px;
   border-radius: 8px;
   cursor: pointer;
-  font-weight: 600;
-  font-size: 1rem;
-  transition: background 0.2s;
-}
-
-.confirm-btn:hover {
-  background: #0056b3;
-}
-
-.confirm-btn:disabled {
-  background: #444;
-  cursor: not-allowed;
-  opacity: 0.7;
-}
-
-.cancel-btn {
-  background: transparent;
-  color: #aaa;
-  border: none;
-  padding: 8px;
-  cursor: pointer;
-  font-size: 0.9rem;
+  font-size: 0.95rem;
+  font-weight: 500;
+  transition: all 0.2s;
 }
 
 .cancel-btn:hover {
+  background: #444;
   color: white;
-  text-decoration: underline;
 }

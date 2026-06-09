@@ -1,98 +1,112 @@
-import React, { useState } from 'react';
-// IMPORTANTE: Assicurati che i puntini siano giusti per arrivare a src/firebase.js
-import { db } from '../../../firebase';
-import { doc, getDoc, collection, query, where, getDocs } from "firebase/firestore";
+import React, { useState, useEffect } from 'react';
 import './LogoFetcher.css';
 
 const LogoFetcher = ({ onLogoSelect, onClose }) => {
   const [inputValue, setInputValue] = useState('');
+  const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [debugLog, setDebugLog] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
 
-  const searchLogo = async () => {
-    if (!inputValue) return;
+  // Debounce effect
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedQuery(inputValue);
+    }, 300);
 
-    setLoading(true);
-    setError('');
-    setDebugLog('Ricerca avviata...');
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [inputValue]);
 
-    const searchTerm = inputValue.toLowerCase().trim();
-    // 1. Prova con l'ID pulito (Es. "juventus" trova "juventus")
-    const cleanId = searchTerm.replace(/[^a-z0-9]/g, '');
+  // Determine API Base URL
+  const hostname = window.location.hostname;
+  const isLocalhost = hostname === "localhost" || hostname === "127.0.0.1";
+  const API_BASE_URL = isLocalhost
+    ? "http://localhost:5000"
+    : "https://cronacheapp.onrender.com";
 
-    try {
-      // --- TENTATIVO 1: ID ESATTO (Velocissimo) ---
-      if (cleanId.length > 1) {
-        const docRef = doc(db, "teams", cleanId);
-        const docSnap = await getDoc(docRef);
-
-        if (docSnap.exists()) {
-          const data = docSnap.data();
-          console.log("✅ Trovato per ID:", data.name);
-          onLogoSelect(data.logo_url);
-          onClose();
-          return;
-        }
-      }
-
-      // --- TENTATIVO 2: PAROLA CHIAVE (Se l'ID fallisce) ---
-      // Cerca nei "keywords" (es. cerca "milan" dentro ["ac", "milan"])
-      setDebugLog('ID non trovato, provo per parola chiave...');
-
-      const q = query(
-        collection(db, "teams"),
-        where("keywords", "array-contains", searchTerm)
-      );
-
-      const querySnapshot = await getDocs(q);
-
-      if (!querySnapshot.empty) {
-        // Prendi il primo risultato trovato
-        const data = querySnapshot.docs[0].data();
-        console.log("✅ Trovato per Keyword:", data.name);
-        onLogoSelect(data.logo_url);
-        onClose();
+  // Search effect
+  useEffect(() => {
+    const fetchLogos = async () => {
+      if (!debouncedQuery || debouncedQuery.length < 2) {
+        setResults([]);
         return;
       }
 
-      // --- NESSUN RISULTATO ---
-      setError(`Nessun logo trovato per "${inputValue}".`);
-      setDebugLog('Nessuna corrispondenza.');
+      setLoading(true);
+      setError('');
 
-    } catch (err) {
-      console.error("Errore Firebase:", err);
-      setError("Errore di connessione.");
-    } finally {
-      setLoading(false);
-    }
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/search-logos?q=${encodeURIComponent(debouncedQuery)}`);
+        
+        if (!res.ok) {
+          throw new Error(`Errore HTTP! Status: ${res.status}`);
+        }
+
+        const data = await res.json();
+        
+        if (data.status && data.results && data.results.length > 0) {
+          setResults(data.results);
+        } else {
+          setResults([]);
+          setError(`Nessun logo trovato per "${debouncedQuery}".`);
+        }
+      } catch (err) {
+        console.error("Errore Fetch:", err);
+        setError("Errore di connessione al server.");
+        setResults([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchLogos();
+  }, [debouncedQuery, API_BASE_URL]);
+
+  const handleSelect = (logoUrl) => {
+    // Uso il proxy per evitare qualsiasi problema di CORS con le immagini nel Canvas
+    const proxyUrl = `${API_BASE_URL}/proxy-image?url=${encodeURIComponent(logoUrl)}`;
+    onLogoSelect(proxyUrl);
+    onClose();
   };
 
   return (
     <div className="logo-fetcher-overlay">
-      <div className="logo-fetcher-modal simple-mode">
+      <div className="logo-fetcher-modal modern-mode">
         <h3>Trova Logo</h3>
-        <p className="instruction">Database Cloud Attivo 🟢</p>
+        <p className="instruction">Ricerca Globale (Club & Nazionali) 🌍</p>
 
-        <input
-          type="text"
-          value={inputValue}
-          onChange={(e) => setInputValue(e.target.value)}
-          placeholder="Cerca squadra (es. Milan)..."
-          className="simple-input"
-          onKeyDown={(e) => e.key === 'Enter' && searchLogo()}
-          autoFocus
-          disabled={loading}
-        />
+        <div className="search-container">
+          <input
+            type="text"
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            placeholder="Cerca squadra (es. Roma, France)..."
+            className="modern-input"
+            autoFocus
+          />
+          {loading && <div className="spinner-small">⏳</div>}
+        </div>
 
-        {debugLog && <div className="debug-text" style={{ fontSize: '10px', color: '#999', marginTop: 5 }}>{debugLog}</div>}
-        {error && <div className="error-msg">{error}</div>}
+        {error && !loading && results.length === 0 && <div className="error-msg">{error}</div>}
+
+        {results.length > 0 && (
+          <ul className="results-dropdown">
+            {results.map((team, index) => (
+              <li key={index} className="result-item" onClick={() => handleSelect(team.logo_url)}>
+                <img src={team.logo_url} alt={team.name} className="result-logo" />
+                <div className="result-info">
+                  <span className="result-name">{team.name}</span>
+                  <span className="result-country">{team.country}</span>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
 
         <div className="simple-actions">
-          <button className="confirm-btn" onClick={searchLogo} disabled={loading}>
-            {loading ? '...' : 'Cerca'}
-          </button>
-          <button className="cancel-btn" onClick={onClose} disabled={loading}>
+          <button className="cancel-btn" onClick={onClose}>
             Chiudi
           </button>
         </div>
