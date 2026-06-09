@@ -723,12 +723,21 @@ app.get('/api/search-logos', async (req, res) => {
     // Unione dei risultati con precedenza ai locali
     const combined = [...finalLocal];
     for (const team of finalExternal) {
-      if (!combined.some(c => c.name.toLowerCase() === team.name.toLowerCase())) {
+      const teamNameLower = team.name.toLowerCase();
+      if (!combined.some(c => c.name.toLowerCase() === teamNameLower)) {
         combined.push(team);
       }
     }
 
-    const slicedResults = combined.slice(0, 5);
+    // Normalizza il payload per garantire retrocompatibilità (sia camelCase che snake_case)
+    const slicedResults = combined.slice(0, 5).map(t => {
+      const url = t.logoUrl || t.logo_url;
+      return {
+        name: t.name,
+        logoUrl: url,
+        logo_url: url
+      };
+    });
 
     // Salva in cache
     const cacheTtl = slicedResults.length > 0 ? 86400 : 300;

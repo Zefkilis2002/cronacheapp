@@ -93,6 +93,10 @@ const LogoFetcher = ({ onLogoSelect, onClose }) => {
   };
 
   const handleSelect = (logoUrl) => {
+    if (!logoUrl) {
+      console.warn("[LogoFetcher] Tentativo di selezionare un logo con URL indefinito.");
+      return;
+    }
     // Evita il proxy per le risorse interne /loghi/ per massimizzare la velocità
     const isExternal = logoUrl.startsWith('http://') || logoUrl.startsWith('https://');
     const finalUrl = isExternal
@@ -124,14 +128,17 @@ const LogoFetcher = ({ onLogoSelect, onClose }) => {
 
         {results.length > 0 && (
           <ul className="results-dropdown">
-            {results.map((team, index) => (
-              <li key={index} className="result-item" onClick={() => handleSelect(team.logoUrl)}>
-                <DropdownLogo src={team.logoUrl} alt={team.name} />
-                <div className="result-info">
-                  <span className="result-name">{team.name}</span>
-                </div>
-              </li>
-            ))}
+            {results.map((team, index) => {
+              const url = team.logoUrl || team.logo_url;
+              return (
+                <li key={index} className="result-item" onClick={() => handleSelect(url)}>
+                  <DropdownLogo src={url} alt={team.name} />
+                  <div className="result-info">
+                    <span className="result-name">{team.name}</span>
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         )}
 
