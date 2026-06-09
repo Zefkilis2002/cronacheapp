@@ -1,10 +1,17 @@
 /**
  * scrape_flashscore.js
  * 
- * Modulo Node.js che usa Puppeteer per estrarre risultati recenti e classifiche da Flashscore.
+ * Modulo Node.js ad alte prestazioni per estrarre risultati e classifiche da Flashscore.
+ * 
+ * Architettura:
+ *   1. BROWSER SINGLETON — Un'unica istanza Chromium "warm" per tutta la vita del server.
+ *      Mutex via Promise per evitare launch concorrenti. Auto-healing su crash.
+ *   2. API INTERCEPTION — Bypass completo del DOM: intercetta i payload JSON interni
+ *      di Flashscore via page.on('response'), chiude la pagina immediatamente.
+ *   3. MEMORY TUNING — Flag V8 aggressivi per ambienti cloud a bassa RAM (Render 512MB).
  * 
  * Uso come modulo:
- *   const { getRecentMatches, getStandings } = require('./scrape_flashscore');
+ *   const { getRecentMatches, getMatchDetails, getStandings } = require('./scrape_flashscore');
  *   const matches = await getRecentMatches({ country: 'greece', league: 'super-league', daysBack: 7 });
  *   const standings = await getStandings({ country: 'greece', league: 'super-league' });
  * 
@@ -23,71 +30,123 @@ try {
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-// HTTP client per API diretta
+// HTTP client per API diretta (match details)
 const axios = require('axios');
 
-// --- BROWSER POOL: riutilizza il browser tra le richieste ---
-let _browser = null;
-let _browserLastUsed = 0;
-const BROWSER_TTL = 120000; // Chiudi dopo 2 min di inattività
+// =============================================================================
+// SEZIONE 1: BROWSER SINGLETON CON AUTO-HEALING
+// =============================================================================
 
-async function getBrowser() {
-    // Se il browser esiste ed è ancora connesso, riutilizzalo
-    if (_browser && _browser.connected) {
-        _browserLastUsed = Date.now();
-        return _browser;
-    }
-    // Lancia un nuovo browser
-    _browser = await puppeteer.launch({
+let _browser = null;
+let _browserLaunching = null; // Promise mutex: impedisce launch concorrenti
+const BROWSER_MAX_PAGES = 5;  // Max pagine simultanee (protezione memoria)
+
+/**
+ * Flag di avvio ottimizzati per Chromium su cloud a bassa RAM.
+ * --js-flags limita l'heap V8 di Chromium stesso (non di Node.js).
+ * --single-process riduce il footprint a ~100MB invece di ~300MB.
+ */
+const BROWSER_ARGS = [
+    '--no-sandbox',
+    '--disable-setuid-sandbox',
+    '--disable-dev-shm-usage',
+    '--disable-gpu',
+    '--single-process',
+    '--js-flags=--max-old-space-size=256 --max-semi-space-size=2',
+    '--disable-extensions',
+    '--disable-background-networking',
+    '--disable-default-apps',
+    '--disable-sync',
+    '--no-first-run',
+    '--disable-features=TranslateUI,BlinkGenPropertyTrees',
+    '--disable-ipc-flooding-protection',
+    '--disable-blink-features=AutomationControlled',
+    '--window-size=1280,720',
+    '--disable-component-update',
+    '--disable-domain-reliability',
+    '--disable-print-preview',
+    '--disable-speech-api',
+    '--no-default-browser-check',
+    '--mute-audio',
+    '--hide-scrollbars',
+];
+
+/**
+ * Lancia il browser con retry automatico.
+ * @private
+ */
+async function _launchBrowser() {
+    console.log('[Flashscore] Launching browser singleton...');
+    const browser = await puppeteer.launch({
         headless: 'new',
         executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
-        args: [
-            '--no-sandbox',
-            '--disable-setuid-sandbox',
-            '--disable-dev-shm-usage',
-            '--disable-gpu',
-            '--disable-extensions',
-            '--disable-background-networking',
-            '--disable-default-apps',
-            '--disable-sync',
-            '--no-first-run',
-            '--single-process',
-            '--disable-features=TranslateUI',
-            '--disable-ipc-flooding-protection',
-            '--window-size=1920,1080',
-            '--disable-blink-features=AutomationControlled'
-        ]
+        args: BROWSER_ARGS,
     });
-    _browserLastUsed = Date.now();
 
-    // Auto-chiudi dopo inattività
-    const checkInterval = setInterval(() => {
-        if (_browser && Date.now() - _browserLastUsed > BROWSER_TTL) {
-            _browser.close().catch(() => { });
-            _browser = null;
-            clearInterval(checkInterval);
-            console.log('[Flashscore] Browser chiuso per inattività');
-        }
-    }, 30000);
+    // Auto-healing: se Chromium crasha, ripulisci il riferimento
+    browser.on('disconnected', () => {
+        console.warn('[Flashscore] ⚠️ Browser disconnected! Will relaunch on next request.');
+        _browser = null;
+        _browserLaunching = null;
+    });
 
+    console.log('[Flashscore] Browser singleton launched ✅');
+    return browser;
+}
+
+/**
+ * Ottieni il browser singleton. Se non esiste, lo lancia.
+ * Se un altro chiamante sta già lanciando il browser, attende la stessa Promise (mutex).
+ * @returns {Promise<Browser>}
+ */
+async function getBrowser() {
+    // Se il browser esiste ed è connesso, restituiscilo
+    if (_browser && _browser.connected) {
+        return _browser;
+    }
+
+    // Se qualcuno sta già lanciando, attendi la stessa Promise (mutex)
+    if (_browserLaunching) {
+        await _browserLaunching;
+        if (_browser && _browser.connected) return _browser;
+    }
+
+    // Nessuno sta lanciando → lancia con mutex
+    _browserLaunching = _launchBrowser();
+    try {
+        _browser = await _browserLaunching;
+    } catch (err) {
+        _browserLaunching = null;
+        throw err;
+    }
+    _browserLaunching = null;
     return _browser;
 }
 
-// Risorse da bloccare (velocizza il caricamento ~60%)
-const BLOCKED_RESOURCES = new Set(['image', 'stylesheet', 'font', 'media', 'other']);
-const BLOCKED_DOMAINS = [
-    'googlesyndication', 'doubleclick', 'google-analytics', 'googletagmanager',
-    'facebook', 'onetrust', 'cookielaw', 'adsafeprotected', 'amazon-adsystem',
-    'criteo', 'outbrain', 'taboola', 'chartbeat', 'newrelic', 'sentry',
-    'hotjar', 'clarity.ms', 'segment.', 'analytics.'
-];
+/**
+ * Acquisisci una nuova pagina dal browser singleton.
+ * Controlla la concorrenza: se ci sono troppe pagine aperte, attende.
+ * @returns {Promise<Page>}
+ */
+async function acquirePage() {
+    const browser = await getBrowser();
 
-async function createFastPage(browser) {
+    // Concurrency guard: attendi se troppe pagine aperte
+    let attempts = 0;
+    while (attempts < 30) {
+        const pages = await browser.pages();
+        // pages[0] è sempre "about:blank" (pagina iniziale del browser)
+        if (pages.length - 1 < BROWSER_MAX_PAGES) break;
+        console.warn(`[Flashscore] Too many pages open (${pages.length - 1}/${BROWSER_MAX_PAGES}), waiting...`);
+        await sleep(1000);
+        attempts++;
+    }
+
     const page = await browser.newPage();
     await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36');
     await page.setViewport({ width: 1280, height: 720 });
 
-    // Blocca TUTTO tranne HTML, Script e Chiamate API (Strict Mode)
+    // Blocca TUTTO tranne HTML, Script e chiamate API (Strict Mode)
     await page.setRequestInterception(true);
     page.on('request', (req) => {
         const rType = req.resourceType();
@@ -99,7 +158,13 @@ async function createFastPage(browser) {
             return;
         }
 
-        // Block specific ad domains but be careful
+        // Block ad/tracking domains
+        const BLOCKED_DOMAINS = [
+            'googlesyndication', 'doubleclick', 'google-analytics', 'googletagmanager',
+            'facebook', 'onetrust', 'cookielaw', 'adsafeprotected', 'amazon-adsystem',
+            'criteo', 'outbrain', 'taboola', 'chartbeat', 'newrelic', 'sentry',
+            'hotjar', 'clarity.ms', 'segment.', 'analytics.'
+        ];
         if (BLOCKED_DOMAINS.some(d => url.includes(d))) {
             req.abort();
             return;
@@ -113,7 +178,6 @@ async function createFastPage(browser) {
 
 /**
  * Pre-lancia il browser all'avvio del server per evitare cold start.
- * Chiamato automaticamente al caricamento del modulo.
  */
 function prewarmBrowser() {
     getBrowser()
@@ -123,6 +187,77 @@ function prewarmBrowser() {
 
 // Avvia il pre-warming al caricamento del modulo
 prewarmBrowser();
+
+// =============================================================================
+// SEZIONE 2: COMPETITION REGISTRY
+// =============================================================================
+
+/**
+ * Registry centralizzato di tutte le competizioni supportate.
+ * Per ogni competizione, definisce gli URL di navigazione da tentare.
+ * La nazionale greca ha un URL speciale (pagina team invece che torneo).
+ */
+const COMPETITION_URLS = {
+    // --- Grecia ---
+    'greece/super-league': [
+        'https://www.flashscore.it/calcio/greece/super-league/risultati/',
+        'https://www.flashscore.it/calcio/greece/super-league-championship-group/risultati/',
+        'https://www.flashscore.it/calcio/greece/super-league-relegation-group/risultati/',
+    ],
+    'greece/super-league-2': [
+        'https://www.flashscore.it/calcio/greece/super-league-2/risultati/',
+    ],
+    'greece/coppa': [
+        'https://www.flashscore.it/calcio/greece/coppa/risultati/',
+    ],
+    'greece/national-team': [
+        'https://www.flashscore.it/squadra/grecia/Gbw2oT5D/risultati/',
+    ],
+    // --- Competizioni Europee ---
+    'europe/champions-league': [
+        'https://www.flashscore.it/calcio/europe/champions-league/risultati/',
+    ],
+    'europe/europa-league': [
+        'https://www.flashscore.it/calcio/europe/europa-league/risultati/',
+    ],
+    'europe/conference-league': [
+        'https://www.flashscore.it/calcio/europe/conference-league/risultati/',
+    ],
+};
+
+/**
+ * Registry URL per classifiche.
+ */
+const STANDINGS_URLS = {
+    'greece/super-league': 'https://www.flashscore.com/football/greece/super-league/standings/',
+    'greece/super-league-2': 'https://www.flashscore.com/football/greece/super-league-2/standings/',
+    'greece/coppa': null, // Le coppe non hanno classifica standard
+    'europe/champions-league': 'https://www.flashscore.com/football/europe/champions-league/standings/',
+    'europe/europa-league': 'https://www.flashscore.com/football/europe/europa-league/standings/',
+    'europe/conference-league': 'https://www.flashscore.com/football/europe/conference-league/standings/',
+    // La nazionale non ha classifica
+    'greece/national-team': null,
+};
+
+/**
+ * Ottieni gli URL per una competizione, con fallback generico.
+ */
+function getCompetitionUrls(country, league) {
+    const key = `${country}/${league}`;
+    if (COMPETITION_URLS[key]) return COMPETITION_URLS[key];
+    // Fallback generico
+    return [`https://www.flashscore.it/calcio/${country}/${league}/risultati/`];
+}
+
+function getStandingsUrl(country, league) {
+    const key = `${country}/${league}`;
+    if (STANDINGS_URLS[key] !== undefined) return STANDINGS_URLS[key];
+    return `https://www.flashscore.com/football/${country}/${league}/standings/`;
+}
+
+// =============================================================================
+// SEZIONE 3: PARSER FORMATO PROPRIETARIO FLASHSCORE
+// =============================================================================
 
 /**
  * Parsa una data Flashscore nel formato "DD.MM.YYYY" o "DD.MM. HH:MM" e la converte in Date.
@@ -146,7 +281,7 @@ function parseFlashscoreDate(dateStr) {
         const [, day, month, hour, min] = shortMatch;
         let year = new Date().getFullYear();
         const date = new Date(year, parseInt(month) - 1, parseInt(day), parseInt(hour), parseInt(min));
-        // Se la data è nel futuro, è dell'anno scorso (es. "22.12." in febbraio = dicembre anno precedente)
+        // Se la data è nel futuro, è dell'anno scorso
         if (date > new Date()) {
             date.setFullYear(year - 1);
         }
@@ -164,149 +299,201 @@ function parseFlashscoreDate(dateStr) {
 }
 
 /**
- * Scrape recent match results from Flashscore.
+ * Parsa il formato dati proprietario di Flashscore.
+ * Il formato usa '\u00ac' come separatore e '\u00f7' come delimitatore chiave-valore.
+ * Ogni sezione inizia con un key che contiene '~' (es. ~III).
  * 
- * @param {Object} options
- * @param {string} options.country - Country slug (es. "greece", "italy", "england")
- * @param {string} options.league - League slug (es. "super-league", "serie-a", "premier-league")
- * @param {number} [options.daysBack=7] - Quanti giorni indietro cercare
- * @returns {Promise<Array>} Array di match con { date, homeTeam, awayTeam, homeScore, awayScore, matchUrl }
+ * IMPORTANTE: dentro ogni sezione, le chiavi possono ripetersi!
+ * Per questo motivo, il parser emette una lista di coppie chiave-valore
+ * per ogni sezione, preservando l'ORDINE e le RIPETIZIONI.
  */
-async function getRecentMatches({ country, league, daysBack = 365 }) {
-    let urlsToTry = [];
-    
-    if (country === 'greece' && league === 'national-team') {
-        urlsToTry.push('https://www.flashscore.it/squadra/grecia/Gbw2oT5D/risultati/');
-    } else if (country === 'greece' && league === 'super-league') {
-        urlsToTry.push(`https://www.flashscore.it/calcio/${country}/${league}/risultati/`);
-        urlsToTry.push(`https://www.flashscore.it/calcio/${country}/super-league-championship-group/risultati/`);
-        urlsToTry.push(`https://www.flashscore.it/calcio/${country}/super-league-relegation-group/risultati/`);
-    } else {
-        urlsToTry.push(`https://www.flashscore.it/calcio/${country}/${league}/risultati/`);
+function parseFlashscoreData(rawData) {
+    const sections = [];
+    let currentPairs = null;
+    let sectionId = null;
+
+    const parts = rawData.split('\xAC');
+    for (const part of parts) {
+        const sepIdx = part.indexOf('\xF7');
+        if (sepIdx === -1) continue;
+
+        const key = part.substring(0, sepIdx);
+        const value = part.substring(sepIdx + 1);
+
+        if (key.startsWith('~')) {
+            if (currentPairs) sections.push({ id: sectionId, pairs: currentPairs });
+            sectionId = key;
+            currentPairs = [{ key, value }];
+        } else if (currentPairs) {
+            currentPairs.push({ key, value });
+        }
+    }
+    if (currentPairs) sections.push({ id: sectionId, pairs: currentPairs });
+    return sections;
+}
+
+/**
+ * Estrai le partite (risultati) dal payload proprietario di Flashscore.
+ * Ogni partita è delimitata da una sezione ~AA con il match ID,
+ * seguita da coppie: AD (timestamp), CX (team home), AF (team away),
+ * AG (score home), AH (score away), AE (status).
+ */
+function parseMatchesFromRawData(rawData, daysBack = 365) {
+    const matches = [];
+    const sections = parseFlashscoreData(rawData);
+
+    let currentMatch = null;
+
+    for (const section of sections) {
+        for (const pair of section.pairs) {
+            const { key, value } = pair;
+
+            // ~AA = Nuovo match (value = match ID)
+            if (key === '~AA') {
+                if (currentMatch && currentMatch.homeTeam && currentMatch.awayTeam) {
+                    matches.push(currentMatch);
+                }
+                currentMatch = {
+                    matchId: value,
+                    dateStr: '',
+                    parsedDate: null,
+                    homeTeam: '',
+                    awayTeam: '',
+                    homeScore: '',
+                    awayScore: '',
+                    matchUrl: '',
+                };
+                continue;
+            }
+
+            if (!currentMatch) continue;
+
+            switch (key) {
+                case 'AD': {
+                    // Timestamp UNIX in secondi
+                    const ts = parseInt(value);
+                    if (!isNaN(ts)) {
+                        const d = new Date(ts * 1000);
+                        currentMatch.parsedDate = d;
+                        const dd = String(d.getDate()).padStart(2, '0');
+                        const mm = String(d.getMonth() + 1).padStart(2, '0');
+                        const yyyy = d.getFullYear();
+                        const hh = String(d.getHours()).padStart(2, '0');
+                        const mi = String(d.getMinutes()).padStart(2, '0');
+                        currentMatch.dateStr = `${dd}.${mm}.${yyyy} ${hh}:${mi}`;
+                    }
+                    break;
+                }
+                case 'CX': currentMatch.homeTeam = value; break;
+                case 'AF': currentMatch.awayTeam = value; break;
+                case 'AG': currentMatch.homeScore = value; break;
+                case 'AH': currentMatch.awayScore = value; break;
+                case 'AE': {
+                    // Status del match: trascuriamo partite non finite
+                    // AE contiene codici come "3" (finito), "1" (non iniziato), etc.
+                    currentMatch.status = value;
+                    break;
+                }
+            }
+        }
     }
 
-    const browser = await getBrowser();
+    // Push last match
+    if (currentMatch && currentMatch.homeTeam && currentMatch.awayTeam) {
+        matches.push(currentMatch);
+    }
+
+    // Filtra per data e formatta
+    const now = new Date();
+    const cutoffDate = new Date(now.getTime() - (daysBack * 24 * 60 * 60 * 1000));
+
+    return matches
+        .filter(m => {
+            if (!m.parsedDate) return true;
+            return m.parsedDate >= cutoffDate;
+        })
+        .sort((a, b) => {
+            if (!a.parsedDate) return 1;
+            if (!b.parsedDate) return -1;
+            return b.parsedDate - a.parsedDate;
+        })
+        .map(m => ({
+            date: m.dateStr,
+            homeTeam: m.homeTeam,
+            awayTeam: m.awayTeam,
+            homeScore: m.homeScore,
+            awayScore: m.awayScore,
+            matchUrl: '',
+            matchId: m.matchId,
+        }));
+}
+
+// =============================================================================
+// SEZIONE 4: API INTERCEPTION — getRecentMatches
+// =============================================================================
+
+/**
+ * Scrape partite recenti tramite API Interception.
+ * 
+ * STRATEGIA:
+ *   1. Apre la pagina + intercetta TUTTE le risposte HTTP
+ *   2. Cattura il payload del feed proprietario Flashscore (URL: /x/feed/ o simile)
+ *   3. Appena il payload è ricevuto, chiude la pagina → 0ms di rendering DOM
+ *   4. Se l'interception fallisce, cade indietro sul DOM parsing (fallback robusto)
+ * 
+ * @param {Object} options
+ * @param {string} options.country - Country slug
+ * @param {string} options.league - League slug
+ * @param {number} [options.daysBack=365] - Quanti giorni indietro cercare
+ * @returns {Promise<Array>} Array di match
+ */
+async function getRecentMatches({ country, league, daysBack = 365 }) {
+    const urlsToTry = getCompetitionUrls(country, league);
     let page;
-    let rawMatches = [];
 
     try {
-        page = await createFastPage(browser);
+        page = await acquirePage();
+        let allMatches = [];
 
         for (const url of urlsToTry) {
             console.log(`[Flashscore] Navigating to: ${url}`);
             const t0 = Date.now();
-            await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
 
-        // Aspetta che le partite appaiano nel DOM (più veloce di networkidle2)
-        await page.waitForSelector('[class*="event__match"]', { timeout: 12000 }).catch(() => { });
+            // --- METODO 1: API INTERCEPTION ---
+            try {
+                const interceptedData = await interceptApiResponse(page, url);
+                if (interceptedData) {
+                    const parsed = parseMatchesFromRawData(interceptedData, daysBack);
+                    console.log(`[Flashscore] API Intercept success in ${Date.now() - t0}ms: ${parsed.length} matches`);
+                    allMatches.push(...parsed);
+                    if (allMatches.length > 0) break;
+                    continue;
+                }
+            } catch (interceptErr) {
+                console.warn(`[Flashscore] API Intercept failed for ${url}: ${interceptErr.message}`);
+            }
 
-        console.log(`[Flashscore] Page ready in ${Date.now() - t0}ms`);
-
-        // Breve pausa per render finale
-        await sleep(300);
-
-        // Cerca il selettore che contiene partite (ordine per probabilità)
-        const MATCH_SELECTORS = [
-            '.event__match',
-            '[class*="event__match"]',
-        ];
-
-        let matchSelector = null;
-        for (const sel of MATCH_SELECTORS) {
-            const count = await page.$$eval(sel, els => els.length).catch(() => 0);
-            if (count > 0) {
-                matchSelector = sel;
-                console.log(`[Flashscore] Using selector "${sel}" (${count} elements)`);
-                break;
+            // --- METODO 2: FALLBACK DOM PARSING ---
+            console.log(`[Flashscore] Falling back to DOM parsing for: ${url}`);
+            try {
+                const domMatches = await extractMatchesFromDOM(page, url, daysBack);
+                allMatches.push(...domMatches);
+                console.log(`[Flashscore] DOM fallback: ${domMatches.length} matches in ${Date.now() - t0}ms`);
+                if (allMatches.length > 0) break;
+            } catch (domErr) {
+                console.warn(`[Flashscore] DOM fallback also failed for ${url}: ${domErr.message}`);
             }
         }
 
-        if (!matchSelector) {
-            console.error(`[Flashscore] No match elements found on ${url}`);
-            continue; // Prova il prossimo URL se questo è fallito (utile per fallback Play-off)
+        if (allMatches.length === 0) {
+            throw new Error(`Nessuna partita trovata per ${country}/${league}. La pagina potrebbe aver cambiato struttura.`);
         }
 
-        // Estrai i dati delle partite
-            const pageMatches = await page.evaluate((selector) => {
-                const matches = [];
-                const matchElements = document.querySelectorAll(selector);
-
-                matchElements.forEach(el => {
-                    try {
-                        const timeEl = el.querySelector('.event__time') || el.querySelector('[class*="time"]');
-                        const dateStr = timeEl ? timeEl.textContent.trim() : '';
-
-                        const homeEl = el.querySelector('.event__participant--home') || el.querySelector('.event__homeParticipant');
-                        const awayEl = el.querySelector('.event__participant--away') || el.querySelector('.event__awayParticipant');
-                        const homeTeam = homeEl ? homeEl.textContent.trim() : '';
-                        const awayTeam = awayEl ? awayEl.textContent.trim() : '';
-
-                        const homeScoreEl = el.querySelector('.event__score--home') || el.querySelector('[class*="score--home"]');
-                        const awayScoreEl = el.querySelector('.event__score--away') || el.querySelector('[class*="score--away"]');
-                        const homeScore = homeScoreEl ? homeScoreEl.textContent.trim() : '';
-                        const awayScore = awayScoreEl ? awayScoreEl.textContent.trim() : '';
-
-                        const linkEl = el.querySelector('a');
-                        const matchUrl = linkEl ? linkEl.href : '';
-
-                        const matchId = el.id ? el.id.replace('g_1_', '') : '';
-
-                        if (homeTeam && awayTeam) {
-                            matches.push({ dateStr, homeTeam, awayTeam, homeScore, awayScore, matchUrl, matchId });
-                        }
-                    } catch (e) {}
-                });
-                return matches;
-            }, matchSelector);
-
-            rawMatches.push(...pageMatches);
-            console.log(`[Flashscore] Raw matches extracted from ${url}: ${pageMatches.length}`);
-            
-            if (rawMatches.length > 0) {
-                break; // Se ha trovato partite in questo URL, si ferma (priorità al main league)
-            }
-        } // End URL loop
-
-        if (rawMatches.length === 0) {
-            throw new Error(`Nessuna partita trovata negli URL per ${country}/${league}. La pagina potrebbe aver cambiato struttura.`);
-        }
-
-        // Filtra per data (ultimi N giorni)
-        const now = new Date();
-        const cutoffDate = new Date(now.getTime() - (daysBack * 24 * 60 * 60 * 1000));
-
-        const filteredMatches = rawMatches
-            .map(match => {
-                const parsedDate = parseFlashscoreDate(match.dateStr);
-
-                return {
-                    date: match.dateStr,
-                    parsedDate,
-                    homeTeam: match.homeTeam,
-                    awayTeam: match.awayTeam,
-                    homeScore: match.homeScore,
-                    awayScore: match.awayScore,
-                    matchUrl: match.matchUrl,
-                    matchId: match.matchId
-                };
-            })
-            .filter(match => {
-                // Se non riusciamo a parsare la data, includiamo la partita comunque
-                if (!match.parsedDate) return true;
-                return match.parsedDate >= cutoffDate;
-            })
-            .sort((a, b) => {
-                if (!a.parsedDate) return 1;
-                if (!b.parsedDate) return -1;
-                return b.parsedDate - a.parsedDate;
-            })
-            .map(({ parsedDate, ...rest }) => rest);
-
-        console.log(`[Flashscore] Final: ${filteredMatches.length} matches in last ${daysBack} days`);
-        return filteredMatches;
+        console.log(`[Flashscore] Final: ${allMatches.length} matches in last ${daysBack} days`);
+        return allMatches;
 
     } catch (error) {
-        console.error("[Flashscore] Scrape Error:", error);
+        console.error('[Flashscore] Scrape Error:', error);
         throw error;
     } finally {
         if (page && !page.isClosed()) {
@@ -316,41 +503,189 @@ async function getRecentMatches({ country, league, daysBack = 365 }) {
 }
 
 /**
- * Scrape league standings (classifica).
+ * Intercetta la risposta API interna di Flashscore.
+ * Naviga sulla pagina e cattura il primo payload di dati partite.
  * 
- * @param {Object} options
- * @param {string} options.country - Country slug (es. "greece")
- * @param {string} options.league - League slug (es. "super-league")
- * @returns {Promise<Array>} Array di { rank, team, p, w, d, l, goals, pts }
+ * @param {Page} page - Pagina Puppeteer (già configurata)
+ * @param {string} url - URL da navigare
+ * @returns {Promise<string|null>} Raw payload text o null se non intercettato
  */
-/**
- * Scrape league standings (classifica).
- * 
- * @param {Object} options
- * @param {string} options.country - Country slug (es. "greece")
- * @param {string} options.league - League slug (es. "super-league")
- * @returns {Promise<Array>} Array di { rank, team, p, w, d, l, goals, gd, pts }
- */
-async function getStandings({ country, league }) {
-    // URL providing directly by user: https://www.flashscore.com/football/greece/super-league/standings/#/YqOkq45l/standings/overall/
-    // We generalize it to the canonical standings URL which usually redirects correctly or loads the table.
-    // Using flashscore.com (English) as requested.
-    let url = `https://www.flashscore.com/football/${country}/${league}/standings/`;
+async function interceptApiResponse(page, url) {
+    return new Promise(async (resolve, reject) => {
+        let resolved = false;
 
-    // Override for specific request if needed, but the canonical path usually works.
-    if (country === 'greece' && league === 'super-league') {
-        url = 'https://www.flashscore.com/football/greece/super-league/standings/';
+        // Timeout: se non riceviamo il payload in 20s, fallback al DOM
+        const timer = setTimeout(() => {
+            if (!resolved) {
+                resolved = true;
+                resolve(null);
+            }
+        }, 20000);
+
+        // Listener per intercettare le risposte API
+        const onResponse = async (response) => {
+            if (resolved) return;
+
+            const resUrl = response.url();
+
+            // Pattern 1: Feed proprietario Flashscore (formato ¬ delimitato)
+            // URL tipici: local-it.flashscore.ninja/1/x/feed/f_1_..._results
+            //             d.flashscore.com/x/feed/f_1_..._results
+            const isFeedUrl = (resUrl.includes('/x/feed/') || resUrl.includes('/feed/')) &&
+                (resUrl.includes('_results') || resUrl.includes('_fixtures') ||
+                    resUrl.includes('df_to_') || resUrl.includes('df_sui_'));
+
+            // Pattern 2: GraphQL endpoint
+            const isGraphQL = resUrl.includes('graphql') && response.request().method() === 'POST';
+
+            if (isFeedUrl || isGraphQL) {
+                try {
+                    const text = await response.text();
+                    // Verifica che sia il payload di dati (non una risposta vuota/errore)
+                    if (text && text.length > 100) {
+                        console.log(`[Flashscore] ✅ Intercepted API response: ${resUrl.substring(0, 80)}... (${text.length} bytes)`);
+                        if (!resolved) {
+                            resolved = true;
+                            clearTimeout(timer);
+                            resolve(text);
+                        }
+                    }
+                } catch (e) {
+                    // response.text() può fallire se la pagina è già chiusa
+                }
+            }
+        };
+
+        page.on('response', onResponse);
+
+        try {
+            // Naviga con 'commit' — il minimo necessario, non aspetta il DOM
+            await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 25000 });
+
+            // Attendi un po' per dare tempo alle API di rispondere
+            // (il listener catturerà il payload appena arriva)
+            await sleep(5000);
+
+            // Se dopo la navigazione + attesa non è arrivato nulla, resolve null
+            if (!resolved) {
+                resolved = true;
+                clearTimeout(timer);
+                resolve(null);
+            }
+        } catch (navErr) {
+            if (!resolved) {
+                resolved = true;
+                clearTimeout(timer);
+                reject(navErr);
+            }
+        }
+    });
+}
+
+/**
+ * Fallback: estrai partite dal DOM (metodo originale, più lento ma robusto).
+ */
+async function extractMatchesFromDOM(page, url, daysBack) {
+    // Se la pagina corrente non è già su questo URL, naviga
+    const currentUrl = page.url();
+    if (!currentUrl.includes(url.replace('https://www.flashscore.it', ''))) {
+        await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
     }
 
-    const browser = await getBrowser();
+    await page.waitForSelector('[class*="event__match"]', { timeout: 12000 }).catch(() => {});
+    await sleep(300);
+
+    const MATCH_SELECTORS = ['.event__match', '[class*="event__match"]'];
+    let matchSelector = null;
+    for (const sel of MATCH_SELECTORS) {
+        const count = await page.$$eval(sel, els => els.length).catch(() => 0);
+        if (count > 0) {
+            matchSelector = sel;
+            break;
+        }
+    }
+
+    if (!matchSelector) return [];
+
+    const rawMatches = await page.evaluate((selector) => {
+        const matches = [];
+        const matchElements = document.querySelectorAll(selector);
+
+        matchElements.forEach(el => {
+            try {
+                const timeEl = el.querySelector('.event__time') || el.querySelector('[class*="time"]');
+                const dateStr = timeEl ? timeEl.textContent.trim() : '';
+
+                const homeEl = el.querySelector('.event__participant--home') || el.querySelector('.event__homeParticipant');
+                const awayEl = el.querySelector('.event__participant--away') || el.querySelector('.event__awayParticipant');
+                const homeTeam = homeEl ? homeEl.textContent.trim() : '';
+                const awayTeam = awayEl ? awayEl.textContent.trim() : '';
+
+                const homeScoreEl = el.querySelector('.event__score--home') || el.querySelector('[class*="score--home"]');
+                const awayScoreEl = el.querySelector('.event__score--away') || el.querySelector('[class*="score--away"]');
+                const homeScore = homeScoreEl ? homeScoreEl.textContent.trim() : '';
+                const awayScore = awayScoreEl ? awayScoreEl.textContent.trim() : '';
+
+                const matchId = el.id ? el.id.replace('g_1_', '') : '';
+
+                if (homeTeam && awayTeam) {
+                    matches.push({ dateStr, homeTeam, awayTeam, homeScore, awayScore, matchUrl: '', matchId });
+                }
+            } catch (e) {}
+        });
+        return matches;
+    }, matchSelector);
+
+    // Filtra per data
+    const now = new Date();
+    const cutoffDate = new Date(now.getTime() - (daysBack * 24 * 60 * 60 * 1000));
+
+    return rawMatches
+        .map(match => {
+            const parsedDate = parseFlashscoreDate(match.dateStr);
+            return { ...match, date: match.dateStr, parsedDate };
+        })
+        .filter(match => {
+            if (!match.parsedDate) return true;
+            return match.parsedDate >= cutoffDate;
+        })
+        .sort((a, b) => {
+            if (!a.parsedDate) return 1;
+            if (!b.parsedDate) return -1;
+            return b.parsedDate - a.parsedDate;
+        })
+        .map(({ parsedDate, dateStr, ...rest }) => rest);
+}
+
+// =============================================================================
+// SEZIONE 5: STANDINGS (CLASSIFICA) — Puppeteer-only (richiede rendering)
+// =============================================================================
+
+/**
+ * Scrape league standings (classifica).
+ * Le classifiche richiedono rendering DOM perché i dati sono in una tabella
+ * che viene popolata da JavaScript lato client.
+ * 
+ * @param {Object} options
+ * @param {string} options.country - Country slug
+ * @param {string} options.league - League slug
+ * @returns {Promise<Array>} Array di { rank, team, p, w, d, l, gd, pts }
+ */
+async function getStandings({ country, league }) {
+    const url = getStandingsUrl(country, league);
+
+    if (!url) {
+        console.warn(`[Flashscore Standings] No standings URL for ${country}/${league}`);
+        return [];
+    }
+
     let page;
     try {
-        page = await createFastPage(browser);
+        page = await acquirePage();
 
         console.log(`[Flashscore Standings] Navigating to: ${url}`);
         const t0 = Date.now();
 
-        // Go to page
         await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 45000 });
 
         // Handle Cookies (Onetrust) - Generic handler
@@ -365,12 +700,7 @@ async function getStandings({ country, league }) {
 
         // Wait for the standings table container
         console.log('[Flashscore Standings] Waiting for table...');
-
-        // Selectors for Flashscore.com
-        // The container usually has an ID like 'tournament-table-tabs-and-content'
         await page.waitForSelector('.ui-table__row', { timeout: 15000 });
-
-        // Additional wait to ensure data population
         await sleep(1000);
 
         console.log(`[Flashscore Standings] Rows found in ${Date.now() - t0}ms`);
@@ -382,24 +712,12 @@ async function getStandings({ country, league }) {
 
             rows.forEach(row => {
                 try {
-                    // Rank: "1." -> "1"
                     const rankEl = row.querySelector('.tableCellRank');
-                    if (!rankEl) return; // Header row or invalid
+                    if (!rankEl) return;
                     const rank = rankEl.textContent.trim().replace('.', '');
 
-                    // Team Name
                     const teamEl = row.querySelector('.tableCellParticipant__name');
                     const team = teamEl ? teamEl.textContent.trim() : 'Unknown';
-
-                    // Values: P, W, D, L, Goals, PTS, Form
-                    // These are often in .table__cell--value
-                    // On .com, checking structure:
-                    // .table__cell--value (MP)
-                    // .table__cell--value (W)
-                    // .table__cell--value (D)
-                    // .table__cell--value (L)
-                    // .table__cell--value (Goals e.g. 40:10)
-                    // .table__cell--value (PTS) -- Sometimes distinct class .table__cell--points
 
                     const valueCells = Array.from(row.querySelectorAll('.table__cell--value'));
                     const pointsCell = row.querySelector('.table__cell--points');
@@ -409,9 +727,8 @@ async function getStandings({ country, league }) {
                         const w = valueCells[1].textContent.trim();
                         const d = valueCells[2].textContent.trim();
                         const l = valueCells[3].textContent.trim();
-                        const goalsRaw = valueCells[4].textContent.trim(); // "GS:GA"
+                        const goalsRaw = valueCells[4].textContent.trim();
 
-                        // Calculate GD
                         let gd = 0;
                         if (goalsRaw.includes(':')) {
                             const [gf, ga] = goalsRaw.split(':').map(n => parseInt(n));
@@ -419,19 +736,9 @@ async function getStandings({ country, league }) {
                         }
                         const gdStr = gd > 0 ? `+${gd}` : `${gd}`;
 
-                        // Points: usually distinct cell, or last value cell
                         const pts = pointsCell ? pointsCell.textContent.trim() : valueCells[valueCells.length - 1].textContent.trim();
 
-                        data.push({
-                            rank,
-                            team,
-                            p,
-                            w,
-                            d,
-                            l,
-                            gd: gdStr,
-                            pts
-                        });
+                        data.push({ rank, team, p, w, d, l, gd: gdStr, pts });
                     }
                 } catch (e) {
                     // Skip
@@ -441,15 +748,10 @@ async function getStandings({ country, league }) {
         });
 
         console.log(`[Flashscore Standings] Extracted ${standings.length} teams.`);
-
-        // If empty, throw error
-        if (standings.length === 0) {
-            console.log(`[Flashscore Standings] Final: ${standings.length} teams`);
-        }
         return standings;
 
     } catch (error) {
-        console.error("[Flashscore Standings] Scrape Error:", error);
+        console.error('[Flashscore Standings] Scrape Error:', error);
         throw error;
     } finally {
         if (page && !page.isClosed()) {
@@ -458,23 +760,22 @@ async function getStandings({ country, league }) {
     }
 }
 
+// =============================================================================
+// SEZIONE 6: MATCH DETAILS (MARCATORI) — API diretta + Puppeteer fallback
+// =============================================================================
+
 /**
  * Estrai matchId dall'URL Flashscore.
- * URL format IT: https://www.flashscore.it/partita/calcio/team1-xxx/team2-yyy/?mid=AbCdEfGh
- * URL format EN: https://www.flashscore.com/match/AbCdEfGh/...
  */
 function extractMatchId(matchUrl) {
     if (!matchUrl) return null;
 
-    // Prima prova: parametro ?mid= (formato flashscore.it)
     const midMatch = matchUrl.match(/[?&]mid=([a-zA-Z0-9]+)/);
     if (midMatch) return midMatch[1];
 
-    // Seconda prova: /match/{id}/ (formato flashscore.com)
     const matchEn = matchUrl.match(/\/match\/([a-zA-Z0-9]{6,12})/);
     if (matchEn) return matchEn[1];
 
-    // Terza prova: prendi l'ultimo segmento alfanumerico di 8 caratteri
     const segments = matchUrl.split(/[/?#]/);
     for (const seg of segments) {
         if (/^[a-zA-Z0-9]{6,12}$/.test(seg)) return seg;
@@ -484,51 +785,9 @@ function extractMatchId(matchUrl) {
 }
 
 /**
- * Parsa il formato dati proprietario di Flashscore.
- * Il formato usa '\u00ac' come separatore e '\u00f7' come delimitatore chiave-valore.
- * Ogni sezione inizia con un key che contiene '~' (es. ~III).
- * 
- * IMPORTANTE: dentro ogni sezione, le chiavi possono ripetersi!
- * Es. IE=3 (gol) + IF=marcatore, poi IE=8 (assist) + IF=assistman.
- * Oppure IE=5 (rigore assegnato) + IF=tiratore, poi IE=10 (rigore segnato) + IF=tiratore.
- * 
- * Per questo motivo, il parser emette una lista di coppie chiave-valore
- * per ogni sezione, preservando l'ORDINE e le RIPETIZIONI.
- */
-function parseFlashscoreData(rawData) {
-    const sections = [];
-    let currentPairs = null; // Array di {key, value}
-    let sectionId = null;
-
-    const parts = rawData.split('\xAC'); // \u00ac
-    for (const part of parts) {
-        const sepIdx = part.indexOf('\xF7'); // \u00f7
-        if (sepIdx === -1) continue;
-
-        const key = part.substring(0, sepIdx);
-        const value = part.substring(sepIdx + 1);
-
-        if (key.startsWith('~')) {
-            // Nuova sezione
-            if (currentPairs) sections.push({ id: sectionId, pairs: currentPairs });
-            sectionId = key;
-            currentPairs = [{ key, value }];
-        } else if (currentPairs) {
-            currentPairs.push({ key, value });
-        }
-    }
-    if (currentPairs) sections.push({ id: sectionId, pairs: currentPairs });
-    return sections;
-}
-
-/**
  * Estrai i gol dal dato parsato di una partita Flashscore.
  * Gestisce: IE=3 (gol), IE=10 (rigore segnato).
- * Filtra i calci di rigore finali (shootout) — solo gol regolamentari + supplementari.
- * 
- * In ogni sezione ~III, i campi si ripetono per sub-evento:
- *   IE=3/IF=scorer → IE=8/IF=assister  (gol + assist)
- *   IE=5/IF=player → IE=10/IF=scorer   (rigore assegnato + rigore segnato)
+ * Filtra i calci di rigore finali (shootout).
  */
 function extractGoalsFromSections(sections) {
     const homeGoals = [];
@@ -536,8 +795,6 @@ function extractGoalsFromSections(sections) {
     let inShootout = false;
 
     for (const section of sections) {
-        // Rileva l'inizio della fase rigori (penalty shootout)
-        // ~AC con valore che contiene "Пенальти" o "Penalty" o "Rigori"
         if (section.id === '~AC') {
             const firstPair = section.pairs[0];
             if (firstPair) {
@@ -549,15 +806,10 @@ function extractGoalsFromSections(sections) {
             continue;
         }
 
-        // Solo sezioni di incidente (~III)
         if (!section.id || !section.id.startsWith('~III')) continue;
-
-        // Salta gol durante i calci di rigore finali
         if (inShootout) continue;
 
         const pairs = section.pairs;
-
-        // Estrai IA (team) e IB (minuto) — sono sempre i primi campi della sezione
         let team = '';
         let minute = '';
         for (const p of pairs) {
@@ -565,7 +817,6 @@ function extractGoalsFromSections(sections) {
             if ((p.key === 'IB' || p.key === 'IBX') && !minute) minute = p.value;
         }
 
-        // Cerca sub-eventi: ogni IE inizia un nuovo sub-evento
         const subEvents = [];
         let currentSub = null;
         for (const p of pairs) {
@@ -578,7 +829,6 @@ function extractGoalsFromSections(sections) {
         }
         if (currentSub) subEvents.push(currentSub);
 
-        // Cerca un sub-evento gol (IE=3) o rigore segnato (IE=10)
         let goalSub = null;
         for (const sub of subEvents) {
             if (sub.ie === '3' || sub.ie === '10') {
@@ -589,7 +839,6 @@ function extractGoalsFromSections(sections) {
 
         if (!goalSub || !goalSub.if) continue;
 
-        // Estrai cognome
         const playerName = goalSub.if.trim();
         const nameParts = playerName.split(/\s+/);
         const lastName = nameParts[0] || playerName;
@@ -614,42 +863,28 @@ function extractGoalsFromSections(sections) {
 
 /**
  * Formatta l'array di gol per il frontend.
- * - Raggruppa gol dello stesso giocatore in una riga
  * - Home: "27' 83' JOVIC", Away: "JOVIC 27' 83'"
  * - Rigori: "33' [R] VARGA" (home), "VARGA 33' [R]" (away)
- * 
- * @param {Array} goals - Array di {lastName, minute, isPenalty}
- * @param {string} side - 'home' o 'away'
- * @returns {Array<string>} Array di stringhe formattate
  */
 function formatGoalscorers(goals, side) {
-    // Raggruppa per cognome
     const grouped = {};
     for (const g of goals) {
-        if (!grouped[g.lastName]) {
-            grouped[g.lastName] = [];
-        }
+        if (!grouped[g.lastName]) grouped[g.lastName] = [];
         grouped[g.lastName].push({ minute: g.minute, isPenalty: g.isPenalty });
     }
 
-    // Mantieni l'ordine di apparizione
     const seen = [];
     for (const g of goals) {
-        if (!seen.includes(g.lastName)) {
-            seen.push(g.lastName);
-        }
+        if (!seen.includes(g.lastName)) seen.push(g.lastName);
     }
 
     const result = [];
     for (const name of seen) {
         const entries = grouped[name];
-
         if (side === 'home') {
-            // Home: "27' 83' JOVIC" oppure "33' [R] 87' JOVIC"
             const minuteParts = entries.map(e => e.isPenalty ? `${e.minute} [R]` : e.minute);
             result.push(`${minuteParts.join(' ')} ${name}`);
         } else {
-            // Away: "JOVIC 27' 83'" oppure "JOVIC 33' [R] 87'"
             const minuteParts = entries.map(e => e.isPenalty ? `${e.minute} [R]` : e.minute);
             result.push(`${name} ${minuteParts.join(' ')}`);
         }
@@ -658,14 +893,9 @@ function formatGoalscorers(goals, side) {
     return result;
 }
 
-
 /**
  * Scrape goalscorer details via API HTTP diretta (VELOCE: ~1-2s).
  * Fallback a Puppeteer se l'API non risponde.
- * 
- * @param {string} matchUrl - URL della pagina dettaglio partita (flashscore.it)
- * @param {string} [matchId] - ID partita (opzionale, estratto da URL se non fornito)
- * @returns {Promise<Object>} { homeGoals: [{player, minute, formatted}], awayGoals: [{player, minute, formatted}] }
  */
 async function getMatchDetails(matchUrl, matchId) {
     const resolvedId = matchId || extractMatchId(matchUrl);
@@ -695,9 +925,6 @@ async function getMatchDetails(matchUrl, matchId) {
  * Recupera marcatori tramite API HTTP diretta di Flashscore.
  */
 async function getMatchDetailsViaAPI(matchId) {
-    // Prova diversi endpoint regionali
-    // Progetto 1 = locale inglese/internazionale (nomi in alfabeto latino)
-    // Progetto 46 = locale russo (nomi in cirillico) — NON usare!
     const API_BASES = [
         'https://local-it.flashscore.ninja/1/x/feed',
         'https://local-global.flashscore.ninja/2/x/feed',
@@ -740,11 +967,9 @@ async function getMatchDetailsViaAPI(matchId) {
         throw lastError || new Error('Nessun endpoint API ha restituito dati');
     }
 
-    // Parsa il formato proprietario e estrai i gol
     const sections = parseFlashscoreData(rawData);
     const goals = extractGoalsFromSections(sections);
 
-    // Formatta per il frontend (home: "27' JOVIC", away: "JOVIC 27'")
     const homeFormatted = formatGoalscorers(goals.homeGoals, 'home');
     const awayFormatted = formatGoalscorers(goals.awayGoals, 'away');
 
@@ -759,16 +984,15 @@ async function getMatchDetailsViaAPI(matchId) {
  * Fallback: recupera marcatori via Puppeteer (lento ma affidabile).
  */
 async function getMatchDetailsViaPuppeteer(matchUrl) {
-    const browser = await getBrowser();
     let page;
     try {
-        page = await createFastPage(browser);
+        page = await acquirePage();
 
         console.log(`[Flashscore Puppeteer] Fetching: ${matchUrl}`);
         const t0 = Date.now();
         await page.goto(matchUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
 
-        await page.waitForSelector('.smv__incident, [class*="incident"]', { timeout: 8000 }).catch(() => { });
+        await page.waitForSelector('.smv__incident, [class*="incident"]', { timeout: 8000 }).catch(() => {});
         console.log(`[Flashscore Puppeteer] Page ready in ${Date.now() - t0}ms`);
         await sleep(300);
 
@@ -833,7 +1057,7 @@ async function getMatchDetailsViaPuppeteer(matchUrl) {
         return goals;
 
     } catch (error) {
-        console.error("[Flashscore Puppeteer] Error:", error.message);
+        console.error('[Flashscore Puppeteer] Error:', error.message);
         throw error;
     } finally {
         if (page && !page.isClosed()) {
@@ -842,7 +1066,10 @@ async function getMatchDetailsViaPuppeteer(matchUrl) {
     }
 }
 
-// Se eseguito da CLI
+// =============================================================================
+// SEZIONE 7: CLI
+// =============================================================================
+
 if (require.main === module) {
     const args = {};
     process.argv.slice(2).forEach(arg => {
@@ -850,8 +1077,8 @@ if (require.main === module) {
         args[key] = value;
     });
 
-    const mode = args.mode || 'matches'; // 'matches' or 'standings'
-    const country = args.country || 'grecia';
+    const mode = args.mode || 'matches';
+    const country = args.country || 'greece';
     const league = args.league || 'super-league';
 
     if (mode === 'standings') {

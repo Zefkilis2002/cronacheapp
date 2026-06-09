@@ -5,10 +5,78 @@ const cheerio = require('cheerio');
 const cors = require('cors');
 const OpenAI = require('openai'); // Importa SDK OpenAI
 const NodeCache = require('node-cache'); // Importa node-cache
-const { getRecentMatches, getMatchDetails, getStandings } = require('./execution/scrape_flashscore');
+const { getRecentMatches, getMatchDetails, getStandings, prewarmBrowser } = require('./execution/scrape_flashscore');
 
 const app = express();
-const cache = new NodeCache({ stdTTL: 300, maxKeys: 10000, useClones: false }); // Ottimizzazione RAM
+
+// =============================================================================
+// CACHE: Dual-TTL per Stale-While-Revalidate
+// =============================================================================
+// hardTTL = tempo massimo di vita in cache (30 minuti)
+// I metadati di freschezza (softTTL) sono salvati nel valore stesso.
+const cache = new NodeCache({ stdTTL: 1800, maxKeys: 10000, useClones: false });
+
+// Set di chiavi che stanno attualmente eseguendo un refresh in background
+const _refreshing = new Set();
+
+/**
+ * Pattern Stale-While-Revalidate.
+ * 
+ * Logica:
+ *   1. Se la cache è FRESCA (< softTTL) → restituisci subito (HIT)
+ *   2. Se la cache è STALE (> softTTL ma < hardTTL) → restituisci subito + refresh in background (STALE)
+ *   3. Se la cache è VUOTA (miss) → esegui fetch sincrono, salva, restituisci (MISS)
+ * 
+ * @param {string} cacheKey - Chiave della cache
+ * @param {Function} fetchFn - Funzione async che esegue il fetch reale
+ * @param {Object} options
+ * @param {number} options.softTTL - Secondi di "freschezza" (default 180 = 3 min)
+ * @param {number} options.hardTTL - Secondi massimi in cache (default 1800 = 30 min)
+ * @returns {Promise<{data: any, cacheStatus: string}>}
+ */
+async function staleWhileRevalidate(cacheKey, fetchFn, { softTTL = 180, hardTTL = 1800 } = {}) {
+    const cached = cache.get(cacheKey);
+
+    if (cached) {
+        const ageSeconds = (Date.now() - cached._cachedAt) / 1000;
+
+        if (ageSeconds < softTTL) {
+            // FRESH HIT — dati ancora freschi
+            return { data: cached, cacheStatus: 'HIT' };
+        }
+
+        // STALE — restituisci subito, ma aggiorna in background
+        if (!_refreshing.has(cacheKey)) {
+            _refreshing.add(cacheKey);
+            console.log(`[SWR] Background revalidation started for: ${cacheKey}`);
+            fetchFn()
+                .then(freshData => {
+                    const wrapped = { ...freshData, _cachedAt: Date.now() };
+                    cache.set(cacheKey, wrapped, hardTTL);
+                    console.log(`[SWR] Background revalidation SUCCESS for: ${cacheKey}`);
+                })
+                .catch(err => {
+                    console.error(`[SWR] Background revalidation FAILED for ${cacheKey}:`, err.message);
+                })
+                .finally(() => {
+                    _refreshing.delete(cacheKey);
+                });
+        }
+
+        return { data: cached, cacheStatus: 'STALE' };
+    }
+
+    // MISS — nessuna cache, fetch sincrono obbligatorio
+    console.log(`[SWR] Cache MISS for: ${cacheKey} — fetching synchronously...`);
+    const freshData = await fetchFn();
+    const wrapped = { ...freshData, _cachedAt: Date.now() };
+    cache.set(cacheKey, wrapped, hardTTL);
+    return { data: wrapped, cacheStatus: 'MISS' };
+}
+
+// =============================================================================
+// MIDDLEWARE
+// =============================================================================
 
 const ALLOWED_DOMAINS = ['instagram.com', 'cdninstagram.com', 'flashscore.com', 'flashscore.it', 'thesportsdb.com'];
 
@@ -32,7 +100,7 @@ app.use(cors({
   origin: '*',
   methods: ['GET', 'POST', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
-}));// ... (rest of the file remains unchanged until the endpoint)
+}));
 
 
 
@@ -41,6 +109,10 @@ app.use(express.json());
 app.get('/api/health-check', (req, res) => {
   res.status(200).json({ status: true, message: 'Server is running' });
 });
+
+// =============================================================================
+// INSTAGRAM ENDPOINTS (invariati)
+// =============================================================================
 
 // Funzione per selezionare l'immagine con la qualità più alta
 function selectHighestQualityImage(images) {
@@ -259,7 +331,7 @@ app.get('/proxy-image', async (req, res) => {
   }
 });
 
-// --- NUOVO ENDPOINT DI SCRAPING (Proxy per evitare CORS/Blocchi) ---
+// --- ENDPOINT DI SCRAPING (Proxy per evitare CORS/Blocchi) ---
 app.get('/api/scrape', async (req, res) => {
   const targetUrl = req.query.url;
   if (!targetUrl) return res.status(400).json({ status: false, message: 'URL missing' });
@@ -285,7 +357,7 @@ app.get('/api/scrape', async (req, res) => {
         'User-Agent': randomUserAgent,
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8'
       },
-      timeout: 8000 // ridotto timeout
+      timeout: 8000
     });
 
     console.log(`[SCRAPE] Direct fetch success: ${response.status}`);
@@ -311,7 +383,11 @@ app.get('/api/scrape', async (req, res) => {
   }
 });
 
-// --- NUOVO ENDPOINT AI PER RICERCA SQUADRE ---
+// =============================================================================
+// AI ENDPOINTS (invariati)
+// =============================================================================
+
+// --- ENDPOINT AI PER RICERCA SQUADRE ---
 app.get('/api/find-team-info', async (req, res) => {
   const teamName = req.query.teamName;
   if (!teamName) return res.status(400).json({ status: false, message: 'Team name missing' });
@@ -368,6 +444,10 @@ app.get('/api/find-team-info', async (req, res) => {
   }
 });
 
+// =============================================================================
+// FLASHSCORE ENDPOINTS — con Stale-While-Revalidate
+// =============================================================================
+
 // --- ENDPOINT FLASHSCORE: Cerca partite recenti ---
 app.get('/api/get-matches', async (req, res) => {
   const { country, league, daysBack } = req.query;
@@ -382,16 +462,9 @@ app.get('/api/get-matches', async (req, res) => {
   const days = parseInt(daysBack) || 365;
   const cacheKey = `matches_${country}_${league}_${days}`;
 
-  // Verifica cache
-  const cachedData = cache.get(cacheKey);
-  if (cachedData) {
-    console.log(`[CACHE] Restituiti dati in cache per get-matches: ${cacheKey}`);
-    return res.json(cachedData);
-  }
+  console.log(`[FLASHSCORE] Request: ${country}/${league} (last ${days} days)`);
 
-  console.log(`[FLASHSCORE] Searching: ${country}/${league} (last ${days} days)`);
-
-  // Timeout di sicurezza: 90 secondi (Render free tier ha cold start lento)
+  // Timeout di sicurezza: 90 secondi (solo per MISS, non per cache HIT/STALE)
   const timeout = setTimeout(() => {
     if (!res.headersSent) {
       res.status(504).json({
@@ -402,14 +475,20 @@ app.get('/api/get-matches', async (req, res) => {
   }, 90000);
 
   try {
-    const matches = await getRecentMatches({ country, league, daysBack: days });
+    const { data, cacheStatus } = await staleWhileRevalidate(
+      cacheKey,
+      async () => {
+        const matches = await getRecentMatches({ country, league, daysBack: days });
+        return { status: true, matches, count: matches.length };
+      },
+      { softTTL: 180, hardTTL: 1800 } // 3 min fresh, 30 min stale max
+    );
 
     clearTimeout(timeout);
     if (!res.headersSent) {
-      console.log(`[FLASHSCORE] Success: ${matches.length} matches found`);
-      const responseData = { status: true, matches, count: matches.length };
-      cache.set(cacheKey, responseData); // Salva in cache solo in caso di successo
-      res.json(responseData);
+      console.log(`[FLASHSCORE] Response [${cacheStatus}]: ${data.count || 0} matches`);
+      res.set('X-Cache-Status', cacheStatus);
+      res.json(data);
     }
   } catch (error) {
     clearTimeout(timeout);
@@ -436,16 +515,8 @@ app.get('/api/get-match-details', async (req, res) => {
 
   const cacheKey = `match_details_${matchId || matchUrl}`;
 
-  // Verifica cache
-  const cachedData = cache.get(cacheKey);
-  if (cachedData) {
-    console.log(`[CACHE] Restituiti dati in cache per get-match-details: ${cacheKey}`);
-    return res.json(cachedData);
-  }
+  console.log(`[FLASHSCORE] Match details request: ${matchId || matchUrl}`);
 
-  console.log(`[FLASHSCORE] Fetching match details: ${matchId || matchUrl}`);
-
-  // Timeout ridotto: ora l'API HTTP risponde in <1s
   const timeout = setTimeout(() => {
     if (!res.headersSent) {
       res.status(504).json({
@@ -456,14 +527,20 @@ app.get('/api/get-match-details', async (req, res) => {
   }, 30000);
 
   try {
-    const details = await getMatchDetails(matchUrl, matchId);
+    const { data, cacheStatus } = await staleWhileRevalidate(
+      cacheKey,
+      async () => {
+        const details = await getMatchDetails(matchUrl, matchId);
+        return { status: true, ...details };
+      },
+      { softTTL: 300, hardTTL: 3600 } // 5 min fresh, 1 ora stale (i risultati non cambiano)
+    );
 
     clearTimeout(timeout);
     if (!res.headersSent) {
-      console.log(`[FLASHSCORE] Details retrieved successfully`);
-      const responseData = { status: true, ...details };
-      cache.set(cacheKey, responseData); // Salva in cache solo in caso di successo
-      res.json(responseData);
+      console.log(`[FLASHSCORE] Match details [${cacheStatus}]`);
+      res.set('X-Cache-Status', cacheStatus);
+      res.json(data);
     }
   } catch (error) {
     clearTimeout(timeout);
@@ -482,28 +559,31 @@ app.get('/api/standings', async (req, res) => {
   const { country = 'greece', league = 'super-league' } = req.query;
   const cacheKey = `standings_${country}_${league}`;
 
-  // Verifica cache
-  const cachedData = cache.get(cacheKey);
-  if (cachedData) {
-    console.log(`[CACHE] Restituiti dati in cache per standings: ${cacheKey}`);
-    return res.json(cachedData);
-  }
-
-  console.log(`[FLASHSCORE] Fetching standings for: ${country}/${league}`);
+  console.log(`[FLASHSCORE] Standings request: ${country}/${league}`);
 
   try {
-    const data = await getStandings({ country, league });
-    console.log(`[FLASHSCORE] Standings success: ${data.length} teams`);
-    const responseData = { success: true, data };
-    cache.set(cacheKey, responseData); // Salva in cache solo in caso di successo
-    res.json(responseData);
+    const { data, cacheStatus } = await staleWhileRevalidate(
+      cacheKey,
+      async () => {
+        const standings = await getStandings({ country, league });
+        return { success: true, data: standings };
+      },
+      { softTTL: 300, hardTTL: 1800 } // 5 min fresh, 30 min stale
+    );
+
+    console.log(`[FLASHSCORE] Standings [${cacheStatus}]: ${data.data?.length || 0} teams`);
+    res.set('X-Cache-Status', cacheStatus);
+    res.json(data);
   } catch (error) {
     console.error(`[FLASHSCORE] Standings error:`, error.message);
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-// --- ENDPOINT AI: Generazione Bio Instagram ---
+// =============================================================================
+// AI BIO ENDPOINT (invariato)
+// =============================================================================
+
 app.post('/api/generate-bio', async (req, res) => {
   const { inputText } = req.body;
 
@@ -613,6 +693,10 @@ Tzimas terminerà la stagione in prestito al Norimberga, prima di approdare defi
   }
 });
 
+// =============================================================================
+// LOGOS ENDPOINT (invariato)
+// =============================================================================
+
 // Lista delle squadre greche locali e nazionali per ricerca istantanea
 const LOCAL_TEAMS = [
   // Super League
@@ -662,7 +746,7 @@ const LOCAL_TEAMS = [
   { name: "Grecia", logoUrl: "/loghi/grecia.png" }
 ];
 
-// --- NUOVO ENDPOINT: Ricerca Loghi Ibrida (Locale + TheSportsDB con Cache e Timeout) ---
+// --- ENDPOINT: Ricerca Loghi Ibrida (Locale + TheSportsDB con Cache e Timeout) ---
 app.get('/api/search-logos', async (req, res) => {
   const query = req.query.q;
   if (!query || query.length < 2) {
@@ -751,6 +835,10 @@ app.get('/api/search-logos', async (req, res) => {
     return res.json({ status: true, results: localResults.slice(0, 5) });
   }
 });
+
+// =============================================================================
+// SERVER START
+// =============================================================================
 
 const PORT = 5000;
 app.listen(PORT, () => console.log(`Server aggiornato running on port ${PORT}`));
