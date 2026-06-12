@@ -18,8 +18,17 @@ function NewsCreator({
   handleBackgroundChange,
   textAboveImages,
   setTextAboveImages,
-  downloadImage
+  downloadImage,
+  html,
+  highlightColor,
+  setHighlightColor
 }) {
+  React.useEffect(() => {
+    if (textContainerRef.current && textContainerRef.current.innerHTML !== html) {
+      textContainerRef.current.innerHTML = html;
+    }
+  }, []); // Run on mount
+
   return (
     <div className="news-controls">
 
@@ -42,6 +51,7 @@ function NewsCreator({
               <option value="/sfondoNotizie/breaking.png">Breaking</option>
               <option value="/sfondoNotizie/roumor.png">Roumor</option>
               <option value="/sfondoNotizie/citation.png">Citation</option>
+              <option value="/sfondoNotizie/notizia.png">Notizia Sky Sport</option>
             </select>
           </div>
           <div className="checkbox-container">
@@ -84,6 +94,7 @@ function NewsCreator({
               <option value="Benzin-Medium">Benzin Medium</option>
               <option value="Benzin-Regular">Benzin Regular</option>
               <option value="Benzin-Semibold">Benzin Semi Bold</option>
+              <option value="Allotrope-Bold">Sky Sport (Allotrope Bold)</option>
             </select>
           </div>
           <div>
@@ -189,6 +200,7 @@ function NewsCreator({
               <option value="Benzin-Regular">Benzin Regular</option>
               <option value="Benzin-Medium">Benzin Medium</option>
               <option value="Benzin-Semibold">Benzin Semi Bold</option>
+              <option value="Allotrope-Bold">Sky Sport (Allotrope Bold)</option>
             </select>
           </div>
           <div>
@@ -200,6 +212,17 @@ function NewsCreator({
                 onChange={(e) => setTextColor(e.target.value)}
               />
               <span className="color-value">{textColor}</span>
+            </div>
+          </div>
+          <div>
+            <label>Colore evidenziazione (*):</label>
+            <div className="color-picker-wrapper">
+              <input
+                type="color"
+                value={highlightColor}
+                onChange={(e) => setHighlightColor(e.target.value)}
+              />
+              <span className="color-value">{highlightColor}</span>
             </div>
           </div>
         </div>

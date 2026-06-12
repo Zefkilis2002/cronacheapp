@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef, useCallback, memo } from 'react';
-import { Stage, Layer, Image as KonvaImage, Text, Group } from 'react-konva';
+import { Stage, Layer, Image as KonvaImage, Text, Group, Rect } from 'react-konva';
 import useImage from 'use-image';
 import { NEWS_LAYOUT } from '../../../config/layoutConstants';
 import './CanvasNews.css';
@@ -68,7 +68,7 @@ const LogoImage = memo(({ logo, updateItemPosition, setLogos, isSelected = false
 });
 
 // Componenti Rich Text e Multi Line Text
-  const RichTextGroup = memo(({ lines, x, y, fontFamily, fontSize, defaultColor, textScale, ORIGINAL_WIDTH, measureWidth, setTextPosition, onClick = () => {} }) => {
+  const RichTextGroup = memo(({ lines, x, y, fontFamily, fontSize, defaultColor, textScale, ORIGINAL_WIDTH, measureWidth, setTextPosition, highlightColor, onClick = () => {} }) => {
     const lineHeight = Math.round(fontSize * 1);
     let yOffset = 0;
     const elements = [];
@@ -78,13 +78,52 @@ const LogoImage = memo(({ logo, updateItemPosition, setLogos, isSelected = false
         yOffset += lineHeight;
         return;
       }
-      const totalWidth = segments.reduce((acc, s) => acc + measureWidth(s.text || '', fontFamily, fontSize), 0);
+
+      // PRE-PROCESS: Handle *highlight* markdown
+      let processedSegments = [];
+      let inHighlight = false;
+
+      segments.forEach(segment => {
+        const text = segment.text || '';
+        const parts = text.split('*');
+
+        parts.forEach((part, index) => {
+          if (index > 0) {
+             inHighlight = !inHighlight;
+          }
+          if (part !== '') {
+            processedSegments.push({
+               text: part,
+               color: segment.color,
+               highlight: inHighlight
+            });
+          }
+        });
+      });
+
+      const totalWidth = processedSegments.reduce((acc, s) => acc + measureWidth(s.text || '', fontFamily, fontSize), 0);
       const startX = -totalWidth / 2;
       let xOffset = 0;
 
-      segments.forEach((segment, si) => {
+      processedSegments.forEach((segment, si) => {
         const segmentWidth = measureWidth(segment.text || '', fontFamily, fontSize);
-        const segmentColor = segment.color || defaultColor;
+        // Colore per Sky Sport: testo bianco su sfondo rosso
+        const segmentColor = segment.highlight ? '#ffffff' : (segment.color || defaultColor);
+        const bgColor = segment.highlight ? (highlightColor || '#e3001b') : null; 
+
+        if (bgColor) {
+           elements.push(
+             <Rect
+               key={`bg-${li}-${si}`}
+               x={startX + xOffset - (fontSize * 0.1)} 
+               y={yOffset - (fontSize * 0.15)} 
+               width={segmentWidth + (fontSize * 0.2)} 
+               height={fontSize * 1.25}
+               fill={bgColor}
+               cornerRadius={2} 
+             />
+           );
+        }
 
         elements.push(
           <Text
@@ -187,7 +226,8 @@ function CanvasNews({
   selectedLogo = null,
   setSelectedBackground = () => {}, 
   setSelectedLogo = () => {}, 
-  showSelection = true
+  showSelection = true,
+  highlightColor = '#e3001b'
 }) {
   const containerRef = useRef(null);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0, scale: 1 });
@@ -548,6 +588,7 @@ function CanvasNews({
                     ORIGINAL_WIDTH={ORIGINAL_WIDTH}
                     measureWidth={measureWidth}
                     setTextPosition={setTextPosition}
+                    highlightColor={highlightColor}
                     onClick={() => setSelectedText('text')}
                   />
                 ) : (
@@ -620,6 +661,7 @@ function CanvasNews({
                     ORIGINAL_WIDTH={ORIGINAL_WIDTH}
                     measureWidth={measureWidth}
                     setTextPosition={setTextPosition}
+                    highlightColor={highlightColor}
                   />
                 ) : (
                   <Text

@@ -40,7 +40,9 @@ function NewsEditor() {
     textPosition, setTextPosition,
     textAboveImages, setTextAboveImages,
     handleTextChange,
-    enlargeTextSize, shrinkTextSize
+    enlargeTextSize, shrinkTextSize,
+    highlightColor, setHighlightColor,
+    html
   } = useTextEditor();
 
   const [backgroundImage, setBackgroundImage] = useState('/sfondoNotizie/sfumatura.png');
@@ -273,6 +275,7 @@ function NewsEditor() {
           setSelectedLogo={setSelectedLogo}
           showSelection={showSelection}
           richText={richText}
+          highlightColor={highlightColor}
         />
 
         <div className="news-tab-header">
@@ -310,6 +313,9 @@ function NewsEditor() {
               textAboveImages={textAboveImages}
               setTextAboveImages={setTextAboveImages}
               downloadImage={downloadImage}
+              html={html}
+              highlightColor={highlightColor}
+              setHighlightColor={setHighlightColor}
             />
           )}
 

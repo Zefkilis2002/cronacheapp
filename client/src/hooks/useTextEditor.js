@@ -4,7 +4,10 @@ import { NEWS_LAYOUT } from '../config/layoutConstants';
 export function useTextEditor() {
   const [title, setTitle] = useState('');
   const [text, setText] = useState('');
+  const [html, setHtml] = useState('');
   const [richText, setRichText] = useState([]);
+  
+  const [highlightColor, setHighlightColor] = useState('#e3001b');
   
   const [titleColor, setTitleColor] = useState(NEWS_LAYOUT.TITLE.color);
   const [textColor, setTextColor] = useState(NEWS_LAYOUT.TEXT.color);
@@ -20,12 +23,13 @@ export function useTextEditor() {
 
   const handleTextChange = useCallback((textContainerRef) => {
     if (!textContainerRef.current) return;
-    const html = textContainerRef.current.innerHTML;
+    const htmlContent = textContainerRef.current.innerHTML;
     const plain = textContainerRef.current.innerText;
     setText(plain);
+    setHtml(htmlContent);
 
     const container = document.createElement('div');
-    container.innerHTML = html;
+    container.innerHTML = htmlContent;
 
     const lines = [];
     let current = [];
@@ -107,7 +111,9 @@ export function useTextEditor() {
   return {
     title, setTitle,
     text, setText,
+    html, setHtml,
     richText, setRichText,
+    highlightColor, setHighlightColor,
     titleColor, setTitleColor,
     textColor, setTextColor,
     titleFont, setTitleFont,

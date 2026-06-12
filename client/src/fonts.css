@@ -69,3 +69,10 @@
   font-weight: 800;
   font-style: normal;
 }
+
+@font-face {
+  font-family: 'Allotrope-Bold';
+  src: url('./fonts/Allotrope_Bold.otf') format('opentype');
+  font-weight: bold;
+  font-style: normal;
+}
