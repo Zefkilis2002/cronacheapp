@@ -38,6 +38,7 @@ const Canva = ({
   const [logo2] = useImage(uploadedLogo2 || `${window.location.origin}${selectedLogo2}`, 'anonymous');
 
   // 🔧 PINCH ZOOM LOGIC (IMAGE ONLY)
+  const wrapperRef = React.useRef(null);
   const lastDistRef = React.useRef(0);
   const lastCenterRef = React.useRef(null);
   const animationFrameRef = React.useRef(null);
@@ -210,14 +211,25 @@ const Canva = ({
       stage.scale({ x: scale, y: scale });
 
       const container = stage.container();
-      if (container) {
-        const scaledWidth = originalWidth * scale;
-        const scaledHeight = originalHeight * scale;
+      const scaledWidth = originalWidth * scale;
+      const scaledHeight = originalHeight * scale;
 
+      if (wrapperRef.current) {
+        wrapperRef.current.style.width = `${scaledWidth}px`;
+        wrapperRef.current.style.height = `${scaledHeight}px`;
+        wrapperRef.current.style.margin = '0 auto';
+        wrapperRef.current.style.position = 'relative';
+        wrapperRef.current.style.boxSizing = 'content-box';
+        wrapperRef.current.style.border = '2px solid white';
+      }
+
+      if (container) {
         container.style.width = `${scaledWidth}px`;
         container.style.height = `${scaledHeight}px`;
         container.style.margin = '0 auto';
-        container.style.position = 'relative';
+        container.style.position = 'absolute';
+        container.style.top = '0';
+        container.style.left = '0';
         container.style.touchAction = 'none'; // Importante per disabilitare zoom browser
         container.style.userSelect = 'none';
         container.style.webkitUserSelect = 'none';
@@ -270,13 +282,79 @@ const Canva = ({
   const centeredX = (FULLTIME_LAYOUT.STAGE.WIDTH - imageDimensions.width) / 2;
   const centeredY = (FULLTIME_LAYOUT.STAGE.HEIGHT - imageDimensions.height) / 2;
 
+  const handleDownload = () => {
+    const stage = stageRef.current;
+    if (!stage) return;
+
+    try {
+      if (borderRef?.current) {
+        borderRef.current.visible(false);
+      }
+
+      const currentScale = stage.scale();
+      const currentSize = {
+        width: stage.width(),
+        height: stage.height()
+      };
+
+      const exportWidth = FULLTIME_LAYOUT.STAGE.WIDTH;
+      const exportHeight = FULLTIME_LAYOUT.STAGE.HEIGHT;
+
+      stage.scale({ x: 1, y: 1 });
+      stage.size({
+        width: exportWidth,
+        height: exportHeight
+      });
+      stage.batchDraw();
+
+      const uri = stage.toDataURL({
+        x: 0,
+        y: 0,
+        width: exportWidth,
+        height: exportHeight,
+        pixelRatio: 2,
+        mimeType: 'image/jpeg',
+        quality: 0.95
+      });
+
+      stage.scale(currentScale);
+      stage.size(currentSize);
+      if (borderRef?.current) {
+        borderRef.current.visible(true);
+      }
+      stage.batchDraw();
+
+      const link = document.createElement('a');
+      link.download = `tabellino_${Date.now()}.jpg`;
+      link.href = uri;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error('Errore durante il download:', error);
+      alert("Errore durante il download dell'immagine.");
+    }
+  };
+
   return (
     <div className="canvas-container">
-      <Stage
-        ref={stageRef}
-        width={FULLTIME_LAYOUT.STAGE.WIDTH}
-        height={FULLTIME_LAYOUT.STAGE.HEIGHT}
-      >
+      <div ref={wrapperRef} className="canvas-wrapper">
+        <button 
+          className="canvas-download-btn"
+          onClick={handleDownload}
+          title="Scarica Immagine"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="7 10 12 15 17 10"></polyline>
+            <line x1="12" y1="15" x2="12" y2="3"></line>
+          </svg>
+        </button>
+        <Stage
+          ref={stageRef}
+          width={FULLTIME_LAYOUT.STAGE.WIDTH}
+          height={FULLTIME_LAYOUT.STAGE.HEIGHT}
+        >
         <Layer clipX={0} clipY={0} clipWidth={FULLTIME_LAYOUT.STAGE.WIDTH} clipHeight={FULLTIME_LAYOUT.STAGE.HEIGHT}>
           {uploadedImg && (
             <KonvaImage
@@ -386,19 +464,8 @@ const Canva = ({
             );
           })}
         </Layer>
-        <Layer>
-          <Rect
-            ref={borderRef}
-            x={FULLTIME_LAYOUT.STAGE.BORDER.X}
-            y={FULLTIME_LAYOUT.STAGE.BORDER.Y}
-            width={FULLTIME_LAYOUT.STAGE.BORDER.WIDTH}
-            height={FULLTIME_LAYOUT.STAGE.BORDER.HEIGHT}
-            stroke={FULLTIME_LAYOUT.STAGE.BORDER.STROKE}
-            strokeWidth={FULLTIME_LAYOUT.STAGE.BORDER.STROKE_WIDTH}
-            listening={false}
-          />
-        </Layer>
       </Stage>
+      </div>
     </div>
   );
 };

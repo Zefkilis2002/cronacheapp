@@ -512,7 +512,8 @@ function CanvasNews({
           // 🔧 STABILIZZAZIONE LAYOUT
           minWidth: '200px',
           minHeight: '250px',
-          boxSizing: 'border-box',
+          boxSizing: 'content-box',
+          border: '2px solid white',
         }}
       >
         {downloadImage && (
