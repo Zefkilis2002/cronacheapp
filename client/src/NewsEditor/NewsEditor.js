@@ -46,7 +46,7 @@ function NewsEditor() {
   } = useTextEditor();
 
   const [backgroundImage, setBackgroundImage] = useState('/sfondoNotizie/sfumatura.png');
-  const [background] = useImage(backgroundImage);
+  const [background] = useImage(backgroundImage, 'anonymous');
   const [showSelection, setShowSelection] = useState(true);
   const [busyFilter, setBusyFilter] = useState(false);
   const [activeTab, setActiveTab] = useState('text');

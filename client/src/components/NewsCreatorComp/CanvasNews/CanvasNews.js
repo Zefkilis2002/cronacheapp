@@ -6,7 +6,7 @@ import './CanvasNews.css';
 
 // Componente per le immagini di sfondo
 const BackgroundImage = memo(({ bgImage, updateItemPosition, setBackgroundImages, isSelected = false, onSelect = () => {}, showSelection = true }) => {
-  const [image] = useImage(bgImage.src);
+  const [image] = useImage(bgImage.src, 'anonymous');
   
   return (
     <KonvaImage
@@ -36,7 +36,7 @@ const BackgroundImage = memo(({ bgImage, updateItemPosition, setBackgroundImages
 
 // Componente per i loghi
 const LogoImage = memo(({ logo, updateItemPosition, setLogos, isSelected = false, onSelect = () => {} , showSelection = true }) => {
-  const [image] = useImage(logo.src);
+  const [image] = useImage(logo.src, 'anonymous');
   
   return (
     <KonvaImage
