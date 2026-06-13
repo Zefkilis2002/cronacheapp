@@ -276,6 +276,7 @@ function NewsEditor() {
           showSelection={showSelection}
           richText={richText}
           highlightColor={highlightColor}
+          downloadImage={downloadImage}
         />
 
         <div className="news-tab-header">
