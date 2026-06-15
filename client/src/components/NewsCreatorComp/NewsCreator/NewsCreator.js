@@ -21,7 +21,16 @@ function NewsCreator({
   downloadImage,
   html,
   highlightColor,
-  setHighlightColor
+  setHighlightColor,
+  sourceText,
+  setSourceText,
+  sourceFont,
+  setSourceFont,
+  sourceColor,
+  setSourceColor,
+  sourceFontSize,
+  setSourceFontSize,
+  isInterviewStyle
 }) {
   React.useEffect(() => {
     if (textContainerRef.current && textContainerRef.current.innerHTML !== html) {
@@ -44,6 +53,7 @@ function NewsCreator({
               value={backgroundImage}
             >
               <option value="/sfondoNotizie/sfumatura.png">Sfumatura</option>
+              <option value="/sfondoNotizie/interviste.png">Intervista</option>
               <option value="/sfondoNotizie/dichiarazioni.png">Dichiarazioni</option>
               <option value="/sfondoNotizie/news.png">News</option>
               <option value="/sfondoNotizie/news2.png">News 2</option>
@@ -85,6 +95,7 @@ function NewsCreator({
           <div>
             <label>Font del titolo:</label>
             <select value={titleFont} onChange={(e) => setTitleFont(e.target.value)}>
+              <option value="SkateSans-Regular">SkateSans Regular</option>
               <option value="Kenyan Coffee Regular">Kenyan Coffee Regular</option>
               <option value="Kenyan Coffee Bold">Kenyan Coffee Bold</option>
               <option value="Kenyan Coffee Regular Italic">Kenyan Coffee Regular Italic</option>
@@ -193,6 +204,7 @@ function NewsCreator({
           <div>
             <label>Font del testo:</label>
             <select value={textFont} onChange={(e) => setTextFont(e.target.value)}>
+              <option value="SkateSans-Regular">SkateSans Regular</option>
               <option value="Kenyan Coffee Regular">Kenyan Coffee Regular</option>
               <option value="Kenyan Coffee Bold">Kenyan Coffee Bold</option>
               <option value="Kenyan Coffee Regular Italic">Kenyan Coffee Regular Italic</option>
@@ -229,6 +241,62 @@ function NewsCreator({
       </div>
 
       <hr className="separator" />
+
+      {isInterviewStyle && (
+        <>
+          <div className="control-group">
+            <h3 className="group-title">Fonte (Intervista)</h3>
+            <div className="full-width-item">
+              <input
+                type="text"
+                value={sourceText || ''}
+                onChange={(e) => setSourceText(e.target.value)}
+                placeholder="Es: BERND LENO OLE.GR"
+                className="title-input"
+              />
+            </div>
+            <div className="row" style={{ marginTop: '1rem' }}>
+              <div>
+                <label>Font della fonte:</label>
+                <select value={sourceFont || 'Kenyan Coffee Regular'} onChange={(e) => setSourceFont(e.target.value)}>
+                  <option value="Kenyan Coffee Regular">Kenyan Coffee Regular</option>
+                  <option value="Kenyan Coffee Bold">Kenyan Coffee Bold</option>
+                  <option value="SkateSans-Regular">SkateSans Regular</option>
+                  <option value="Benzin-Bold">Benzin Bold</option>
+                </select>
+              </div>
+              <div>
+                <label>Dimensione fonte:</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', height: '50px' }}>
+                  <button 
+                    className="clean-button" 
+                    onClick={() => setSourceFontSize(prev => prev - 2)}
+                    style={{ fontSize: '1.2rem', width: '35px', height: '35px', padding: '0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  >-</button>
+                  <span style={{ minWidth: '40px', textAlign: 'center', fontSize: '1.2rem', fontWeight: 'bold' }}>{sourceFontSize}</span>
+                  <button 
+                    className="clean-button" 
+                    onClick={() => setSourceFontSize(prev => prev + 2)}
+                    style={{ fontSize: '1.2rem', width: '35px', height: '35px', padding: '0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  >+</button>
+                </div>
+              </div>
+              <div>
+                <label>Colore base fonte:</label>
+                <div className="color-picker-wrapper">
+                  <input
+                    type="color"
+                    value={sourceColor || '#ffffff'}
+                    onChange={(e) => setSourceColor(e.target.value)}
+                  />
+                  <span className="color-value">{sourceColor || '#ffffff'}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <hr className="separator" />
+        </>
+      )}
 
       {/* Action Footer */}
       <div className="action-footer">

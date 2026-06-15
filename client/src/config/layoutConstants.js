@@ -74,16 +74,16 @@ export const NEWS_LAYOUT = {
     HEIGHT: 1800
   },
   USER_IMAGE: {
-    startX: 0,
-    startY: 0,
+    startX: 720,
+    startY: 900,
     defaultScaleX: 1,
     defaultScaleY: 1
   },
   LOGO: {
     startX: 65,
     startY: 1260,
-    defaultScaleX: 1,
-    defaultScaleY: 1,
+    defaultScaleX: 0.5,
+    defaultScaleY: 0.5,
     minScale: 0.1,
     scaleStep: 0.02,
     moveStep: 2

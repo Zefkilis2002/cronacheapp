@@ -428,17 +428,21 @@
     gap: 1.5rem;
     width: 100%;
     margin-bottom: 1.5rem;
+    flex-wrap: wrap; /* Aggiunto wrap per mantenere l'ordine su schermi piccoli */
 }
 
 .logo-actions-row .logo-selector {
-    flex: 1;
+    flex: 1 1 140px; /* Modificato da flex: 1 per consentire il wrapping fluido */
     margin-right: 0;
+    margin-bottom: 0 !important; /* RESET: rimuove il margin-bottom: 0.5rem dei label */
+    min-width: 0 !important; /* RESET: rimuove il min-width: 220px dei label */
     text-align: center;
     display: flex;
     justify-content: center;
     align-items: center;
     white-space: nowrap;
     /* Prevent text wrapping if possible */
+    box-sizing: border-box;
 }
 
 
@@ -461,11 +465,11 @@
     .logo-actions-row .logo-selector {
         width: auto;
         /* Override 100% width from general mobile styles */
-        min-width: 0;
+        min-width: 0 !important;
         /* Override generic label min-width */
-        flex: 1 1 0;
-        /* Force equal width ignoring content/min-width */
-        margin-bottom: 0;
+        flex: 1 1 100px;
+        /* Force equal width ignoring content/min-width ma permettendo il wrap */
+        margin-bottom: 0 !important;
         /* Remove margin caused by general mobile styles */
         margin-right: 0;
         padding: 0.5rem 0.2rem;

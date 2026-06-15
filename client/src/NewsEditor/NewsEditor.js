@@ -38,6 +38,11 @@ function NewsEditor() {
     textFontSize, setTextFontSize,
     titlePosition, setTitlePosition,
     textPosition, setTextPosition,
+    sourceText, setSourceText,
+    sourceFont, setSourceFont,
+    sourceColor, setSourceColor,
+    sourceFontSize, setSourceFontSize,
+    sourcePosition, setSourcePosition,
     textAboveImages, setTextAboveImages,
     handleTextChange,
     enlargeTextSize, shrinkTextSize,
@@ -50,6 +55,7 @@ function NewsEditor() {
   const [showSelection, setShowSelection] = useState(true);
   const [busyFilter, setBusyFilter] = useState(false);
   const [activeTab, setActiveTab] = useState('text');
+  const [showDownloadModal, setShowDownloadModal] = useState(false);
 
   // Passi unificati per controlli UI
   const MOVE_STEP = 2;    // px
@@ -81,7 +87,7 @@ function NewsEditor() {
       // usa cache se presente
       let cached = filteredCacheRef.current.get(cacheKey);
       if (!cached) {
-        cached = await applyAcrSportFilterToSrc(item.src, '/filters/Camera Raw Sport.xmp');
+        cached = await applyAcrSportFilterToSrc(item.src);
         filteredCacheRef.current.set(cacheKey, cached);
       }
       const updated = [...backgroundImages];
@@ -124,9 +130,13 @@ function NewsEditor() {
     const idx = backgroundImages.findIndex(i => i.id === selectedBackground);
     if (idx < 0) return;
     const item = backgroundImages[idx];
-    // ripristina la sorgente originale e libera l’URL blob
-    if (item._revoke && item.src && item.src.startsWith('blob:')) {
-      try { item._revoke(); } catch (_) { }
+    // Revoca il blob URL filtrato
+    if (item.src && item.src.startsWith('blob:')) {
+      try { URL.revokeObjectURL(item.src); } catch (_) { }
+    }
+    // Invalida la cache per questa immagine così il prossimo filtro ricalcola
+    if (item.originalSrc) {
+      filteredCacheRef.current.delete(item.originalSrc);
     }
     const updated = [...backgroundImages];
     updated[idx] = {
@@ -204,7 +214,8 @@ function NewsEditor() {
 
   // ... existing code ...
 
-  const downloadImage = useCallback(async () => {
+  const executeDownload = useCallback(async () => {
+    setShowDownloadModal(false);
     const stage = stageRef.current;
     setShowSelection(false);
     await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
@@ -241,10 +252,65 @@ function NewsEditor() {
     setShowSelection(true);
   }, []);
 
+  const downloadImage = useCallback(() => {
+    let hasEmptySpace = false;
+    const stage = stageRef.current;
+
+    if (backgroundImages.length === 0 && logos.length === 0) {
+      hasEmptySpace = true;
+    } else {
+      const layer = stage.getLayers()[0];
+      if (layer) {
+        const cloneLayer = layer.clone();
+        
+        cloneLayer.children.forEach(node => {
+          if (node.name() !== 'user-image') {
+            node.hide();
+          }
+        });
+        
+        const tempCanvas = cloneLayer.toCanvas({
+          width: 1440,
+          height: 1800,
+          pixelRatio: 1.0
+        });
+        
+        const ctx = tempCanvas.getContext('2d');
+        const imageData = ctx.getImageData(0, 0, tempCanvas.width, tempCanvas.height).data;
+        
+        // Use a threshold to detect empty space, preventing anti-aliasing near edges from masking it
+        for (let i = 3; i < imageData.length; i += 4) {
+          if (imageData[i] < 10) { // Check for highly transparent pixels (alpha < 10)
+            hasEmptySpace = true;
+            break;
+          }
+        }
+        
+        cloneLayer.destroy();
+      }
+    }
+
+    if (hasEmptySpace) {
+      setShowDownloadModal(true);
+    } else {
+      executeDownload();
+    }
+  }, [backgroundImages, logos, executeDownload]);
 
 
   return (
-    <div className="App">
+    <div className="news-editor-container">
+      {showDownloadModal && (
+        <div className="download-modal-overlay">
+          <div className="download-modal-content">
+            <p>Attenzione: l'area del canvas è vuota o presenta parti vuote (senza logo e senza immagine di sfondo). Vuoi procedere comunque con il download?</p>
+            <div className="download-modal-actions">
+              <button className="modal-btn-cancel" onClick={() => setShowDownloadModal(false)}>Annulla</button>
+              <button className="modal-btn-confirm" onClick={executeDownload}>Download</button>
+            </div>
+          </div>
+        </div>
+      )}
       <h1 className="page-title">NEWS CREATOR</h1>
       <div className="editor-container">
 
@@ -268,6 +334,12 @@ function NewsEditor() {
           textFont={textFont}
           setTitlePosition={setTitlePosition}
           setTextPosition={setTextPosition}
+          sourceText={sourceText}
+          sourceFont={sourceFont}
+          sourceColor={sourceColor}
+          sourceFontSize={sourceFontSize}
+          sourcePosition={sourcePosition}
+          setSourcePosition={setSourcePosition}
           textAboveImages={textAboveImages}
           selectedBackground={selectedBackground}
           selectedLogo={selectedLogo}
@@ -277,6 +349,7 @@ function NewsEditor() {
           richText={richText}
           highlightColor={highlightColor}
           downloadImage={downloadImage}
+          isInterviewStyle={backgroundImage.includes('interviste')}
         />
 
         <div className="news-tab-header">
@@ -317,6 +390,15 @@ function NewsEditor() {
               html={html}
               highlightColor={highlightColor}
               setHighlightColor={setHighlightColor}
+              sourceText={sourceText}
+              setSourceText={setSourceText}
+              sourceFont={sourceFont}
+              setSourceFont={setSourceFont}
+              sourceColor={sourceColor}
+              setSourceColor={setSourceColor}
+              sourceFontSize={sourceFontSize}
+              setSourceFontSize={setSourceFontSize}
+              isInterviewStyle={backgroundImage.includes('interviste')}
             />
           )}
 
@@ -350,8 +432,10 @@ function NewsEditor() {
           shrinkTextSize={shrinkTextSize}
           setTitlePosition={setTitlePosition}
           setTextPosition={setTextPosition}
+          setSourcePosition={setSourcePosition}
           setTitleFontSize={setTitleFontSize}
           setTextFontSize={setTextFontSize}
+          setSourceFontSize={setSourceFontSize}
           backgroundImages={backgroundImages}
           logos={logos}
           setBackgroundImages={setBackgroundImages}

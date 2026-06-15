@@ -44,6 +44,10 @@ const ImageControl = ({
 
     const removeFilter = () => {
         if (originalImageRef.current) {
+            // Revoca il blob URL filtrato per evitare memory leak
+            if (userImage && userImage.startsWith('blob:')) {
+                try { URL.revokeObjectURL(userImage); } catch (_) { }
+            }
             setUserImage(originalImageRef.current);
             setFilterApplied(false);
         }
@@ -61,8 +65,10 @@ const ImageControl = ({
         setIsLoading(true);
         try {
             const { url } = await applyUpscaleFilterToSrc(src);
+            // Aggiorna l'originale con la versione upscalata per coerenza con filtri successivi
+            originalImageRef.current = url;
             setUserImage(url);
-            // Upscale is also a "filter" in a sense, but maybe keep filterApplied as distinct for ACR
+            setFilterApplied(false); // Reset filter state since the base image changed
         } catch (error) {
             console.error('Error upscaling:', error);
             alert('Errore Upscale: ' + (error.message || error));

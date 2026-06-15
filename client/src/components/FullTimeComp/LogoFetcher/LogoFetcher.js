@@ -33,6 +33,7 @@ const LogoFetcher = ({ onLogoSelect, onClose }) => {
     : "https://cronacheapp.onrender.com";
 
   const fetchTimeoutRef = useRef(null);
+  const currentQueryRef = useRef('');
 
   // Ricerca debouncata stabile basata su ref e callback per evitare ricreazioni ad ogni render
   const performSearch = useCallback((query) => {
@@ -52,6 +53,7 @@ const LogoFetcher = ({ onLogoSelect, onClose }) => {
     setError('');
 
     fetchTimeoutRef.current = setTimeout(async () => {
+      currentQueryRef.current = trimmed;
       try {
         const res = await fetch(`${API_BASE_URL}/api/search-logos?q=${encodeURIComponent(trimmed)}`);
         
@@ -61,6 +63,9 @@ const LogoFetcher = ({ onLogoSelect, onClose }) => {
 
         const data = await res.json();
         
+        // Evita race conditions: scarta i risultati se l'utente ha già digitato altro
+        if (currentQueryRef.current !== trimmed) return;
+
         if (data.status && data.results && data.results.length > 0) {
           setResults(data.results);
         } else {

@@ -24,6 +24,7 @@ function ImagesSelector({
   const dragItem = useRef(null);
   const dragOverItem = useRef(null);
   const [showLogoSearch, setShowLogoSearch] = useState(false);
+  const [showBackgroundSearch, setShowBackgroundSearch] = useState(false);
 
   const handleDragStart = (e, type, index) => {
     dragItem.current = { type, index };
@@ -61,6 +62,19 @@ function ImagesSelector({
     setSelectedLogo(null);
   };
 
+  const handleBackgroundFromSearch = (url) => {
+    const newBg = {
+      id: `bg-${Date.now()}`,
+      src: url,
+      originalSrc: url,
+      position: { x: 0, y: 0 },
+      scale: { scaleX: 1, scaleY: 1 }
+    };
+    setBackgroundImages([...backgroundImages, newBg]);
+    setSelectedBackground(newBg.id);
+    setSelectedLogo(null);
+  };
+
   const handleLogoSelect = (logo) => {
     setSelectedLogo(logo.id);
     setSelectedBackground(null);
@@ -71,7 +85,7 @@ function ImagesSelector({
       id: `logo-${Date.now()}`,
       src: url,
       position: { x: 65, y: 1260 },
-      scale: { scaleX: 2.2, scaleY: 2.2 } // Raddoppiata la dimensione (2.2) per gerarchia visiva News
+      scale: { scaleX: 0.4, scaleY: 0.4 } // Ulteriormente ridotta la dimensione (0.4) per immagini web ad alta risoluzione
     };
     setLogos([...logos, newLogo]);
     setSelectedLogo(newLogo.id);
@@ -83,9 +97,32 @@ function ImagesSelector({
       {/* Sezione immagini di sfondo */}
       <div className="image-upload-section">
         <h3>Immagini di sfondo (max 5):</h3>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', margin: '6px 0 10px' }}>
-          <button
+        <div className="logo-actions-row" style={{ marginBottom: '10px' }}>
+          <input
+            type="file"
+            accept="image/*"
+            onChange={handleBackgroundUpload}
             className="file-input"
+            disabled={backgroundImages.length >= 5}
+            id="background-upload"
+            style={{ display: 'none' }}
+          />
+          <label htmlFor="background-upload" className="logo-selector">
+            Scegli immagine
+          </label>
+
+          <button
+            className="logo-selector"
+            onClick={() => setShowBackgroundSearch(true)}
+            disabled={backgroundImages.length >= 5}
+          >
+            Cerca web
+          </button>
+        </div>
+
+        <div className="logo-actions-row" style={{ marginBottom: '15px' }}>
+          <button
+            className="logo-selector"
             disabled={!selectedBackground || busyFilter}
             onClick={onApplyAcrSport}
             title="Applica il filtro Camera Raw Sport allo sfondo selezionato"
@@ -103,7 +140,7 @@ function ImagesSelector({
           </button>
 
           <button
-            className="file-input"
+            className="logo-selector"
             disabled={!selectedBackground || busyFilter}
             onClick={onApplyUpscale}
             title="Raddoppia risoluzione e nitidezza"
@@ -112,21 +149,9 @@ function ImagesSelector({
             {busyFilter ? '...' : 'Migliora HD'}
           </button>
         </div>
-        <div className="upload-control-row">
-          <input
-            type="file"
-            accept="image/*"
-            onChange={handleBackgroundUpload}
-            className="file-input"
-            disabled={backgroundImages.length >= 5}
-            id="background-upload"
-            style={{ display: 'none' }}
-          />
-          <label htmlFor="background-upload" className="file-input">
-            Scegli l'immagine di sfondo
-          </label>
 
-          <div className="thumbnails-container">
+        <div className="thumbnails-row">
+          <div className="thumbnails-container" style={{ margin: 0, width: '100%' }}>
             {backgroundImages.map((image, index) => (
               <div
                 key={image.id}
@@ -224,6 +249,13 @@ function ImagesSelector({
         <LogoFetcher
           onLogoSelect={handleLogoFromSearch}
           onClose={() => setShowLogoSearch(false)}
+        />
+      )}
+
+      {showBackgroundSearch && (
+        <LogoFetcher
+          onLogoSelect={handleBackgroundFromSearch}
+          onClose={() => setShowBackgroundSearch(false)}
         />
       )}
     </div>

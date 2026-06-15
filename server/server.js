@@ -767,14 +767,14 @@ app.get('/api/search-logos', async (req, res) => {
   const qLower = query.toLowerCase().trim();
   const localResults = LOCAL_TEAMS.filter(t => t.name.toLowerCase().includes(qLower));
 
-  // 2. Chiamata esterna a TheSportsDB con hard timeout di 600ms e AbortController
+  // 2. Chiamata esterna a TheSportsDB con hard timeout di 4000ms e AbortController
   const apiUrl = `https://www.thesportsdb.com/api/v1/json/3/searchteams.php?t=${encodeURIComponent(query)}`;
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 600);
+  const timeoutId = setTimeout(() => controller.abort(), 4000);
 
   const sportsDbPromise = axios.get(apiUrl, {
     signal: controller.signal,
-    timeout: 600
+    timeout: 4000
   })
   .then(response => {
     clearTimeout(timeoutId);

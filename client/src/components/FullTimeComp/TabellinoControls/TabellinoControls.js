@@ -410,21 +410,20 @@ function TabellinoControls({
 
   // Rimuovi filtro e ripristina la sorgente originale
   const removeRawFilter = () => {
-    try {
-      if (filteredUrlRef.current) { URL.revokeObjectURL(filteredUrlRef.current); }
-    } catch (_) { }
-    filteredUrlRef.current = null;
+    // Revoca tutti i blob URL filtrati per evitare memory leak
+    if (filteredUrlRef.current) {
+      try { URL.revokeObjectURL(filteredUrlRef.current); } catch (_) { }
+      filteredUrlRef.current = null;
+    }
     setFilterApplied(false);
     const srcType = currentSourceRef.current;
-    if (srcType === 'instagram') {
-      // ripristina instagram e libera l'upload visuale
+    if (srcType === 'instagram' && originalInstagramImageRef.current) {
       setUserImage(null);
-      setInstagramImage(originalInstagramImageRef.current || null);
-    } else if (srcType === 'user') {
-      setUserImage(originalUserImageRef.current || null);
-    } else {
-      // nessuna sorgente tracciata
+      setInstagramImage(originalInstagramImageRef.current);
+    } else if (srcType === 'user' && originalUserImageRef.current) {
+      setUserImage(originalUserImageRef.current);
     }
+    // Non azzerare currentSourceRef — mantieni il tracciamento della sorgente
   };
 
 

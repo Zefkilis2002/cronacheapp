@@ -10,12 +10,16 @@ const BackgroundImage = memo(({ bgImage, updateItemPosition, setBackgroundImages
   
   return (
     <KonvaImage
+      name="user-image"
       key={bgImage.id}
       image={image}
       x={bgImage.position.x}
       y={bgImage.position.y}
       scaleX={bgImage.scale.scaleX}
       scaleY={bgImage.scale.scaleY}
+      rotation={bgImage.rotation || 0}
+      offsetX={image ? image.width / 2 : 0}
+      offsetY={image ? image.height / 2 : 0}
       draggable={true}
       stroke={(showSelection && isSelected) ? '#b4ff00' : undefined}
       strokeWidth={(showSelection && isSelected) ? 3 : 0}
@@ -40,6 +44,7 @@ const LogoImage = memo(({ logo, updateItemPosition, setLogos, isSelected = false
   
   return (
     <KonvaImage
+      name="user-image"
       key={logo.id}
       image={image}
       x={logo.position.x}
@@ -68,8 +73,9 @@ const LogoImage = memo(({ logo, updateItemPosition, setLogos, isSelected = false
 });
 
 // Componenti Rich Text e Multi Line Text
-  const RichTextGroup = memo(({ lines, x, y, fontFamily, fontSize, defaultColor, textScale, ORIGINAL_WIDTH, measureWidth, setTextPosition, highlightColor, onClick = () => {} }) => {
-    const lineHeight = Math.round(fontSize * 1);
+  const RichTextGroup = memo(({ lines, x, y, fontFamily, fontSize, defaultColor, textScale, ORIGINAL_WIDTH, measureWidth, setTextPosition, highlightColor, onClick = () => {}, isInterviewStyle = false }) => {
+    const spacingFactor = fontFamily === 'SkateSans-Regular' ? 0.85 : 1;
+    const lineHeight = Math.round(fontSize * spacingFactor);
     let yOffset = 0;
     const elements = [];
 
@@ -107,8 +113,13 @@ const LogoImage = memo(({ logo, updateItemPosition, setLogos, isSelected = false
 
       processedSegments.forEach((segment, si) => {
         const segmentWidth = measureWidth(segment.text || '', fontFamily, fontSize);
-        // Colore per Sky Sport: testo bianco su sfondo rosso
-        const segmentColor = segment.highlight ? '#ffffff' : (segment.color || defaultColor);
+        
+        let segmentColor = segment.highlight ? '#ffffff' : (segment.color || defaultColor);
+        if (isInterviewStyle) {
+          // In modalità intervista, alterna bianco e giallo fluo per linea
+          segmentColor = (li % 2 === 0) ? '#ffffff' : '#A7FF03';
+        }
+
         const bgColor = segment.highlight ? (highlightColor || '#e3001b') : null; 
 
         if (bgColor) {
@@ -160,21 +171,27 @@ const LogoImage = memo(({ logo, updateItemPosition, setLogos, isSelected = false
     );
 });
 
-const MultiLineText = memo(({ text, x, y, fontFamily, fontSize, color, width, setTextPosition }) => {
-    const lineHeight = Math.round(fontSize * 1.25);
+const MultiLineText = memo(({ text, x, y, fontFamily, fontSize, color, width, setTextPosition, isInterviewStyle }) => {
+    const spacingFactor = fontFamily === 'SkateSans-Regular' ? 0.85 : 1.25;
+    const lineHeight = Math.round(fontSize * spacingFactor);
     const elements = [];
     
     if (!text) return null;
-    
+
     const lines = text.split('\n');
     
     lines.forEach((line, i) => {
+      let lineColor = color;
+      if (isInterviewStyle) {
+        lineColor = (i % 2 === 0) ? '#ffffff' : '#A7FF03';
+      }
+
       elements.push(
         <Text
           key={`line-${i}`}
           text={line}
           fontSize={fontSize}
-          fill={color}
+          fill={lineColor}
           x={0}
           y={i * lineHeight}
           align="center"
@@ -228,12 +245,19 @@ function CanvasNews({
   setSelectedLogo = () => {}, 
   showSelection = true,
   highlightColor = '#e3001b',
-  downloadImage
+  downloadImage,
+  sourceText = '',
+  sourceFont = 'Kenyan Coffee Regular',
+  sourceColor = '#ffffff',
+  sourceFontSize = 30,
+  sourcePosition = { x: 0, y: 0 },
+  setSourcePosition = () => {},
+  isInterviewStyle = false
 }) {
   const containerRef = useRef(null);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0, scale: 1 });
 
-  // cosa stai controllando con la tastiera: 'title' | 'text' | null
+  // cosa stai controllando con la tastiera: 'title' | 'text' | 'source' | null
   const [selectedText, setSelectedText] = useState(null);
 
   // scala locale per titolo e testo
@@ -354,6 +378,8 @@ function CanvasNews({
         setTitlePosition(p => nudgePos(p, dx, dy));
       } else if (selectedText === 'text') {
         setTextPosition(p => nudgePos(p, dx, dy));
+      } else if (selectedText === 'source') {
+        setSourcePosition(p => nudgePos(p, dx, dy));
       } else {
         handled = false;
       }
@@ -605,6 +631,7 @@ function CanvasNews({
                     setTextPosition={setTextPosition}
                     highlightColor={highlightColor}
                     onClick={() => setSelectedText('text')}
+                    isInterviewStyle={isInterviewStyle}
                   />
                 ) : (
                   <MultiLineText
@@ -616,6 +643,28 @@ function CanvasNews({
                     width={ORIGINAL_WIDTH}
                     fontFamily={textFont}
                     setTextPosition={setTextPosition}
+                    isInterviewStyle={isInterviewStyle}
+                  />
+                )}
+
+                {isInterviewStyle && sourceText && (
+                  <Text
+                    text={sourceText}
+                    fontSize={sourceFontSize}
+                    fill={sourceColor}
+                    x={sourcePosition.x + (ORIGINAL_WIDTH / 2)}
+                    y={sourcePosition.y}
+                    align="center"
+                    offsetX={measureWidth(sourceText, sourceFont, sourceFontSize) / 2}
+                    fontFamily={sourceFont}
+                    draggable={true}
+                    onClick={() => setSelectedText('source')}
+                    onTap={() => setSelectedText('source')}
+                    onDragEnd={(e) => {
+                      const newX = e.target.x() - (ORIGINAL_WIDTH / 2);
+                      const newY = e.target.y();
+                      setSourcePosition({ x: newX, y: newY });
+                    }}
                   />
                 )}
               </>
@@ -677,6 +726,7 @@ function CanvasNews({
                     measureWidth={measureWidth}
                     setTextPosition={setTextPosition}
                     highlightColor={highlightColor}
+                    isInterviewStyle={isInterviewStyle}
                   />
                 ) : (
                   <Text
@@ -693,6 +743,27 @@ function CanvasNews({
                       const newX = e.target.x() - (ORIGINAL_WIDTH / 2);
                       const newY = e.target.y();
                       setTextPosition({ x: newX, y: newY });
+                    }}
+                  />
+                )}
+
+                {isInterviewStyle && sourceText && (
+                  <Text
+                    text={sourceText}
+                    fontSize={sourceFontSize}
+                    fill={sourceColor}
+                    x={sourcePosition.x + (ORIGINAL_WIDTH / 2)}
+                    y={sourcePosition.y}
+                    align="center"
+                    offsetX={measureWidth(sourceText, sourceFont, sourceFontSize) / 2}
+                    fontFamily={sourceFont}
+                    draggable={true}
+                    onClick={() => setSelectedText('source')}
+                    onTap={() => setSelectedText('source')}
+                    onDragEnd={(e) => {
+                      const newX = e.target.x() - (ORIGINAL_WIDTH / 2);
+                      const newY = e.target.y();
+                      setSourcePosition({ x: newX, y: newY });
                     }}
                   />
                 )}

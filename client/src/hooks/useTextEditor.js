@@ -19,6 +19,13 @@ export function useTextEditor() {
   const [titlePosition, setTitlePosition] = useState({ x: NEWS_LAYOUT.TITLE.startX, y: NEWS_LAYOUT.TITLE.startY });
   const [textPosition, setTextPosition] = useState({ x: NEWS_LAYOUT.TEXT.startX, y: NEWS_LAYOUT.TEXT.startY });
 
+  // Nuovi stati per l'opzione Intervista
+  const [sourceText, setSourceText] = useState('');
+  const [sourceFont, setSourceFont] = useState('Kenyan Coffee Regular');
+  const [sourceColor, setSourceColor] = useState('#ffffff');
+  const [sourceFontSize, setSourceFontSize] = useState(61);
+  const [sourcePosition, setSourcePosition] = useState({ x: NEWS_LAYOUT.TEXT.startX, y: NEWS_LAYOUT.TEXT.startY + 150 });
+
   const [textAboveImages, setTextAboveImages] = useState(true);
 
   const handleTextChange = useCallback((textContainerRef) => {
@@ -122,6 +129,11 @@ export function useTextEditor() {
     textFontSize, setTextFontSize,
     titlePosition, setTitlePosition,
     textPosition, setTextPosition,
+    sourceText, setSourceText,
+    sourceFont, setSourceFont,
+    sourceColor, setSourceColor,
+    sourceFontSize, setSourceFontSize,
+    sourcePosition, setSourcePosition,
     textAboveImages, setTextAboveImages,
     handleTextChange,
     enlargeTextSize, shrinkTextSize

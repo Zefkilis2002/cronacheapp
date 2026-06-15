@@ -111,13 +111,19 @@ void main() {
 
 // High Quality WebGL Upscale
 export async function applyUpscaleFilter(imageElement) {
-  // 1. Determine Target Size (2x)
-  const MAX_DIM = 7680; // Allow up to 8K, WebGL can handle it on modern GPUs
+  // 1. Determine Target Size (2x) with safe GPU limits
   let w = imageElement.naturalWidth;
   let h = imageElement.naturalHeight;
 
-  // Only upscale if within reasonable limits
-  if (w < MAX_DIM && h < MAX_DIM) {
+  // Probe GPU max texture size for safe clamping
+  const probeCanvas = document.createElement('canvas');
+  probeCanvas.width = 1; probeCanvas.height = 1;
+  const probeGl = probeCanvas.getContext('webgl2') || probeCanvas.getContext('webgl');
+  const MAX_DIM = probeGl ? Math.min(probeGl.getParameter(probeGl.MAX_TEXTURE_SIZE), 4096) : 4096;
+  if (probeGl) { const ext = probeGl.getExtension('WEBGL_lose_context'); if (ext) ext.loseContext(); }
+
+  // Only upscale if result fits within safe limits
+  if (w * 2 <= MAX_DIM && h * 2 <= MAX_DIM) {
     w *= 2;
     h *= 2;
   }
@@ -143,7 +149,6 @@ export async function applyUpscaleFilter(imageElement) {
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, imageElement);
 
   // Intermediate Texture/FBO for Bicubic Result (Target Size)
-  // We need this because we can't run two shaders in one pass easily without complexity
   const texBicubic = makeTex(gl, w, h);
   const fboBicubic = makeFBO(gl, texBicubic);
 
@@ -168,23 +173,38 @@ export async function applyUpscaleFilter(imageElement) {
 
   gl.drawArrays(gl.TRIANGLES, 0, 6);
 
-  // Pass 2: Sharpening (Unsharp Mask)
-  // Render to Canvas (Screen)
-  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  // Adaptive sharpening strength based on upscale ratio
+  const upscaleRatio = w / imageElement.naturalWidth;
+  const primaryStrength = upscaleRatio >= 2.0 ? 0.5 : 0.3;
+  const subPixelStrength = 0.15;
+
+  // Pass 2: Primary Sharpening (Unsharp Mask)
+  const texSharp1 = makeTex(gl, w, h);
+  const fboSharp1 = makeFBO(gl, texSharp1);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, fboSharp1);
 
   const progSharpen = program(gl, VS_UPSCALE, FS_SHARPEN);
   gl.useProgram(progSharpen);
 
-  const uTexLocS = gl.getUniformLocation(progSharpen, "uTex");
-  const uStepLocS = gl.getUniformLocation(progSharpen, "uStep");
-  const uStrengthLocS = gl.getUniformLocation(progSharpen, "uStrength");
-  // aPosLocS removed as it was unused
+  gl.activeTexture(gl.TEXTURE0);
+  gl.bindTexture(gl.TEXTURE_2D, texBicubic);
+  gl.uniform1i(gl.getUniformLocation(progSharpen, "uTex"), 0);
+  gl.uniform2f(gl.getUniformLocation(progSharpen, "uStep"), 1.0 / w, 1.0 / h);
+  gl.uniform1f(gl.getUniformLocation(progSharpen, "uStrength"), primaryStrength);
+
+  gl.drawArrays(gl.TRIANGLES, 0, 6);
+
+  // Pass 3: Sub-pixel refinement (finer sharpening for natural edge enhancement)
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
+  const progRefine = program(gl, VS_UPSCALE, FS_SHARPEN);
+  gl.useProgram(progRefine);
 
   gl.activeTexture(gl.TEXTURE0);
-  gl.bindTexture(gl.TEXTURE_2D, texBicubic); // Input is the bicubic upscaled tex
-  gl.uniform1i(uTexLocS, 0);
-  gl.uniform2f(uStepLocS, 1.0 / w, 1.0 / h);
-  gl.uniform1f(uStrengthLocS, 0.8); // Adjust sharpening strength (0.5 - 1.0 is usually good)
+  gl.bindTexture(gl.TEXTURE_2D, texSharp1);
+  gl.uniform1i(gl.getUniformLocation(progRefine, "uTex"), 0);
+  gl.uniform2f(gl.getUniformLocation(progRefine, "uStep"), 0.5 / w, 0.5 / h);
+  gl.uniform1f(gl.getUniformLocation(progRefine, "uStrength"), subPixelStrength);
 
   gl.drawArrays(gl.TRIANGLES, 0, 6);
 
@@ -424,11 +444,13 @@ uniform sampler2D uTex; uniform vec2 uDir; uniform float uSigmaS; uniform float 
 ${srgb2lin}
 
 float weightSpatial(int i){
-  if (i==0) return 0.227000;
-  if (i==1 || i==-1) return 0.194600;
-  if (i==2 || i==-2) return 0.121600;
-  if (i==3 || i==-3) return 0.054000;
-  return 0.016200;
+  if (i==0) return 0.1590;
+  if (i==1 || i==-1) return 0.1509;
+  if (i==2 || i==-2) return 0.1290;
+  if (i==3 || i==-3) return 0.0993;
+  if (i==4 || i==-4) return 0.0687;
+  if (i==5 || i==-5) return 0.0428;
+  return 0.0240;
 }
 
 void main(){
@@ -436,7 +458,7 @@ void main(){
   float y0 = luma(c0);
   float wSum = 0.0; vec3 acc = vec3(0.0);
 
-  for(int i=-4;i<=4;i++){
+  for(int i=-6;i<=6;i++){
     vec2 offs = uDir * float(i);
     vec3 ck = texture2D(uTex, vUv + offs).rgb;
     float yr = luma(ck);
@@ -477,14 +499,14 @@ void main(){
   float tAmt = uTexture/100.0;
 
   vec3 clarity = vec3(
-    tanh_approx(mid.r * (1.8*cAmt)),
-    tanh_approx(mid.g * (1.8*cAmt)),
-    tanh_approx(mid.b * (1.8*cAmt))
+    tanh_approx(mid.r * (2.8*cAmt)),
+    tanh_approx(mid.g * (2.8*cAmt)),
+    tanh_approx(mid.b * (2.8*cAmt))
   );
   vec3 texture = vec3(
-    tanh_approx(hi.r  * (2.2*tAmt)),
-    tanh_approx(hi.g  * (2.2*tAmt)),
-    tanh_approx(hi.b  * (2.2*tAmt))
+    tanh_approx(hi.r  * (3.5*tAmt)),
+    tanh_approx(hi.g  * (3.5*tAmt)),
+    tanh_approx(hi.b  * (3.5*tAmt))
   );
 
   vec3 outc = base + clarity + texture;
@@ -569,7 +591,7 @@ async function applyCameraRawSportFilter(imageElement) {
   const fboA = makeFBO(gl, texA);
   const fboB = makeFBO(gl, texB);
 
-  const W2 = Math.max(1, W >> 1), H2 = Math.max(1, H >> 1);
+  const W2 = Math.max(1, Math.round(W * 0.75)), H2 = Math.max(1, Math.round(H * 0.75));
   const texDS = makeTex(gl, W2, H2);
   const texBLUR1 = makeTex(gl, W2, H2);
   const texBLUR2 = makeTex(gl, W2, H2);
@@ -693,6 +715,18 @@ async function applyCameraRawSportFilter(imageElement) {
   gl.uniform1f(pd.uTx, s.Texture);
   gl.drawArrays(gl.TRIANGLES, 0, 6);
 
+  // Micro-contrast pass (Unsharp Mask for edge crispness)
+  const progMicro = program(gl, VS, FS_SHARPEN);
+  gl.useProgram(progMicro);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, fboB);
+  const microPosLoc = gl.getAttribLocation(progMicro, 'aPos');
+  gl.enableVertexAttribArray(microPosLoc);
+  gl.vertexAttribPointer(microPosLoc, 2, gl.FLOAT, false, 0, 0);
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, texA); gl.uniform1i(gl.getUniformLocation(progMicro, 'uTex'), 0);
+  gl.uniform2f(gl.getUniformLocation(progMicro, 'uStep'), 1.0 / W, 1.0 / H);
+  gl.uniform1f(gl.getUniformLocation(progMicro, 'uStrength'), 0.35);
+  gl.drawArrays(gl.TRIANGLES, 0, 6);
+
   // Final pass
   const progFin = program(gl, VS, FS_FINISH);
   const pf = {
@@ -706,7 +740,7 @@ async function applyCameraRawSportFilter(imageElement) {
   gl.enableVertexAttribArray(pf.pos);
   gl.vertexAttribPointer(pf.pos, 2, gl.FLOAT, false, 0, 0);
 
-  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, texA); gl.uniform1i(pf.uTex, 0);
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, texB); gl.uniform1i(pf.uTex, 0);
   gl.uniform1f(pf.uV, s.Vibrance);
   gl.uniform1f(pf.uS, s.Saturation);
   gl.drawArrays(gl.TRIANGLES, 0, 6);
@@ -715,7 +749,7 @@ async function applyCameraRawSportFilter(imageElement) {
     glCanvas.toBlob(blob => {
       const url = URL.createObjectURL(blob);
       resolve({ url, blob });
-    }, 'image/jpeg', 0.92);
+    }, 'image/jpeg', 0.95);
   });
 }
 

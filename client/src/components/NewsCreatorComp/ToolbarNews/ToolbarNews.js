@@ -135,18 +135,20 @@ function ToolbarNews(props = {}) {
 
   const normalizeAngle = (a) => ((a % 360) + 360) % 360;
 
-  const setLogoRotation = (id, angle) => {
-    setLogos(ls => ls.map(l => l.id !== id ? l : ({
-      ...l,
+  const setItemRotation = (id, angle, type) => {
+    const setter = type === 'logo' ? setLogos : setBackgroundImages;
+    setter(items => items.map(item => item.id !== id ? item : ({
+      ...item,
       rotation: normalizeAngle(angle)
     })));
   };
 
-  const nudgeLogoRotation = (id, delta) => {
-    setLogos(ls => ls.map(l => {
-      if (l.id !== id) return l;
-      const prev = (typeof l.rotation === 'number') ? l.rotation : 0;
-      return { ...l, rotation: normalizeAngle(prev + delta) };
+  const nudgeItemRotation = (id, delta, type) => {
+    const setter = type === 'logo' ? setLogos : setBackgroundImages;
+    setter(items => items.map(item => {
+      if (item.id !== id) return item;
+      const prev = (typeof item.rotation === 'number') ? item.rotation : 0;
+      return { ...item, rotation: normalizeAngle(prev + delta) };
     }));
   };
 
@@ -184,59 +186,66 @@ function ToolbarNews(props = {}) {
           </div>
         </div>
 
-        {/* Sezione aggiunta: Rotazione Logo (visibile solo se un logo è selezionato) */}
-        {selectedLogo && (
-          <div className="toolnews-section">
-            <div className="toolnews-row rot-row">
-              <button 
-                type="button" 
-                className="rot-btn" 
-                onClick={() => nudgeLogoRotation(selectedLogo, -rotateStep)}
-              >
-                ↺ {rotateStep}°
-              </button>
+        {/* Sezione aggiunta: Rotazione Elemento (visibile se un logo o uno sfondo è selezionato) */}
+        {(selectedLogo || selectedBackground) && (() => {
+          const activeId = selectedLogo || selectedBackground;
+          const activeType = selectedLogo ? 'logo' : 'background';
+          const items = selectedLogo ? safeLogos : safeBackgroundImages;
+          const activeRotation = items.find(i => i?.id === activeId)?.rotation ?? 0;
 
-              <button 
-                type="button" 
-                className="rot-btn" 
-                onClick={() => nudgeLogoRotation(selectedLogo, rotateStep)}
-              >
-                ↻ {rotateStep}°
-              </button>
+          return (
+            <div className="toolnews-section">
+              <div className="toolnews-row rot-row">
+                <button 
+                  type="button" 
+                  className="rot-btn" 
+                  onClick={() => nudgeItemRotation(activeId, -rotateStep, activeType)}
+                >
+                  ↺ {rotateStep}°
+                </button>
 
-              <input
-                className="rot-slider"
-                type="range"
-                min="0"
-                max="360"
-                step={1}
-                value={(logos?.find(l => l?.id === selectedLogo)?.rotation ?? 0)}
-                onChange={(e) => setLogoRotation(selectedLogo, Number(e.target.value))}
-              />
+                <button 
+                  type="button" 
+                  className="rot-btn" 
+                  onClick={() => nudgeItemRotation(activeId, rotateStep, activeType)}
+                >
+                  ↻ {rotateStep}°
+                </button>
 
-              <div className="deg-input">
                 <input
-                  type="number"
+                  className="rot-slider"
+                  type="range"
                   min="0"
                   max="360"
                   step={1}
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  value={(logos?.find(l => l?.id === selectedLogo)?.rotation ?? 0)}
-                  onChange={(e) => setLogoRotation(selectedLogo, Number(e.target.value))}
+                  value={activeRotation}
+                  onChange={(e) => setItemRotation(activeId, Number(e.target.value), activeType)}
                 />
-              </div>
 
-              <button 
-                type="button" 
-                className="rot-reset" 
-                onClick={() => setLogoRotation(selectedLogo, 0)}
-              >
-                Reset
-              </button>
+                <div className="deg-input">
+                  <input
+                    type="number"
+                    min="0"
+                    max="360"
+                    step={1}
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    value={activeRotation}
+                    onChange={(e) => setItemRotation(activeId, Number(e.target.value), activeType)}
+                  />
+                </div>
+
+                <button 
+                  type="button" 
+                  className="rot-reset" 
+                  onClick={() => setItemRotation(activeId, 0, activeType)}
+                >
+                  Reset
+                </button>
+              </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
       </div>
     </div>
   );
