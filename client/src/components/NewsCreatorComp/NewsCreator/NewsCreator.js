@@ -62,6 +62,7 @@ function NewsCreator({
               <option value="/sfondoNotizie/roumor.png">Roumor</option>
               <option value="/sfondoNotizie/citation.png">Citation</option>
               <option value="/sfondoNotizie/notizia.png">Notizia Sky Sport</option>
+              <option value="/sfondoNotizie/vuoto.png">Vuoto</option>
             </select>
           </div>
           <div className="checkbox-container">
@@ -268,14 +269,14 @@ function NewsCreator({
               <div>
                 <label>Dimensione fonte:</label>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', height: '50px' }}>
-                  <button 
-                    className="clean-button" 
+                  <button
+                    className="clean-button"
                     onClick={() => setSourceFontSize(prev => prev - 2)}
                     style={{ fontSize: '1.2rem', width: '35px', height: '35px', padding: '0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                   >-</button>
                   <span style={{ minWidth: '40px', textAlign: 'center', fontSize: '1.2rem', fontWeight: 'bold' }}>{sourceFontSize}</span>
-                  <button 
-                    className="clean-button" 
+                  <button
+                    className="clean-button"
                     onClick={() => setSourceFontSize(prev => prev + 2)}
                     style={{ fontSize: '1.2rem', width: '35px', height: '35px', padding: '0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                   >+</button>
