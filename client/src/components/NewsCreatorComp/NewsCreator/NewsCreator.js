@@ -53,6 +53,7 @@ function NewsCreator({
               value={backgroundImage}
             >
               <option value="/sfondoNotizie/sfumatura.png">Sfumatura</option>
+              <option value="/sfondoNotizie/sfumaturaGrande.png">Sfumatura2</option>
               <option value="/sfondoNotizie/interviste.png">Intervista</option>
               <option value="/sfondoNotizie/dichiarazioni.png">Dichiarazioni</option>
               <option value="/sfondoNotizie/news.png">News</option>

@@ -173,7 +173,8 @@ const LineUp = () => {
             y: layout[i] ? layout[i].y : 0,
             scale: 1,
             offsetX: 0,
-            offsetY: 0
+            offsetY: 0,
+            hasGreenGlow: false
         }));
     });
 
@@ -236,6 +237,12 @@ const LineUp = () => {
         setPlayers(newPlayers);
     };
 
+    const toggleGreenGlow = (index) => {
+        const newPlayers = [...players];
+        newPlayers[index].hasGreenGlow = !newPlayers[index].hasGreenGlow;
+        setPlayers(newPlayers);
+    };
+
     // Generic image upload handler for badge/deco
     const handleAssetUpload = (setter) => (e) => {
         const input = e.target;
@@ -253,17 +260,29 @@ const LineUp = () => {
         if (!container) return;
 
         try {
+            // Assicura che i font siano caricati prima di catturare
             await document.fonts.ready;
 
-            const dataUrl = await htmlToImage.toJpeg(container, {
+            // Cattura alle dimensioni reali del nodo, così l'output combacia con l'anteprima
+            const rect = container.getBoundingClientRect();
+            const options = {
                 quality: 1.0,
                 pixelRatio: 2,
+                width: rect.width,
+                height: rect.height,
                 backgroundColor: '#0a0a0a',
+                cacheBust: true,
                 style: {
                     margin: '0',
                     borderRadius: '0'
                 }
-            });
+            };
+
+            // html-to-image spesso "salta" immagini/font/filtri alla prima passata:
+            // eseguiamo alcune passate di riscaldamento e teniamo l'ultima.
+            await htmlToImage.toJpeg(container, options);
+            await htmlToImage.toJpeg(container, options);
+            const dataUrl = await htmlToImage.toJpeg(container, options);
 
             const link = document.createElement('a');
             const safeName = teamName.replace(/[^a-z0-9]/gi, '_').toLowerCase() || 'formazione';
@@ -488,6 +507,18 @@ const LineUp = () => {
                                                     <i className="fa-solid fa-trash" />
                                                 </button>
                                             )}
+                                        </div>
+                                        {/* Controllo Luce Verde */}
+                                        <div className="flex items-center space-x-2">
+                                            <label className="text-[10px] font-bold text-gray-400 uppercase cursor-pointer flex items-center">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={player.hasGreenGlow || false}
+                                                    onChange={() => toggleGreenGlow(index)}
+                                                    className="mr-1.5 accent-emerald-500"
+                                                />
+                                                Luce Verde
+                                            </label>
                                         </div>
                                     </div>
                                     {player.image && (

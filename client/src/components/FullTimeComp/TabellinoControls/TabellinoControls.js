@@ -447,6 +447,8 @@ function TabellinoControls({
         <option value="youthleague.png">Youth League</option>
         <option value="superleague2.png">Superleague 2</option>
         <option value="friendly.png">Friendly</option>
+        <option value="worldcup2014.png">World Cup 2014</option>
+        <option value="euro2004.png">Euro 2004</option>
       </select>
 
       {/* Caricamento immagine */}

@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run *)",
+      "Bash(rm -rf .tmp/h2itest)",
+      "Read(//f/f/cronacheapp/client/build/static/**)",
+      "Bash(rm -f .tmp/h2itest/verify.js .tmp/h2itest/html-to-image.js .tmp/h2itest/test.html)",
+      "Bash(rmdir .tmp/h2itest)",
+      "Bash(NODE_PATH=\"F:/cronacheapp/server/node_modules\" node shot.js)",
+      "Read(//f/f/cronacheapp/.tmp/**)",
+      "Bash(NODE_PATH=\"F:/cronacheapp/server/node_modules\" node shot2.js)",
+      "Bash(cd /f/cronacheapp *)",
+      "mcp__visualize__read_me",
+      "mcp__visualize__show_widget",
+      "Bash(NODE_PATH=\"F:/cronacheapp/server/node_modules\" node shot3.js)"
+    ]
+  }
+}

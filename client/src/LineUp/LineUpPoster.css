@@ -357,6 +357,13 @@
     pointer-events: auto;
     transform-style: preserve-3d;
     /* Re-enable pointer events inside the 3D pitch */
+    /* In a preserve-3d context z-index is ignored: lift the whole players
+       plane off the pitch surface along Z so it always paints in front. */
+    transform: translateZ(5px);
+    /* Fallback for renderers that flatten preserve-3d (e.g. html-to-image
+       during export): keep the players plane above the pitch (.poster-pitch-container
+       has z-index: 3) so the export matches the live preview. */
+    z-index: 20;
 }
 
 /* --- Single Player Node --- */
@@ -372,17 +379,56 @@
     transition: none;
 }
 
-/* Spotlight effect behind the player */
-.poster-player-spotlight {
+/* --- Diffused trapezoid glow behind the player ---------------------------
+   Goal: a soft, ethereal "soft glow" trapezoid that frames the head.
+   - Recognizable trapezoid: narrow bottom base, slightly wider top base.
+   - Oblique sides bowed gently outward (arc), not straight.
+   - Top + diagonal edges very soft/blurred so they melt into the background:
+     the wrap is larger than the shape on the top/sides (room for the blur),
+     and the gradient fades to transparent before the geometric edges.
+   - Bottom base is crisp & horizontal (it meets the yellow name band):
+     the wrap bottom sits on the name band and clips the shape, which
+     overflows below it, so the bottom is cut sharp.
+   - Luminosity is radial: bright white core fading to pearly grey, then out.
+   The whole layer is z-index:-1 inside the player's own stacking context
+   (.poster-player has a transform), so it paints behind the photo but in
+   front of the pitch — and it survives html-to-image export.               */
+.poster-player-glow-wrap {
     position: absolute;
-    bottom: 20px;
+    bottom: 5px;
+    /* Si allinea al bordo superiore della targhetta */
     left: 50%;
     transform: translateX(-50%);
-    width: 140px;
-    height: 140px;
-    background: radial-gradient(circle at center, rgba(255, 255, 255, 0.4) 0%, transparent 60%);
+    width: 170%;
+    height: 130%;
     z-index: -1;
+    overflow: visible;
+    /* Permette alla sfocatura di diffondersi liberamente */
     pointer-events: none;
+    filter: blur(12px);
+    /* Sfocatura ottimizzata per mantenere la forma del trapezio morbida ma visibile */
+}
+
+.poster-player-glow {
+    position: absolute;
+    inset: 0;
+    /* Forma a trapezio rovesciato più accentuata (base superiore 100%, base inferiore 55%) */
+    clip-path: polygon(30% 50%, 70% 50%, 62% 100%, 38% 100%);
+    /* Gradiente lineare verticale che riempie la forma geometrica in larghezza e sfuma verso l'alto */
+    background: linear-gradient(to top,
+            rgba(255, 255, 255, 1) 0%,
+            rgba(255, 255, 255, 0.75) 20%,
+            rgba(240, 240, 245, 0.3) 60%,
+            rgba(240, 240, 245, 0) 100%);
+}
+
+.poster-player-glow.green {
+    /* Gradiente lineare per la variante verde */
+    background: linear-gradient(to top,
+            rgba(198, 255, 230, 1) 0%,
+            rgba(52, 211, 153, 0.75) 20%,
+            rgba(16, 185, 129, 0.3) 60%,
+            rgba(16, 185, 129, 0) 100%);
 }
 
 /* Player Photo Container */
@@ -430,7 +476,8 @@
 /* Name Label Container */
 .poster-player-name-container {
     display: flex;
-    align-items: center;
+    align-items: flex-end;
+    /* flag sits at the bottom-right corner of the band */
     margin-top: -5px;
     /* Overlap slightly with photo bottom */
     z-index: 2;
@@ -458,18 +505,24 @@
     border-bottom: none;
 }
 
-/* Flag inside Name Label */
+/* Round flag badge at the bottom-right corner of the name band, just outside it */
 .poster-player-flag {
-    width: 22px;
-    height: 22px;
+    width: 26px;
+    height: 26px;
     border-radius: 50%;
+    /* perfectly round */
     object-fit: cover;
-    margin-left: -2px;
-    /* Pull into the white box slightly */
+    aspect-ratio: 1;
+    box-sizing: border-box;
+    flex-shrink: 0;
+    margin-left: -9px;
+    /* overlap the band's right corner just slightly */
+    margin-bottom: -8px;
+    /* drop to the bottom-right corner, partly outside the band */
     border: 2px solid #ffffff;
     background-color: #ffffff;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-    z-index: 3;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.4);
+    z-index: 4;
 }
 
 /* --- Footer Branding --- */
@@ -480,12 +533,6 @@
     .poster-player-photo-wrap {
         width: 70px;
         height: 70px;
-    }
-
-    .poster-player-spotlight {
-        width: 100px;
-        height: 100px;
-        bottom: 10px;
     }
 
     .poster-player-name {

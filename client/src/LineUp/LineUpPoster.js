@@ -110,9 +110,6 @@ const LineUpPoster = ({
                                         zIndex: 100 - Math.round(player.y)
                                     }}
                                 >
-                                    {/* Spotlight effect behind the player */}
-                                    <div className="poster-player-spotlight" />
-
                                     <div
                                         className="poster-player-photo-wrap"
                                         style={{
@@ -126,6 +123,14 @@ const LineUpPoster = ({
                                             transformOrigin: 'bottom center'
                                         }}
                                     >
+                                        {/* Soft diffused trapezoid glow behind the player.
+                                            Wider top base, narrower sharp bottom base; very soft
+                                            blurred diagonals/top, crisp horizontal bottom that meets
+                                            the name band. See .poster-player-glow* in the CSS. */}
+                                        <div className="poster-player-glow-wrap">
+                                            <div className={`poster-player-glow${player.hasGreenGlow ? ' green' : ''}`} />
+                                        </div>
+
                                         {player.image ? (
                                             <img
                                                 src={player.image}
