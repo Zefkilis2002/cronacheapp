@@ -28,9 +28,12 @@ const BackgroundImage = memo(({ bgImage, updateItemPosition, setBackgroundImages
       } else {
         imageRef.current.clearCache();
       }
-      imageRef.current.getLayer()?.batchDraw();
     }
   }, [image, bgImage.blurRadius, isSelected, showSelection, bgImage.src]);
+
+  useEffect(() => {
+    imageRef.current?.getLayer()?.batchDraw();
+  }, [bgImage.position.x, bgImage.position.y, bgImage.scale.scaleX, bgImage.scale.scaleY, bgImage.rotation, bgImage.blurRadius]);
   
   return (
     <KonvaImage
@@ -77,9 +80,12 @@ const LogoImage = memo(({ logo, updateItemPosition, setLogos, isSelected = false
       } else {
         imageRef.current.clearCache();
       }
-      imageRef.current.getLayer()?.batchDraw();
     }
   }, [image, logo.blurRadius, isSelected, showSelection, logo.src]);
+
+  useEffect(() => {
+    imageRef.current?.getLayer()?.batchDraw();
+  }, [logo.position.x, logo.position.y, logo.scale.scaleX, logo.scale.scaleY, logo.rotation, logo.blurRadius]);
   
   return (
     <KonvaImage

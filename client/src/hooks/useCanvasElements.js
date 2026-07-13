@@ -7,7 +7,13 @@ export function useCanvasElements() {
   const [selectedBackground, setSelectedBackground] = useState(null);
   const [selectedLogo, setSelectedLogo] = useState(null);
   const [copiedTransform, setCopiedTransform] = useState(null);
+  const copiedTransformRef = useRef(null);
+  const itemsRef = useRef({ backgroundImages, logos });
   const blobUrlsRef = useRef([]);
+
+  useEffect(() => {
+    itemsRef.current = { backgroundImages, logos };
+  }, [backgroundImages, logos]);
 
   useEffect(() => {
     return () => {
@@ -151,54 +157,64 @@ export function useCanvasElements() {
   }, []);
 
   const copyItemTransform = useCallback((id, type) => {
-    const list = type === 'logo' ? logos : backgroundImages;
-    const item = list.find(i => i.id === id);
+    const list = type === 'logo' ? itemsRef.current.logos : itemsRef.current.backgroundImages;
+    const item = list.find(i => i.id === id) || list[0];
     if (item) {
-      setCopiedTransform({
-        position: { ...item.position },
-        scale: { ...item.scale },
+      const transform = {
+        sourceId: item.id,
+        position: { x: item.position.x, y: item.position.y },
+        scale: { scaleX: item.scale.scaleX, scaleY: item.scale.scaleY },
         rotation: item.rotation || 0,
         blurRadius: item.blurRadius || 0
-      });
+      };
+      copiedTransformRef.current = transform;
+      setCopiedTransform(transform);
     }
-  }, [backgroundImages, logos]);
+  }, []);
 
   const pasteItemTransform = useCallback((id, type) => {
-    if (!copiedTransform) return;
+    const toPaste = copiedTransformRef.current || copiedTransform;
+    if (!toPaste) return;
     const setter = type === 'logo' ? setLogos : setBackgroundImages;
     setter(items => items.map(item => {
-      if (item.id !== id) return item;
+      // Se l'utente ha selezionato un'altra immagine (id diverso da sourceId), incolla su quell'immagine.
+      // Se è ancora sull'immagine copiata (id === toPaste.sourceId), incolla su tutte le ALTRE immagini.
+      const shouldPaste = (id && id !== toPaste.sourceId) ? (item.id === id) : (item.id !== toPaste.sourceId);
+      if (!shouldPaste) return item;
       return {
         ...item,
-        position: { ...copiedTransform.position },
-        scale: { ...copiedTransform.scale },
-        rotation: copiedTransform.rotation || 0,
-        blurRadius: copiedTransform.blurRadius || 0
+        position: { x: toPaste.position.x, y: toPaste.position.y },
+        scale: { scaleX: toPaste.scale.scaleX, scaleY: toPaste.scale.scaleY },
+        rotation: toPaste.rotation || 0,
+        blurRadius: toPaste.blurRadius || 0
       };
     }));
   }, [copiedTransform]);
 
   const applyTransformToAll = useCallback((id, type) => {
-    const list = type === 'logo' ? logos : backgroundImages;
-    const source = list.find(i => i.id === id);
+    const list = type === 'logo' ? itemsRef.current.logos : itemsRef.current.backgroundImages;
+    const source = list.find(i => i.id === id) || list[0];
     if (!source) return;
 
     const transformToApply = {
-      position: { ...source.position },
-      scale: { ...source.scale },
+      position: { x: source.position.x, y: source.position.y },
+      scale: { scaleX: source.scale.scaleX, scaleY: source.scale.scaleY },
       rotation: source.rotation || 0,
       blurRadius: source.blurRadius || 0
     };
 
     const setter = type === 'logo' ? setLogos : setBackgroundImages;
-    setter(items => items.map(item => ({
-      ...item,
-      position: { ...transformToApply.position },
-      scale: { ...transformToApply.scale },
-      rotation: transformToApply.rotation,
-      blurRadius: transformToApply.blurRadius
-    })));
-  }, [backgroundImages, logos]);
+    setter(items => items.map(item => {
+      if (item.id === source.id) return item;
+      return {
+        ...item,
+        position: { x: transformToApply.position.x, y: transformToApply.position.y },
+        scale: { scaleX: transformToApply.scale.scaleX, scaleY: transformToApply.scale.scaleY },
+        rotation: transformToApply.rotation,
+        blurRadius: transformToApply.blurRadius
+      };
+    }));
+  }, []);
 
   return {
     backgroundImages, setBackgroundImages,
