@@ -1,15 +1,40 @@
 import React, { useEffect, useState, useRef, useCallback, memo } from 'react';
 import { Stage, Layer, Image as KonvaImage, Text, Group, Rect } from 'react-konva';
+import Konva from 'konva';
 import useImage from 'use-image';
 import { NEWS_LAYOUT } from '../../../config/layoutConstants';
 import './CanvasNews.css';
 
+const cacheNodeSafely = (node, image) => {
+  if (!node || !image || !image.width || !image.height) return;
+  try {
+    const maxDim = Math.max(image.width, image.height);
+    const pr = maxDim > 2000 ? 1 : maxDim > 1000 ? 1.5 : 2;
+    node.cache({ pixelRatio: pr });
+  } catch (err) {
+    console.error("Errore durante il cache della sfocatura Konva:", err);
+  }
+};
+
 // Componente per le immagini di sfondo
 const BackgroundImage = memo(({ bgImage, updateItemPosition, setBackgroundImages, isSelected = false, onSelect = () => {}, showSelection = true }) => {
   const [image] = useImage(bgImage.src, 'anonymous');
+  const imageRef = useRef(null);
+
+  useEffect(() => {
+    if (image && imageRef.current && image.width > 0 && image.height > 0) {
+      if (bgImage.blurRadius && bgImage.blurRadius > 0) {
+        cacheNodeSafely(imageRef.current, image);
+      } else {
+        imageRef.current.clearCache();
+      }
+      imageRef.current.getLayer()?.batchDraw();
+    }
+  }, [image, bgImage.blurRadius, isSelected, showSelection, bgImage.src]);
   
   return (
     <KonvaImage
+      ref={imageRef}
       name="user-image"
       key={bgImage.id}
       image={image}
@@ -20,6 +45,8 @@ const BackgroundImage = memo(({ bgImage, updateItemPosition, setBackgroundImages
       rotation={bgImage.rotation || 0}
       offsetX={image ? image.width / 2 : 0}
       offsetY={image ? image.height / 2 : 0}
+      filters={bgImage.blurRadius && bgImage.blurRadius > 0 ? [Konva.Filters.Blur] : undefined}
+      blurRadius={bgImage.blurRadius || 0}
       draggable={true}
       stroke={(showSelection && isSelected) ? '#b4ff00' : undefined}
       strokeWidth={(showSelection && isSelected) ? 3 : 0}
@@ -41,9 +68,22 @@ const BackgroundImage = memo(({ bgImage, updateItemPosition, setBackgroundImages
 // Componente per i loghi
 const LogoImage = memo(({ logo, updateItemPosition, setLogos, isSelected = false, onSelect = () => {} , showSelection = true }) => {
   const [image] = useImage(logo.src, 'anonymous');
+  const imageRef = useRef(null);
+
+  useEffect(() => {
+    if (image && imageRef.current && image.width > 0 && image.height > 0) {
+      if (logo.blurRadius && logo.blurRadius > 0) {
+        cacheNodeSafely(imageRef.current, image);
+      } else {
+        imageRef.current.clearCache();
+      }
+      imageRef.current.getLayer()?.batchDraw();
+    }
+  }, [image, logo.blurRadius, isSelected, showSelection, logo.src]);
   
   return (
     <KonvaImage
+      ref={imageRef}
       name="user-image"
       key={logo.id}
       image={image}
@@ -54,6 +94,8 @@ const LogoImage = memo(({ logo, updateItemPosition, setLogos, isSelected = false
       rotation={logo.rotation || 0} 
       offsetX={image ? image.width / 2 : 0}
       offsetY={image ? image.height / 2 : 0}
+      filters={logo.blurRadius && logo.blurRadius > 0 ? [Konva.Filters.Blur] : undefined}
+      blurRadius={logo.blurRadius || 0}
       draggable={true}
       stroke={(showSelection && isSelected) ? '#b4ff00' : undefined}
       strokeWidth={(showSelection && isSelected) ? 3 : 0}

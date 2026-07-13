@@ -6,6 +6,7 @@ export function useCanvasElements() {
   const [logos, setLogos] = useState([]);
   const [selectedBackground, setSelectedBackground] = useState(null);
   const [selectedLogo, setSelectedLogo] = useState(null);
+  const [copiedTransform, setCopiedTransform] = useState(null);
   const blobUrlsRef = useRef([]);
 
   useEffect(() => {
@@ -26,11 +27,6 @@ export function useCanvasElements() {
     if (!file) return;
 
     setBackgroundImages(prev => {
-      if (prev.length >= 5) {
-        alert("Puoi caricare al massimo 5 immagini di sfondo");
-        return prev;
-      }
-
       const objectUrl = URL.createObjectURL(file);
       blobUrlsRef.current.push(objectUrl);
 
@@ -38,7 +34,8 @@ export function useCanvasElements() {
         id: `bg-${Date.now()}`,
         src: objectUrl,
         position: { x: NEWS_LAYOUT.USER_IMAGE.startX, y: NEWS_LAYOUT.USER_IMAGE.startY },
-        scale: { scaleX: NEWS_LAYOUT.USER_IMAGE.defaultScaleX, scaleY: NEWS_LAYOUT.USER_IMAGE.defaultScaleY }
+        scale: { scaleX: NEWS_LAYOUT.USER_IMAGE.defaultScaleX, scaleY: NEWS_LAYOUT.USER_IMAGE.defaultScaleY },
+        blurRadius: 0
       };
       
       setSelectedBackground(newImage.id);
@@ -66,7 +63,8 @@ export function useCanvasElements() {
         id: `logo-${Date.now()}`,
         src: objectUrl,
         position: { x: NEWS_LAYOUT.LOGO.startX, y: NEWS_LAYOUT.LOGO.startY },
-        scale: { scaleX: NEWS_LAYOUT.LOGO.defaultScaleX, scaleY: NEWS_LAYOUT.LOGO.defaultScaleY }
+        scale: { scaleX: NEWS_LAYOUT.LOGO.defaultScaleX, scaleY: NEWS_LAYOUT.LOGO.defaultScaleY },
+        blurRadius: 0
       };
 
       setSelectedLogo(newLogo.id);
@@ -152,6 +150,56 @@ export function useCanvasElements() {
     });
   }, []);
 
+  const copyItemTransform = useCallback((id, type) => {
+    const list = type === 'logo' ? logos : backgroundImages;
+    const item = list.find(i => i.id === id);
+    if (item) {
+      setCopiedTransform({
+        position: { ...item.position },
+        scale: { ...item.scale },
+        rotation: item.rotation || 0,
+        blurRadius: item.blurRadius || 0
+      });
+    }
+  }, [backgroundImages, logos]);
+
+  const pasteItemTransform = useCallback((id, type) => {
+    if (!copiedTransform) return;
+    const setter = type === 'logo' ? setLogos : setBackgroundImages;
+    setter(items => items.map(item => {
+      if (item.id !== id) return item;
+      return {
+        ...item,
+        position: { ...copiedTransform.position },
+        scale: { ...copiedTransform.scale },
+        rotation: copiedTransform.rotation || 0,
+        blurRadius: copiedTransform.blurRadius || 0
+      };
+    }));
+  }, [copiedTransform]);
+
+  const applyTransformToAll = useCallback((id, type) => {
+    const list = type === 'logo' ? logos : backgroundImages;
+    const source = list.find(i => i.id === id);
+    if (!source) return;
+
+    const transformToApply = {
+      position: { ...source.position },
+      scale: { ...source.scale },
+      rotation: source.rotation || 0,
+      blurRadius: source.blurRadius || 0
+    };
+
+    const setter = type === 'logo' ? setLogos : setBackgroundImages;
+    setter(items => items.map(item => ({
+      ...item,
+      position: { ...transformToApply.position },
+      scale: { ...transformToApply.scale },
+      rotation: transformToApply.rotation,
+      blurRadius: transformToApply.blurRadius
+    })));
+  }, [backgroundImages, logos]);
+
   return {
     backgroundImages, setBackgroundImages,
     logos, setLogos,
@@ -160,6 +208,7 @@ export function useCanvasElements() {
     handleBackgroundUpload, handleLogoUpload,
     removeBackgroundImage, removeLogo,
     reorderItems,
-    updateItemPosition, moveElement, resizeElement
+    updateItemPosition, moveElement, resizeElement,
+    copiedTransform, copyItemTransform, pasteItemTransform, applyTransformToAll
   };
 }

@@ -12,7 +12,11 @@
       "Bash(cd /f/cronacheapp *)",
       "mcp__visualize__read_me",
       "mcp__visualize__show_widget",
-      "Bash(NODE_PATH=\"F:/cronacheapp/server/node_modules\" node shot3.js)"
+      "Bash(NODE_PATH=\"F:/cronacheapp/server/node_modules\" node shot3.js)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git check-ignore *)",
+      "Bash(git commit -m '@ *)"
     ]
   }
 }

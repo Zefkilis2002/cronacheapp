@@ -19,7 +19,11 @@ function ImagesSelector({
   onApplyAcrSport,
   onApplyUpscale,
   onRemoveAcrSport,
-  busyFilter
+  busyFilter,
+  copiedTransform,
+  copyItemTransform,
+  pasteItemTransform,
+  applyTransformToAll
 }) {
   const dragItem = useRef(null);
   const dragOverItem = useRef(null);
@@ -68,7 +72,8 @@ function ImagesSelector({
       src: url,
       originalSrc: url,
       position: { x: 0, y: 0 },
-      scale: { scaleX: 1, scaleY: 1 }
+      scale: { scaleX: 1, scaleY: 1 },
+      blurRadius: 0
     };
     setBackgroundImages([...backgroundImages, newBg]);
     setSelectedBackground(newBg.id);
@@ -85,7 +90,8 @@ function ImagesSelector({
       id: `logo-${Date.now()}`,
       src: url,
       position: { x: 65, y: 1260 },
-      scale: { scaleX: 0.4, scaleY: 0.4 } // Ulteriormente ridotta la dimensione (0.4) per immagini web ad alta risoluzione
+      scale: { scaleX: 0.4, scaleY: 0.4 }, // Ulteriormente ridotta la dimensione (0.4) per immagini web ad alta risoluzione
+      blurRadius: 0
     };
     setLogos([...logos, newLogo]);
     setSelectedLogo(newLogo.id);
@@ -96,14 +102,13 @@ function ImagesSelector({
     <div className="images-selector">
       {/* Sezione immagini di sfondo */}
       <div className="image-upload-section">
-        <h3>Immagini di sfondo (max 5):</h3>
+        <h3>Immagini di sfondo:</h3>
         <div className="logo-actions-row" style={{ marginBottom: '10px' }}>
           <input
             type="file"
             accept="image/*"
             onChange={handleBackgroundUpload}
             className="file-input"
-            disabled={backgroundImages.length >= 5}
             id="background-upload"
             style={{ display: 'none' }}
           />
@@ -114,7 +119,6 @@ function ImagesSelector({
           <button
             className="logo-selector"
             onClick={() => setShowBackgroundSearch(true)}
-            disabled={backgroundImages.length >= 5}
           >
             Cerca web
           </button>
@@ -149,6 +153,78 @@ function ImagesSelector({
             {busyFilter ? '...' : 'Migliora HD'}
           </button>
         </div>
+
+        {(selectedBackground || backgroundImages.length > 0) && (() => {
+          const activeBgId = selectedBackground || backgroundImages[0]?.id;
+          return (
+            <div className="logo-actions-row" style={{ marginBottom: '15px' }}>
+              <button
+                className="logo-selector"
+                onClick={() => copyItemTransform && copyItemTransform(activeBgId, 'background')}
+                title="Copia posizione, dimensione, rotazione e sfocatura di questa immagine"
+              >
+                Copia Trasf.
+              </button>
+
+              <button
+                className="logo-selector"
+                disabled={!copiedTransform}
+                onClick={() => pasteItemTransform && pasteItemTransform(activeBgId, 'background')}
+                title="Incolla le trasformazioni copiate su questa immagine"
+              >
+                Incolla Trasf.
+              </button>
+
+              <button
+                className="logo-selector"
+                onClick={() => applyTransformToAll && applyTransformToAll(activeBgId, 'background')}
+                title="Applica posizione, dimensione, rotazione e sfocatura di questa immagine a tutte le altre immagini di sfondo"
+                style={{ borderColor: '#b4ff00', color: '#b4ff00' }}
+              >
+                Applica a Tutte
+              </button>
+            </div>
+          );
+        })()}
+
+        {(selectedBackground || backgroundImages.length > 0) && (() => {
+          const activeBgId = selectedBackground || backgroundImages[0]?.id;
+          const currentBlur = backgroundImages.find(img => img.id === activeBgId)?.blurRadius || 0;
+          return (
+            <div className="blur-panel">
+              <label className="blur-label">
+                Sfocatura Sfondo (Blur): {currentBlur}px
+              </label>
+              <div className="blur-row-controls">
+                <input
+                  type="range"
+                  min="0"
+                  max="50"
+                  step="1"
+                  value={currentBlur}
+                  onChange={(e) => {
+                    const val = Number(e.target.value);
+                    setBackgroundImages(prev => prev.map(img => 
+                      img.id !== activeBgId ? img : { ...img, blurRadius: val }
+                    ));
+                  }}
+                  className="blur-slider"
+                />
+                <button
+                  type="button"
+                  className="blur-reset-btn"
+                  onClick={() => {
+                    setBackgroundImages(prev => prev.map(img => 
+                      img.id !== activeBgId ? img : { ...img, blurRadius: 0 }
+                    ));
+                  }}
+                >
+                  Reset
+                </button>
+              </div>
+            </div>
+          );
+        })()}
 
         <div className="thumbnails-row">
           <div className="thumbnails-container" style={{ margin: 0, width: '100%' }}>
@@ -210,6 +286,10 @@ function ImagesSelector({
             Cerca web
           </button>
         </div>
+
+
+
+
 
         {/* Thumbnails Row */}
         <div className="thumbnails-row">

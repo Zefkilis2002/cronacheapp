@@ -197,7 +197,7 @@
   background: rgba(154, 205, 50, 0.2);
 }
 
-/* Simbolo dei gradi */
+/* Simbolo dei gradi e px */
 .toolnews .deg-input::after {
   content: "°";
   position: absolute;
@@ -208,6 +208,10 @@
   font-weight: 500;
   pointer-events: none;
   opacity: 0.8;
+}
+
+.toolnews .px-input::after {
+  content: "px";
 }
 
 /* ----- Responsive Design ----- */

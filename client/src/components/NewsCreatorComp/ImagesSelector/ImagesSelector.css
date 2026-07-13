@@ -494,3 +494,77 @@
         padding: 0.4rem 0.2rem;
     }
 }
+
+/* Blur Panel in ImagesSelector */
+.blur-panel {
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid #9acd32;
+    border-radius: 16px;
+    padding: 12px 16px;
+    margin-bottom: 15px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.blur-label {
+    color: #b4ff00 !important;
+    font-size: 0.95rem !important;
+    font-weight: 600;
+    margin-bottom: 0 !important;
+    min-width: 0 !important;
+}
+
+.blur-row-controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.blur-slider {
+    flex: 1;
+    height: 8px;
+    border-radius: 4px;
+    background: #3a3a3a;
+    outline: none;
+    cursor: pointer;
+}
+
+.blur-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #b4ff00;
+    cursor: pointer;
+    border: 2px solid #fff;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+
+.blur-slider::-moz-range-thumb {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #b4ff00;
+    cursor: pointer;
+    border: 2px solid #fff;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+
+.blur-reset-btn {
+    padding: 6px 14px;
+    border: 2px solid #b4ff00;
+    background: rgba(180, 255, 0, 0.1);
+    color: #b4ff00;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.blur-reset-btn:hover {
+    background: #b4ff00;
+    color: #00061b;
+}

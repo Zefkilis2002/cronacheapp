@@ -41,6 +41,10 @@
   margin: 0 auto;
 }
 
+.news-editor-container {
+  padding-bottom: 130px;
+}
+
 .editor-container {
   display: flex;
   flex-direction: column;
