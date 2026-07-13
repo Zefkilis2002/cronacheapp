@@ -4,6 +4,7 @@ import React, { useState, useRef } from 'react';
 import config from '../../../config';
 import { applyAcrSportFilterToSrc, applyUpscaleFilterToSrc } from '../../../filters/acrSport';
 import axios from 'axios';
+import { saveImage } from '../../../utils/saveImage';
 import './TabellinoControls.css';
 
 function TabellinoControls({
@@ -118,13 +119,8 @@ function TabellinoControls({
       }
       stage.batchDraw();
 
-      // Download
-      const link = document.createElement('a');
-      link.download = `tabellino_${Date.now()}.jpg`;
-      link.href = uri;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      // Download (gestisce anche iOS Safari/Chrome via Web Share API)
+      saveImage(uri, `tabellino_${Date.now()}.jpg`);
 
     } catch (error) {
       console.error('Errore durante il download:', error);

@@ -3,6 +3,7 @@ import CanvaClassifica from './CanvaClassifica';
 import ImageControl from './ImageControl';
 import ClassificaToolBar from './ClassificaToolBar';
 import { INITIAL_ROWS, TEAMS_LIST, normalizeTeamName } from './DatiClassifica';
+import { saveImage } from '../../utils/saveImage';
 import './ClassificaComp.css';
 
 const ClassificaComp = () => {
@@ -190,12 +191,7 @@ const ClassificaComp = () => {
       }
       stage.batchDraw();
 
-      const link = document.createElement('a');
-      link.download = `classifica_${Date.now()}.jpg`;
-      link.href = uri;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      saveImage(uri, `classifica_${Date.now()}.jpg`);
 
     } catch (e) {
       console.error('Download error:', e);

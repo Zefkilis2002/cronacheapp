@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import * as htmlToImage from 'html-to-image';
 import LineUpPoster from './LineUpPoster';
+import { saveImage } from '../utils/saveImage';
 import './LineUp.css';
 
 const formationsData = {
@@ -284,11 +285,8 @@ const LineUp = () => {
             await htmlToImage.toJpeg(container, options);
             const dataUrl = await htmlToImage.toJpeg(container, options);
 
-            const link = document.createElement('a');
             const safeName = teamName.replace(/[^a-z0-9]/gi, '_').toLowerCase() || 'formazione';
-            link.download = `lineup_${safeName}.jpg`;
-            link.href = dataUrl;
-            link.click();
+            await saveImage(dataUrl, `lineup_${safeName}.jpg`);
         } catch (err) {
             console.error("Errore esportazione con html-to-image", err);
         }

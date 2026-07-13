@@ -6,6 +6,7 @@ import ImagesSelector from '../components/NewsCreatorComp/ImagesSelector/ImagesS
 import CanvasNews from '../components/NewsCreatorComp/CanvasNews/CanvasNews';
 import ToolbarNews from '../components/NewsCreatorComp/ToolbarNews/ToolbarNews';
 import { applyAcrSportFilterToSrc, applyUpscaleFilterToSrc } from '../filters/acrSport';
+import { saveImage } from '../utils/saveImage';
 import useImage from 'use-image';
 import '../fonts.css';
 import './News.css';
@@ -23,7 +24,8 @@ function NewsEditor() {
     handleBackgroundUpload, handleLogoUpload,
     removeBackgroundImage, removeLogo,
     reorderItems,
-    updateItemPosition, moveElement, resizeElement
+    updateItemPosition, moveElement, resizeElement,
+    copiedTransform, copyItemTransform, pasteItemTransform, applyTransformToAll
   } = useCanvasElements();
 
   const {
@@ -242,12 +244,7 @@ function NewsEditor() {
     stage.height(originalHeight);
     stage.batchDraw();
 
-    const link = document.createElement('a');
-    link.download = 'final_image.jpg';
-    link.href = uri;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    await saveImage(uri, 'final_image.jpg');
 
     setShowSelection(true);
   }, []);
@@ -421,6 +418,10 @@ function NewsEditor() {
               onApplyUpscale={applyUpscaleToSelectedBackground}
               onRemoveAcrSport={removeFilterFromSelectedBackground}
               busyFilter={busyFilter}
+              copiedTransform={copiedTransform}
+              copyItemTransform={copyItemTransform}
+              pasteItemTransform={pasteItemTransform}
+              applyTransformToAll={applyTransformToAll}
             />
           )}
         </div>

@@ -3,6 +3,7 @@ import config from '../../../config';
 import { Stage, Layer, Image as KonvaImage, Text, Rect } from 'react-konva';
 import useImage from 'use-image';
 import { FULLTIME_LAYOUT } from '../../../config/layoutConstants';
+import { saveImage } from '../../../utils/saveImage';
 import './Canva.css';
 
 const Canva = ({
@@ -324,12 +325,7 @@ const Canva = ({
       }
       stage.batchDraw();
 
-      const link = document.createElement('a');
-      link.download = `tabellino_${Date.now()}.jpg`;
-      link.href = uri;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      saveImage(uri, `tabellino_${Date.now()}.jpg`);
     } catch (error) {
       console.error('Errore durante il download:', error);
       alert("Errore durante il download dell'immagine.");
