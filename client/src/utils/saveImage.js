@@ -34,7 +34,22 @@ export function isIOS() {
 export async function saveImage(dataUrl, filename) {
   const blob = dataUrlToBlob(dataUrl);
 
-  // 1) Percorso preferito su mobile/iOS: condivisione nativa del file.
+  // Su DESKTOP (e Android) l'attributo `download` funziona: scarica subito.
+  // La Web Share API la usiamo SOLO su iOS, altrimenti su Windows/Mac
+  // aprirebbe inutilmente il menu di condivisione invece di scaricare.
+  if (!isIOS()) {
+    const objectUrl = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.download = filename;
+    link.href = objectUrl;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 10000);
+    return;
+  }
+
+  // 1) iOS: condivisione nativa del file → "Salva immagine" nelle Foto.
   if (typeof navigator !== 'undefined' && navigator.canShare) {
     try {
       const file = new File([blob], filename, { type: blob.type });
@@ -45,27 +60,13 @@ export async function saveImage(dataUrl, filename) {
     } catch (err) {
       // Se l'utente annulla il foglio di condivisione non facciamo altro.
       if (err && err.name === 'AbortError') return;
-      // Altrimenti proseguiamo con i fallback.
+      // Altrimenti proseguiamo con il fallback.
     }
   }
 
-  // 2) Desktop (e browser che supportano l'attributo download): download diretto.
-  const objectUrl = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  const supportsDownload = 'download' in HTMLAnchorElement.prototype;
-
-  if (supportsDownload && !isIOS()) {
-    link.download = filename;
-    link.href = objectUrl;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    setTimeout(() => URL.revokeObjectURL(objectUrl), 10000);
-    return;
-  }
-
-  // 3) Ultimo fallback iOS: apri l'immagine in una nuova scheda così l'utente
+  // 2) Ultimo fallback iOS: apri l'immagine in una nuova scheda così l'utente
   // può fare long-press e "Salva nelle Foto".
+  const objectUrl = URL.createObjectURL(blob);
   const win = window.open();
   if (win) {
     win.document.write(
