@@ -8,10 +8,14 @@ function NewsCreator({
   setTitleColor,
   titleFont,
   setTitleFont,
+  titleFontSize,
+  setTitleFontSize,
   textColor,
   setTextColor,
   textFont,
   setTextFont,
+  textFontSize,
+  setTextFontSize,
   textContainerRef,
   handleTextChange,
   backgroundImage,
@@ -30,6 +34,9 @@ function NewsCreator({
   setSourceColor,
   sourceFontSize,
   setSourceFontSize,
+  setTitlePosition,
+  setTextPosition,
+  setSourcePosition,
   isInterviewStyle
 }) {
   React.useEffect(() => {
@@ -63,6 +70,12 @@ function NewsCreator({
               <option value="/sfondoNotizie/roumor.png">Roumor</option>
               <option value="/sfondoNotizie/citation.png">Citation</option>
               <option value="/sfondoNotizie/notizia.png">Notizia Sky Sport</option>
+              <option value="/sfondoNotizie/curiosità-azzurra.png">Curiosità Azzurra</option>
+              <option value="/sfondoNotizie/curiosità-blu.png">Curiosità Blu</option>
+              <option value="/sfondoNotizie/curiosità-gialla.png">Curiosità Gialla</option>
+              <option value="/sfondoNotizie/curiosità-nera.png">Curiosità Nera</option>
+              <option value="/sfondoNotizie/curiosità-rossa.png">Curiosità Rossa</option>
+              <option value="/sfondoNotizie/curiosità-verde.png">Curiosità Verde</option>
               <option value="/sfondoNotizie/vuoto.png">Vuoto</option>
             </select>
           </div>
@@ -83,7 +96,20 @@ function NewsCreator({
 
       {/* Gruppo 2: Configurazione Titolo */}
       <div className="control-group">
-        <h3 className="group-title">Titolo</h3>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(180, 255, 0, 0.3)', paddingBottom: '0.5rem', marginBottom: '0.2rem' }}>
+          <h3 className="group-title" style={{ margin: 0, border: 'none', padding: 0 }}>Titolo</h3>
+          {setTitlePosition && (
+            <button
+              type="button"
+              className="clean-button"
+              onClick={() => setTitlePosition(prev => ({ ...prev, x: 0 }))}
+              style={{ fontSize: '0.75rem', padding: '0.2rem 0.65rem', borderColor: '#4a4a5c', color: '#bbb', cursor: 'pointer' }}
+              title="Centra orizzontalmente"
+            >
+              ↔ Centra
+            </button>
+          )}
+        </div>
         <div className="full-width-item">
           <input
             type="text"
@@ -108,7 +134,31 @@ function NewsCreator({
               <option value="Benzin-Regular">Benzin Regular</option>
               <option value="Benzin-Semibold">Benzin Semi Bold</option>
               <option value="Allotrope-Bold">Sky Sport (Allotrope Bold)</option>
+              <option value="Kuunari-Black-Condensed">Kuunari Black Condensed</option>
             </select>
+          </div>
+          <div>
+            <label>Dimensione titolo:</label>
+            <div className="font-size-control">
+              <button
+                type="button"
+                className="clean-button font-size-btn"
+                onClick={() => setTitleFontSize(prev => Math.max(10, (Number(prev) || 10) - 2))}
+              >-</button>
+              <input
+                type="number"
+                min="10"
+                max="500"
+                value={titleFontSize || ''}
+                onChange={(e) => setTitleFontSize(Number(e.target.value) || 0)}
+                className="font-size-input"
+              />
+              <button
+                type="button"
+                className="clean-button font-size-btn"
+                onClick={() => setTitleFontSize(prev => (Number(prev) || 10) + 2)}
+              >+</button>
+            </div>
           </div>
           <div>
             <label>Colore del titolo:</label>
@@ -128,7 +178,20 @@ function NewsCreator({
 
       {/* Gruppo 3: Configurazione Testo */}
       <div className="control-group">
-        <h3 className="group-title">Testo Principale</h3>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(180, 255, 0, 0.3)', paddingBottom: '0.5rem', marginBottom: '0.2rem' }}>
+          <h3 className="group-title" style={{ margin: 0, border: 'none', padding: 0 }}>Testo Principale</h3>
+          {setTextPosition && (
+            <button
+              type="button"
+              className="clean-button"
+              onClick={() => setTextPosition(prev => ({ ...prev, x: 0 }))}
+              style={{ fontSize: '0.75rem', padding: '0.2rem 0.65rem', borderColor: '#4a4a5c', color: '#bbb', cursor: 'pointer' }}
+              title="Centra orizzontalmente"
+            >
+              ↔ Centra
+            </button>
+          )}
+        </div>
 
         {/* Editor Testo */}
         <div className="full-width-item">
@@ -215,7 +278,31 @@ function NewsCreator({
               <option value="Benzin-Medium">Benzin Medium</option>
               <option value="Benzin-Semibold">Benzin Semi Bold</option>
               <option value="Allotrope-Bold">Sky Sport (Allotrope Bold)</option>
+              <option value="Kuunari-Black-Condensed">Kuunari Black Condensed</option>
             </select>
+          </div>
+          <div>
+            <label>Dimensione testo:</label>
+            <div className="font-size-control">
+              <button
+                type="button"
+                className="clean-button font-size-btn"
+                onClick={() => setTextFontSize(prev => Math.max(10, (Number(prev) || 10) - 2))}
+              >-</button>
+              <input
+                type="number"
+                min="10"
+                max="500"
+                value={textFontSize || ''}
+                onChange={(e) => setTextFontSize(Number(e.target.value) || 0)}
+                className="font-size-input"
+              />
+              <button
+                type="button"
+                className="clean-button font-size-btn"
+                onClick={() => setTextFontSize(prev => (Number(prev) || 10) + 2)}
+              >+</button>
+            </div>
           </div>
           <div>
             <label>Colore base testo:</label>
@@ -247,7 +334,20 @@ function NewsCreator({
       {isInterviewStyle && (
         <>
           <div className="control-group">
-            <h3 className="group-title">Fonte (Intervista)</h3>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(180, 255, 0, 0.3)', paddingBottom: '0.5rem', marginBottom: '0.2rem' }}>
+              <h3 className="group-title" style={{ margin: 0, border: 'none', padding: 0 }}>Fonte (Intervista)</h3>
+              {setSourcePosition && (
+                <button
+                  type="button"
+                  className="clean-button"
+                  onClick={() => setSourcePosition(prev => ({ ...prev, x: 0 }))}
+                  style={{ fontSize: '0.75rem', padding: '0.2rem 0.65rem', borderColor: '#4a4a5c', color: '#bbb', cursor: 'pointer' }}
+                  title="Centra orizzontalmente"
+                >
+                  ↔ Centra
+                </button>
+              )}
+            </div>
             <div className="full-width-item">
               <input
                 type="text"
@@ -265,21 +365,29 @@ function NewsCreator({
                   <option value="Kenyan Coffee Bold">Kenyan Coffee Bold</option>
                   <option value="SkateSans-Regular">SkateSans Regular</option>
                   <option value="Benzin-Bold">Benzin Bold</option>
+                  <option value="Kuunari-Black-Condensed">Kuunari Black Condensed</option>
                 </select>
               </div>
               <div>
                 <label>Dimensione fonte:</label>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', height: '50px' }}>
+                <div className="font-size-control">
                   <button
-                    className="clean-button"
-                    onClick={() => setSourceFontSize(prev => prev - 2)}
-                    style={{ fontSize: '1.2rem', width: '35px', height: '35px', padding: '0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                    type="button"
+                    className="clean-button font-size-btn"
+                    onClick={() => setSourceFontSize(prev => Math.max(10, (Number(prev) || 10) - 2))}
                   >-</button>
-                  <span style={{ minWidth: '40px', textAlign: 'center', fontSize: '1.2rem', fontWeight: 'bold' }}>{sourceFontSize}</span>
+                  <input
+                    type="number"
+                    min="10"
+                    max="500"
+                    value={sourceFontSize || ''}
+                    onChange={(e) => setSourceFontSize(Number(e.target.value) || 0)}
+                    className="font-size-input"
+                  />
                   <button
-                    className="clean-button"
-                    onClick={() => setSourceFontSize(prev => prev + 2)}
-                    style={{ fontSize: '1.2rem', width: '35px', height: '35px', padding: '0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                    type="button"
+                    className="clean-button font-size-btn"
+                    onClick={() => setSourceFontSize(prev => (Number(prev) || 10) + 2)}
                   >+</button>
                 </div>
               </div>

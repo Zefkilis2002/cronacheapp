@@ -82,3 +82,10 @@
   font-weight: normal;
   font-style: normal;
 }
+
+@font-face {
+  font-family: 'Kuunari-Black-Condensed';
+  src: url('./fonts/kuunari-black-condensed.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+}

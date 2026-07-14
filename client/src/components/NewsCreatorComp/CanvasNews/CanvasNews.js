@@ -120,12 +120,20 @@ const LogoImage = memo(({ logo, updateItemPosition, setLogos, isSelected = false
   );
 });
 
+// Helper per calcolare il fattore di spaziatura per font particolari
+const getSpacingFactor = (fontFamily, defaultFactor = 1) => {
+  if (fontFamily === 'Kuunari-Black-Condensed') return 0.84;
+  if (fontFamily === 'SkateSans-Regular') return 0.85;
+  return defaultFactor;
+};
+
 // Componenti Rich Text e Multi Line Text
   const RichTextGroup = memo(({ lines, x, y, fontFamily, fontSize, defaultColor, textScale, ORIGINAL_WIDTH, measureWidth, setTextPosition, highlightColor, onClick = () => {}, isInterviewStyle = false }) => {
-    const spacingFactor = fontFamily === 'SkateSans-Regular' ? 0.85 : 1;
+    const spacingFactor = getSpacingFactor(fontFamily, 1);
     const lineHeight = Math.round(fontSize * spacingFactor);
     let yOffset = 0;
-    const elements = [];
+    const bgElements = [];
+    const textElements = [];
 
     lines.forEach((segments, li) => {
       if (!segments || segments.length === 0 || (segments.length === 1 && !segments[0].text)) {
@@ -171,7 +179,7 @@ const LogoImage = memo(({ logo, updateItemPosition, setLogos, isSelected = false
         const bgColor = segment.highlight ? (highlightColor || '#e3001b') : null; 
 
         if (bgColor) {
-           elements.push(
+           bgElements.push(
              <Rect
                key={`bg-${li}-${si}`}
                x={startX + xOffset - (fontSize * 0.1)} 
@@ -184,7 +192,7 @@ const LogoImage = memo(({ logo, updateItemPosition, setLogos, isSelected = false
            );
         }
 
-        elements.push(
+        textElements.push(
           <Text
             key={`rt-${li}-${si}`}
             text={segment.text || ''}
@@ -194,6 +202,7 @@ const LogoImage = memo(({ logo, updateItemPosition, setLogos, isSelected = false
             y={yOffset}
             align="left"
             fontFamily={fontFamily}
+            lineHeight={getSpacingFactor(fontFamily, 1)}
           />
         );
 
@@ -214,13 +223,14 @@ const LogoImage = memo(({ logo, updateItemPosition, setLogos, isSelected = false
         onTap={onClick}
         onDragEnd={(e) => setTextPosition({ x: e.target.x() - ORIGINAL_WIDTH / 2, y: e.target.y() })}
       >
-        {elements}
+        {bgElements}
+        {textElements}
       </Group>
     );
 });
 
 const MultiLineText = memo(({ text, x, y, fontFamily, fontSize, color, width, setTextPosition, isInterviewStyle }) => {
-    const spacingFactor = fontFamily === 'SkateSans-Regular' ? 0.85 : 1.25;
+    const spacingFactor = getSpacingFactor(fontFamily, 1.25);
     const lineHeight = Math.round(fontSize * spacingFactor);
     const elements = [];
     
@@ -245,6 +255,7 @@ const MultiLineText = memo(({ text, x, y, fontFamily, fontSize, color, width, se
           align="center"
           width={width}
           fontFamily={fontFamily}
+          lineHeight={getSpacingFactor(fontFamily, 1)}
           listening={false}
         />
       );
@@ -657,6 +668,7 @@ function CanvasNews({
                   align="center"
                   offsetX={measureWidth(title, titleFont, titleFontSize) / 2}
                   fontFamily={titleFont}
+                  lineHeight={getSpacingFactor(titleFont, 1)}
                   scaleX={titleScale.x}
                   scaleY={titleScale.y}
                   draggable={true}
@@ -709,6 +721,7 @@ function CanvasNews({
                     align="center"
                     offsetX={measureWidth(sourceText, sourceFont, sourceFontSize) / 2}
                     fontFamily={sourceFont}
+                    lineHeight={getSpacingFactor(sourceFont, 1)}
                     draggable={true}
                     onClick={() => setSelectedText('source')}
                     onTap={() => setSelectedText('source')}
@@ -757,6 +770,7 @@ function CanvasNews({
                   align="center"
                   offsetX={measureWidth(title, titleFont, titleFontSize) / 2}
                   fontFamily={titleFont}
+                  lineHeight={getSpacingFactor(titleFont, 1)}
                   draggable={true}
                   onDragEnd={(e) => {
                     const newX = e.target.x() - (ORIGINAL_WIDTH / 2);
@@ -790,6 +804,7 @@ function CanvasNews({
                     align="center"
                     offsetX={measureWidth(text, textFont, textFontSize) / 2}
                     fontFamily={textFont}
+                    lineHeight={getSpacingFactor(textFont, 1)}
                     draggable={true}
                     onDragEnd={(e) => {
                       const newX = e.target.x() - (ORIGINAL_WIDTH / 2);
@@ -809,6 +824,7 @@ function CanvasNews({
                     align="center"
                     offsetX={measureWidth(sourceText, sourceFont, sourceFontSize) / 2}
                     fontFamily={sourceFont}
+                    lineHeight={getSpacingFactor(sourceFont, 1)}
                     draggable={true}
                     onClick={() => setSelectedText('source')}
                     onTap={() => setSelectedText('source')}

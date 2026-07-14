@@ -373,10 +373,14 @@ function NewsEditor() {
               setTitleColor={setTitleColor}
               titleFont={titleFont}
               setTitleFont={setTitleFont}
+              titleFontSize={titleFontSize}
+              setTitleFontSize={setTitleFontSize}
               textColor={textColor}
               setTextColor={setTextColor}
               textFont={textFont}
               setTextFont={setTextFont}
+              textFontSize={textFontSize}
+              setTextFontSize={setTextFontSize}
               textContainerRef={textContainerRef}
               handleTextChange={handleTextChangeProxy}
               backgroundImage={backgroundImage}
@@ -395,6 +399,9 @@ function NewsEditor() {
               setSourceColor={setSourceColor}
               sourceFontSize={sourceFontSize}
               setSourceFontSize={setSourceFontSize}
+              setTitlePosition={setTitlePosition}
+              setTextPosition={setTextPosition}
+              setSourcePosition={setSourcePosition}
               isInterviewStyle={backgroundImage.includes('interviste')}
             />
           )}

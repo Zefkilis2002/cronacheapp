@@ -325,3 +325,41 @@
     font-size: 1.1rem;
   }
 }
+
+/* Font Size Direct Input Control */
+.font-size-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 50px;
+}
+
+.font-size-input {
+  width: 75px !important;
+  height: 40px !important;
+  text-align: center;
+  font-size: 1.1rem !important;
+  font-weight: bold;
+  background-color: #2a2a3c !important;
+  border: 2px solid #3a3a4c !important;
+  border-radius: 8px !important;
+  color: #ffffff !important;
+  padding: 0 4px !important;
+  line-height: normal !important;
+}
+
+.font-size-input:focus {
+  border-color: #b4ff00 !important;
+  outline: none;
+}
+
+.font-size-btn {
+  font-size: 1.3rem;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+}
