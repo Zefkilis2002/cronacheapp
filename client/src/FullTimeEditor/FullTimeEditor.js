@@ -44,6 +44,9 @@ const FullTimeEditor = () => {
         score2Y={state.score2Y}
         scorersTeam1={state.scorersTeam1}
         scorersTeam2={state.scorersTeam2}
+        isPenaltyMatch={state.isPenaltyMatch}
+        penaltiesScore1={state.penaltiesScore1}
+        penaltiesScore2={state.penaltiesScore2}
       />
 
       <div className="tab-header">
@@ -87,6 +90,12 @@ const FullTimeEditor = () => {
             setScore1={state.setScore1}
             score2={state.score2}
             setScore2={state.setScore2}
+            isPenaltyMatch={state.isPenaltyMatch}
+            setIsPenaltyMatch={state.setIsPenaltyMatch}
+            penaltiesScore1={state.penaltiesScore1}
+            setPenaltiesScore1={state.setPenaltiesScore1}
+            penaltiesScore2={state.penaltiesScore2}
+            setPenaltiesScore2={state.setPenaltiesScore2}
             setUserImage={state.setUserImage}
           />
         )}

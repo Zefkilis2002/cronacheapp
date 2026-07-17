@@ -75,13 +75,31 @@ const LogoImage = memo(({ logo, updateItemPosition, setLogos, isSelected = false
 
   useEffect(() => {
     if (image && imageRef.current && image.width > 0 && image.height > 0) {
+      const targetMax = logo.targetMaxDimension || (logo.id === 'transfer-logo-1' || logo.id === 'transfer-logo-2' ? 280 : null);
+      if (targetMax && (!logo.autoScaledForSrc || logo.autoScaledForSrc !== logo.src)) {
+        const maxDim = Math.max(image.width, image.height);
+        if (maxDim > 0) {
+          const idealScale = targetMax / maxDim;
+          setLogos(prev => prev.map(l => {
+            if (l.id === logo.id && (!l.autoScaledForSrc || l.autoScaledForSrc !== logo.src)) {
+              return {
+                ...l,
+                scale: { scaleX: idealScale, scaleY: idealScale },
+                autoScaledForSrc: logo.src
+              };
+            }
+            return l;
+          }));
+        }
+      }
+
       if (logo.blurRadius && logo.blurRadius > 0) {
         cacheNodeSafely(imageRef.current, image);
       } else {
         imageRef.current.clearCache();
       }
     }
-  }, [image, logo.blurRadius, isSelected, showSelection, logo.src]);
+  }, [image, logo.blurRadius, isSelected, showSelection, logo.src, logo.targetMaxDimension, logo.autoScaledForSrc, logo.id, setLogos]);
 
   useEffect(() => {
     imageRef.current?.getLayer()?.batchDraw();

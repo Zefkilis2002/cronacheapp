@@ -58,6 +58,7 @@ function NewsEditor() {
   const [busyFilter, setBusyFilter] = useState(false);
   const [activeTab, setActiveTab] = useState('text');
   const [showDownloadModal, setShowDownloadModal] = useState(false);
+  const [externalLogoSearchConfig, setExternalLogoSearchConfig] = useState(null);
 
   // Passi unificati per controlli UI
   const MOVE_STEP = 2;    // px
@@ -403,6 +404,14 @@ function NewsEditor() {
               setTextPosition={setTextPosition}
               setSourcePosition={setSourcePosition}
               isInterviewStyle={backgroundImage.includes('interviste')}
+              isTransferStyle={backgroundImage.includes('Trasferimento')}
+              logos={logos}
+              handleLogoUpload={handleLogoUpload}
+              removeLogo={removeLogo}
+              onOpenLogoSearch={(options) => {
+                setExternalLogoSearchConfig(options);
+                setActiveTab('images');
+              }}
             />
           )}
 
@@ -429,6 +438,9 @@ function NewsEditor() {
               copyItemTransform={copyItemTransform}
               pasteItemTransform={pasteItemTransform}
               applyTransformToAll={applyTransformToAll}
+              isTransferStyle={backgroundImage.includes('Trasferimento')}
+              externalLogoSearchConfig={externalLogoSearchConfig}
+              setExternalLogoSearchConfig={setExternalLogoSearchConfig}
             />
           )}
         </div>

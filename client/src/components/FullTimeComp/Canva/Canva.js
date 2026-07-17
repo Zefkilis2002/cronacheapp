@@ -32,6 +32,9 @@ const Canva = ({
   score2Y,
   scorersTeam1,
   scorersTeam2,
+  isPenaltyMatch,
+  penaltiesScore1,
+  penaltiesScore2,
 }) => {
   const [background] = useImage(`/tabellini/${selectedTabellino}`);
   const [uploadedImg] = useImage(userImage);
@@ -459,6 +462,20 @@ const Canva = ({
               />
             );
           })}
+          {isPenaltyMatch && penaltiesScore1 !== undefined && penaltiesScore2 !== undefined && (
+            <Text
+              text={`[${penaltiesScore1}-${penaltiesScore2}]`}
+              fontSize={FULLTIME_LAYOUT.PENALTIES?.fontSize || 38}
+              fontFamily={FULLTIME_LAYOUT.PENALTIES?.fontFamily || 'Benzin-SemiBold'}
+              fill={FULLTIME_LAYOUT.PENALTIES?.color || 'white'}
+              align="center"
+              width={FULLTIME_LAYOUT.PENALTIES?.width || 500}
+              x={FULLTIME_LAYOUT.PENALTIES?.startX || 470}
+              y={FULLTIME_LAYOUT.PENALTIES?.startY || 1558}
+              letterSpacing={FULLTIME_LAYOUT.PENALTIES?.letterSpacing || 0.5}
+              listening={false}
+            />
+          )}
         </Layer>
       </Stage>
       </div>

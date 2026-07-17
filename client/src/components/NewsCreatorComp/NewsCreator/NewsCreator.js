@@ -37,7 +37,12 @@ function NewsCreator({
   setTitlePosition,
   setTextPosition,
   setSourcePosition,
-  isInterviewStyle
+  isInterviewStyle,
+  isTransferStyle = false,
+  logos = [],
+  handleLogoUpload = null,
+  removeLogo = null,
+  onOpenLogoSearch = null
 }) {
   React.useEffect(() => {
     if (textContainerRef.current && textContainerRef.current.innerHTML !== html) {
@@ -62,6 +67,7 @@ function NewsCreator({
               <option value="/sfondoNotizie/sfumatura.png">Sfumatura</option>
               <option value="/sfondoNotizie/sfumaturaGrande.png">Sfumatura2</option>
               <option value="/sfondoNotizie/interviste.png">Intervista</option>
+              <option value="/sfondoNotizie/Trasferimento.png">Trasferimento</option>
               <option value="/sfondoNotizie/dichiarazioni.png">Dichiarazioni</option>
               <option value="/sfondoNotizie/news.png">News</option>
               <option value="/sfondoNotizie/news2.png">News 2</option>
@@ -91,6 +97,100 @@ function NewsCreator({
           </div>
         </div>
       </div>
+
+      {isTransferStyle && (
+        <>
+          <hr className="separator" />
+          <div className="control-group">
+            <h3 className="group-title" style={{ color: '#b4ff00' }}>⚽ Loghi Trasferimento (◄ ►)</h3>
+            <p style={{ fontSize: '0.82rem', color: '#ccc', margin: '0 0 1rem 0' }}>
+              Configura i 2 loghi posizionati ai lati del triangolino:
+            </p>
+            
+            {/* Logo 1: Squadra di partenza */}
+            <div style={{ background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(180, 255, 0, 0.2)', padding: '0.8rem', borderRadius: '8px', marginBottom: '0.8rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                <span style={{ fontWeight: '600', color: '#fff', fontSize: '0.9rem' }}>◄ Squadra di Partenza (Sinistra)</span>
+                {logos?.some(l => l.id === 'transfer-logo-1') && (
+                  <button
+                    type="button"
+                    className="clean-button"
+                    onClick={() => removeLogo && removeLogo('transfer-logo-1')}
+                    style={{ fontSize: '0.75rem', padding: '0.15rem 0.5rem', borderColor: '#e3001b', color: '#e3001b', cursor: 'pointer' }}
+                  >
+                    × Rimuovi
+                  </button>
+                )}
+              </div>
+              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => handleLogoUpload && handleLogoUpload(e, { id: 'transfer-logo-1', position: { x: 500, y: 1380 }, targetMaxDimension: 280, scale: { scaleX: 0.75, scaleY: 0.75 } })}
+                  className="file-input"
+                  id="transfer-logo-1-upload-nc"
+                  style={{ display: 'none' }}
+                />
+                <label htmlFor="transfer-logo-1-upload-nc" className="clean-button" style={{ fontSize: '0.8rem', padding: '0.35rem 0.8rem', cursor: 'pointer', margin: 0 }}>
+                  📁 Carica Logo
+                </label>
+                <button
+                  type="button"
+                  className="clean-button"
+                  onClick={() => onOpenLogoSearch && onOpenLogoSearch({ id: 'transfer-logo-1', position: { x: 500, y: 1380 }, targetMaxDimension: 280, scale: { scaleX: 0.75, scaleY: 0.75 } })}
+                  style={{ fontSize: '0.8rem', padding: '0.35rem 0.8rem', cursor: 'pointer' }}
+                >
+                  🌐 Cerca sul web
+                </button>
+                {logos?.find(l => l.id === 'transfer-logo-1') && (
+                  <span style={{ fontSize: '0.8rem', color: '#b4ff00', marginLeft: 'auto' }}>✓ Inserito</span>
+                )}
+              </div>
+            </div>
+
+            {/* Logo 2: Squadra di arrivo */}
+            <div style={{ background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(180, 255, 0, 0.2)', padding: '0.8rem', borderRadius: '8px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                <span style={{ fontWeight: '600', color: '#fff', fontSize: '0.9rem' }}>► Squadra di Arrivo (Destra)</span>
+                {logos?.some(l => l.id === 'transfer-logo-2') && (
+                  <button
+                    type="button"
+                    className="clean-button"
+                    onClick={() => removeLogo && removeLogo('transfer-logo-2')}
+                    style={{ fontSize: '0.75rem', padding: '0.15rem 0.5rem', borderColor: '#e3001b', color: '#e3001b', cursor: 'pointer' }}
+                  >
+                    × Rimuovi
+                  </button>
+                )}
+              </div>
+              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => handleLogoUpload && handleLogoUpload(e, { id: 'transfer-logo-2', position: { x: 950, y: 1380 }, targetMaxDimension: 280, scale: { scaleX: 0.75, scaleY: 0.75 } })}
+                  className="file-input"
+                  id="transfer-logo-2-upload-nc"
+                  style={{ display: 'none' }}
+                />
+                <label htmlFor="transfer-logo-2-upload-nc" className="clean-button" style={{ fontSize: '0.8rem', padding: '0.35rem 0.8rem', cursor: 'pointer', margin: 0 }}>
+                  📁 Carica Logo
+                </label>
+                <button
+                  type="button"
+                  className="clean-button"
+                  onClick={() => onOpenLogoSearch && onOpenLogoSearch({ id: 'transfer-logo-2', position: { x: 950, y: 1380 }, targetMaxDimension: 280, scale: { scaleX: 0.75, scaleY: 0.75 } })}
+                  style={{ fontSize: '0.8rem', padding: '0.35rem 0.8rem', cursor: 'pointer' }}
+                >
+                  🌐 Cerca sul web
+                </button>
+                {logos?.find(l => l.id === 'transfer-logo-2') && (
+                  <span style={{ fontSize: '0.8rem', color: '#b4ff00', marginLeft: 'auto' }}>✓ Inserito</span>
+                )}
+              </div>
+            </div>
+          </div>
+        </>
+      )}
 
       <hr className="separator" />
 

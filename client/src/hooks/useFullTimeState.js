@@ -10,6 +10,9 @@ export function useFullTimeState() {
 
   const [score1, setScore1] = useState(0);
   const [score2, setScore2] = useState(0);
+  const [isPenaltyMatch, setIsPenaltyMatch] = useState(false);
+  const [penaltiesScore1, setPenaltiesScore1] = useState(3);
+  const [penaltiesScore2, setPenaltiesScore2] = useState(4);
   const [scorersTeam1, setScorersTeam1] = useState(Array(7).fill(''));
   const [scorersTeam2, setScorersTeam2] = useState(Array(7).fill(''));
 
@@ -94,6 +97,20 @@ export function useFullTimeState() {
 
     const awayPadded = [...(matchData.awayScorers || []), ...Array(7).fill('')].slice(0, 7);
     setScorersTeam2(awayPadded);
+
+    if (matchData.isPenaltyMatch !== undefined) {
+      setIsPenaltyMatch(matchData.isPenaltyMatch);
+    }
+    if (matchData.penaltiesScore1 !== undefined && matchData.penaltiesScore2 !== undefined) {
+      setPenaltiesScore1(matchData.penaltiesScore1);
+      setPenaltiesScore2(matchData.penaltiesScore2);
+    } else if (matchData.penaltiesScore) {
+      const parts = String(matchData.penaltiesScore).replace(/[[\]]/g, '').split('-');
+      if (parts.length === 2) {
+        setPenaltiesScore1(Number(parts[0]) || 0);
+        setPenaltiesScore2(Number(parts[1]) || 0);
+      }
+    }
   }, []);
 
   return {
@@ -103,6 +120,9 @@ export function useFullTimeState() {
     instagramLink, setInstagramLink,
     score1, setScore1,
     score2, setScore2,
+    isPenaltyMatch, setIsPenaltyMatch,
+    penaltiesScore1, setPenaltiesScore1,
+    penaltiesScore2, setPenaltiesScore2,
     scorersTeam1, setScorersTeam1,
     scorersTeam2, setScorersTeam2,
     selectedLogo1, setSelectedLogo1,

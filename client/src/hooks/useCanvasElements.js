@@ -52,12 +52,13 @@ export function useCanvasElements() {
     e.target.value = null;
   }, []);
 
-  const handleLogoUpload = useCallback((e) => {
+  const handleLogoUpload = useCallback((e, customOptions = null) => {
     const file = e.target.files[0];
     if (!file) return;
 
     setLogos(prev => {
-      if (prev.length >= 8) {
+      const customId = customOptions?.id;
+      if (prev.length >= 8 && !customId) {
         alert("Puoi caricare al massimo 8 loghi");
         return prev;
       }
@@ -66,15 +67,32 @@ export function useCanvasElements() {
       blobUrlsRef.current.push(objectUrl);
 
       const newLogo = {
-        id: `logo-${Date.now()}`,
+        id: customId || `logo-${Date.now()}`,
         src: objectUrl,
-        position: { x: NEWS_LAYOUT.LOGO.startX, y: NEWS_LAYOUT.LOGO.startY },
-        scale: { scaleX: NEWS_LAYOUT.LOGO.defaultScaleX, scaleY: NEWS_LAYOUT.LOGO.defaultScaleY },
+        position: customOptions?.position || { x: NEWS_LAYOUT.LOGO.startX, y: NEWS_LAYOUT.LOGO.startY },
+        scale: customOptions?.scale || { scaleX: NEWS_LAYOUT.LOGO.defaultScaleX, scaleY: NEWS_LAYOUT.LOGO.defaultScaleY },
+        targetMaxDimension: customOptions?.targetMaxDimension || (customId === 'transfer-logo-1' || customId === 'transfer-logo-2' ? 280 : null),
         blurRadius: 0
       };
 
       setSelectedLogo(newLogo.id);
       setSelectedBackground(null);
+
+      if (customId) {
+        const existingIdx = prev.findIndex(l => l.id === customId);
+        if (existingIdx !== -1) {
+          const updated = [...prev];
+          updated[existingIdx] = {
+            ...updated[existingIdx],
+            src: objectUrl,
+            position: customOptions?.position || updated[existingIdx].position,
+            scale: customOptions?.scale || { scaleX: 0.75, scaleY: 0.75 },
+            targetMaxDimension: customOptions?.targetMaxDimension || (customId === 'transfer-logo-1' || customId === 'transfer-logo-2' ? 280 : updated[existingIdx].targetMaxDimension)
+          };
+          return updated;
+        }
+      }
+
       return [newLogo, ...prev];
     });
 

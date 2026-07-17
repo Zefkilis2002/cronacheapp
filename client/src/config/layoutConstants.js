@@ -56,6 +56,15 @@ export const FULLTIME_LAYOUT = {
       fontFamily: 'Benzin-SemiBold'
     }
   },
+  PENALTIES: {
+    startX: 470,
+    startY: 1558,
+    width: 500,
+    fontSize: 38,
+    fontFamily: 'Benzin-SemiBold',
+    color: 'white',
+    letterSpacing: 0.5
+  },
   USER_IMAGE: {
     startX: 100,
     startY: 100,

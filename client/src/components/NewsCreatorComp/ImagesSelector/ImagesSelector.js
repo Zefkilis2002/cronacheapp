@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import './ImagesSelector.css';
 import LogoFetcher from '../../FullTimeComp/LogoFetcher/LogoFetcher';
 
@@ -23,12 +23,24 @@ function ImagesSelector({
   copiedTransform,
   copyItemTransform,
   pasteItemTransform,
-  applyTransformToAll
+  applyTransformToAll,
+  isTransferStyle = false,
+  externalLogoSearchConfig = null,
+  setExternalLogoSearchConfig = null
 }) {
   const dragItem = useRef(null);
   const dragOverItem = useRef(null);
   const [showLogoSearch, setShowLogoSearch] = useState(false);
+  const [logoSearchOptions, setLogoSearchOptions] = useState(null);
   const [showBackgroundSearch, setShowBackgroundSearch] = useState(false);
+
+  useEffect(() => {
+    if (externalLogoSearchConfig) {
+      setLogoSearchOptions(externalLogoSearchConfig);
+      setShowLogoSearch(true);
+      if (setExternalLogoSearchConfig) setExternalLogoSearchConfig(null);
+    }
+  }, [externalLogoSearchConfig, setExternalLogoSearchConfig]);
 
   const handleDragStart = (e, type, index) => {
     dragItem.current = { type, index };
@@ -86,16 +98,57 @@ function ImagesSelector({
   };
 
   const handleLogoFromSearch = (url) => {
+    const customOptions = logoSearchOptions || {};
+    const isTransfer = isTransferStyle || (selectedBackground && backgroundImages.find(b => b.id === selectedBackground)?.src?.includes('Trasferimento'));
+    
+    let customId = customOptions.id;
+    let customPosition = customOptions.position;
+    let customScale = customOptions.scale;
+
+    if (!customId && isTransfer) {
+      if (!logos.some(l => l.id === 'transfer-logo-1')) {
+        customId = 'transfer-logo-1';
+        customPosition = { x: 500, y: 1380 };
+        customScale = { scaleX: 0.75, scaleY: 0.75 };
+      } else if (!logos.some(l => l.id === 'transfer-logo-2')) {
+        customId = 'transfer-logo-2';
+        customPosition = { x: 950, y: 1380 };
+        customScale = { scaleX: 0.75, scaleY: 0.75 };
+      }
+    }
+
     const newLogo = {
-      id: `logo-${Date.now()}`,
+      id: customId || `logo-${Date.now()}`,
       src: url,
-      position: { x: 65, y: 1260 },
-      scale: { scaleX: 0.4, scaleY: 0.4 }, // Ulteriormente ridotta la dimensione (0.4) per immagini web ad alta risoluzione
+      position: customPosition || { x: 65, y: 1260 },
+      scale: customScale || { scaleX: 0.4, scaleY: 0.4 },
+      targetMaxDimension: customOptions.targetMaxDimension || (customId === 'transfer-logo-1' || customId === 'transfer-logo-2' ? 280 : null),
       blurRadius: 0
     };
-    setLogos([...logos, newLogo]);
+
+    if (customId) {
+      setLogos(prev => {
+        const existingIdx = prev.findIndex(l => l.id === customId);
+        if (existingIdx !== -1) {
+          const updated = [...prev];
+          updated[existingIdx] = {
+            ...updated[existingIdx],
+            src: url,
+            position: customPosition || updated[existingIdx].position,
+            scale: customScale || { scaleX: 0.75, scaleY: 0.75 },
+            targetMaxDimension: customOptions.targetMaxDimension || (customId === 'transfer-logo-1' || customId === 'transfer-logo-2' ? 280 : updated[existingIdx].targetMaxDimension)
+          };
+          return updated;
+        }
+        return [newLogo, ...prev];
+      });
+    } else {
+      setLogos([...logos, newLogo]);
+    }
     setSelectedLogo(newLogo.id);
     setSelectedBackground(null);
+    setLogoSearchOptions(null);
+    setShowLogoSearch(false);
   };
 
   return (
@@ -261,6 +314,100 @@ function ImagesSelector({
 
       {/* Sezione loghi */}
       <div className="image-upload-section">
+        {(isTransferStyle || (selectedBackground && backgroundImages.find(b => b.id === selectedBackground)?.src?.includes('Trasferimento'))) && (
+          <div style={{ marginBottom: '1.5rem', background: 'rgba(180, 255, 0, 0.05)', border: '1px solid rgba(180, 255, 0, 0.3)', padding: '1rem', borderRadius: '8px' }}>
+            <h3 style={{ color: '#b4ff00', marginTop: 0, marginBottom: '0.8rem' }}>⚽ Loghi Trasferimento (◄ ►)</h3>
+            
+            {/* Logo 1 */}
+            <div style={{ background: 'rgba(255, 255, 255, 0.05)', padding: '0.7rem', borderRadius: '6px', marginBottom: '0.7rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
+                <span style={{ fontWeight: '600', color: '#fff', fontSize: '0.88rem' }}>◄ Squadra di Partenza (Sinistra)</span>
+                {logos?.some(l => l.id === 'transfer-logo-1') && (
+                  <button
+                    type="button"
+                    className="clean-button"
+                    onClick={() => removeLogo && removeLogo('transfer-logo-1')}
+                    style={{ fontSize: '0.75rem', padding: '0.15rem 0.5rem', borderColor: '#e3001b', color: '#e3001b' }}
+                  >
+                    × Rimuovi
+                  </button>
+                )}
+              </div>
+              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => handleLogoUpload && handleLogoUpload(e, { id: 'transfer-logo-1', position: { x: 500, y: 1380 }, targetMaxDimension: 280, scale: { scaleX: 0.75, scaleY: 0.75 } })}
+                  className="file-input"
+                  id="transfer-logo-1-upload-is"
+                  style={{ display: 'none' }}
+                />
+                <label htmlFor="transfer-logo-1-upload-is" className="logo-selector" style={{ fontSize: '0.8rem', padding: '0.35rem 0.8rem', cursor: 'pointer', margin: 0 }}>
+                  📁 Carica
+                </label>
+                <button
+                  type="button"
+                  className="logo-selector"
+                  onClick={() => {
+                    setLogoSearchOptions({ id: 'transfer-logo-1', position: { x: 500, y: 1380 }, targetMaxDimension: 280, scale: { scaleX: 0.75, scaleY: 0.75 } });
+                    setShowLogoSearch(true);
+                  }}
+                  style={{ fontSize: '0.8rem', padding: '0.35rem 0.8rem' }}
+                >
+                  🌐 Cerca web
+                </button>
+                {logos?.find(l => l.id === 'transfer-logo-1') && (
+                  <span style={{ fontSize: '0.8rem', color: '#b4ff00', marginLeft: 'auto' }}>✓ Inserito</span>
+                )}
+              </div>
+            </div>
+
+            {/* Logo 2 */}
+            <div style={{ background: 'rgba(255, 255, 255, 0.05)', padding: '0.7rem', borderRadius: '6px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
+                <span style={{ fontWeight: '600', color: '#fff', fontSize: '0.88rem' }}>► Squadra di Arrivo (Destra)</span>
+                {logos?.some(l => l.id === 'transfer-logo-2') && (
+                  <button
+                    type="button"
+                    className="clean-button"
+                    onClick={() => removeLogo && removeLogo('transfer-logo-2')}
+                    style={{ fontSize: '0.75rem', padding: '0.15rem 0.5rem', borderColor: '#e3001b', color: '#e3001b' }}
+                  >
+                    × Rimuovi
+                  </button>
+                )}
+              </div>
+              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => handleLogoUpload && handleLogoUpload(e, { id: 'transfer-logo-2', position: { x: 950, y: 1380 }, targetMaxDimension: 280, scale: { scaleX: 0.75, scaleY: 0.75 } })}
+                  className="file-input"
+                  id="transfer-logo-2-upload-is"
+                  style={{ display: 'none' }}
+                />
+                <label htmlFor="transfer-logo-2-upload-is" className="logo-selector" style={{ fontSize: '0.8rem', padding: '0.35rem 0.8rem', cursor: 'pointer', margin: 0 }}>
+                  📁 Carica
+                </label>
+                <button
+                  type="button"
+                  className="logo-selector"
+                  onClick={() => {
+                    setLogoSearchOptions({ id: 'transfer-logo-2', position: { x: 950, y: 1380 }, targetMaxDimension: 280, scale: { scaleX: 0.75, scaleY: 0.75 } });
+                    setShowLogoSearch(true);
+                  }}
+                  style={{ fontSize: '0.8rem', padding: '0.35rem 0.8rem' }}
+                >
+                  🌐 Cerca web
+                </button>
+                {logos?.find(l => l.id === 'transfer-logo-2') && (
+                  <span style={{ fontSize: '0.8rem', color: '#b4ff00', marginLeft: 'auto' }}>✓ Inserito</span>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
         <h3>Loghi (max 8):</h3>
 
         {/* Buttons Row */}
@@ -268,7 +415,18 @@ function ImagesSelector({
           <input
             type="file"
             accept="image/*"
-            onChange={handleLogoUpload}
+            onChange={(e) => {
+              const isTransfer = isTransferStyle || (selectedBackground && backgroundImages.find(b => b.id === selectedBackground)?.src?.includes('Trasferimento'));
+              let options = null;
+              if (isTransfer) {
+                if (!logos.some(l => l.id === 'transfer-logo-1')) {
+                  options = { id: 'transfer-logo-1', position: { x: 500, y: 1380 }, targetMaxDimension: 280, scale: { scaleX: 0.75, scaleY: 0.75 } };
+                } else if (!logos.some(l => l.id === 'transfer-logo-2')) {
+                  options = { id: 'transfer-logo-2', position: { x: 950, y: 1380 }, targetMaxDimension: 280, scale: { scaleX: 0.75, scaleY: 0.75 } };
+                }
+              }
+              handleLogoUpload(e, options);
+            }}
             className="file-input"
             disabled={logos.length >= 8}
             id="logo-upload"
@@ -280,7 +438,10 @@ function ImagesSelector({
 
           <button
             className="logo-selector"
-            onClick={() => setShowLogoSearch(true)}
+            onClick={() => {
+              setLogoSearchOptions(null);
+              setShowLogoSearch(true);
+            }}
             disabled={logos.length >= 8}
           >
             Cerca web
@@ -328,7 +489,10 @@ function ImagesSelector({
       {showLogoSearch && (
         <LogoFetcher
           onLogoSelect={handleLogoFromSearch}
-          onClose={() => setShowLogoSearch(false)}
+          onClose={() => {
+            setShowLogoSearch(false);
+            setLogoSearchOptions(null);
+          }}
         />
       )}
 

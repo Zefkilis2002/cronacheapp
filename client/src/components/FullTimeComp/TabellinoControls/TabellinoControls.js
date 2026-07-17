@@ -19,6 +19,12 @@ function TabellinoControls({
   setScore1,
   score2,
   setScore2,
+  isPenaltyMatch,
+  setIsPenaltyMatch,
+  penaltiesScore1,
+  setPenaltiesScore1,
+  penaltiesScore2,
+  setPenaltiesScore2,
   setUserImage
 }) {
 
@@ -605,6 +611,42 @@ function TabellinoControls({
             value={score2}
             onChange={(e) => setScore2(Number(e.target.value))}
           />
+        </div>
+
+        <div style={{ width: '100%', marginTop: '0.8rem', background: 'rgba(255, 255, 255, 0.05)', padding: '0.8rem', borderRadius: '8px', border: '1px solid rgba(180, 255, 0, 0.2)' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#fff', fontWeight: '600', cursor: 'pointer', fontSize: '0.9rem' }}>
+            <input
+              type="checkbox"
+              checked={isPenaltyMatch}
+              onChange={(e) => setIsPenaltyMatch && setIsPenaltyMatch(e.target.checked)}
+              style={{ width: '18px', height: '18px', accentColor: '#b4ff00', cursor: 'pointer' }}
+            />
+            Partita terminata ai rigori?
+          </label>
+          {isPenaltyMatch && (
+            <div style={{ marginTop: '0.8rem', display: 'flex', gap: '1rem', alignItems: 'center' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', flex: 1 }}>
+                <label htmlFor="penalty1Input" style={{ fontSize: '0.82rem', color: '#b4ff00' }}>Rigori Squadra 1:</label>
+                <input
+                  id="penalty1Input"
+                  type="number"
+                  value={penaltiesScore1}
+                  onChange={(e) => setPenaltiesScore1 && setPenaltiesScore1(Number(e.target.value))}
+                  style={{ width: '100%', padding: '0.4rem 0.6rem', borderRadius: '4px', border: '1px solid #444', background: '#111', color: '#fff', fontSize: '0.95rem', fontWeight: 'bold' }}
+                />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', flex: 1 }}>
+                <label htmlFor="penalty2Input" style={{ fontSize: '0.82rem', color: '#b4ff00' }}>Rigori Squadra 2:</label>
+                <input
+                  id="penalty2Input"
+                  type="number"
+                  value={penaltiesScore2}
+                  onChange={(e) => setPenaltiesScore2 && setPenaltiesScore2(Number(e.target.value))}
+                  style={{ width: '100%', padding: '0.4rem 0.6rem', borderRadius: '4px', border: '1px solid #444', background: '#111', color: '#fff', fontSize: '0.95rem', fontWeight: 'bold' }}
+                />
+              </div>
+            </div>
+          )}
         </div>
 
         <button className="download-button" onClick={downloadImage}>
