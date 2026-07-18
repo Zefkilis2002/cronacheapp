@@ -55,13 +55,25 @@
 /* Mobile Adjustments */
 @media (max-width: 768px) {
   .news-tab-header {
-    gap: 0.5rem;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.6rem;
+    width: 100%;
+    box-sizing: border-box;
   }
 
   .news-tab-button {
-    padding: 0.6rem 1rem;
-    font-size: 0.9rem;
-    min-width: 100px;
+    width: 100%;
+    min-width: 0;
+    padding: 0.6rem 0.4rem;
+    font-size: 0.85rem;
+    text-align: center;
+    box-sizing: border-box;
+  }
+
+  .controls-container {
+    width: 100%;
+    box-sizing: border-box;
   }
 }
 

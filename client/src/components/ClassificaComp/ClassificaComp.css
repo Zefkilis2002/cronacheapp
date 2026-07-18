@@ -215,20 +215,46 @@
 
 /* Mobile Responsive */
 @media (max-width: 768px) {
+  .classifica-tab-header {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.6rem;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
   .classifica-tab-button {
-    min-width: 120px;
-    padding: 0.6rem 1rem;
-    font-size: 0.9rem;
+    width: 100%;
+    min-width: 0;
+    padding: 0.6rem 0.4rem;
+    font-size: 0.85rem;
+    box-sizing: border-box;
   }
 
   .control-group {
     padding: 1rem;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  .control-row {
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .neon-select {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
   }
 
   .image-control-buttons {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 10px;
+    width: 100%;
+    box-sizing: border-box;
   }
 
   .image-control-buttons .neon-button {
@@ -236,6 +262,7 @@
     width: 100%;
     height: 38px;
     font-size: 0.85rem;
+    box-sizing: border-box;
   }
 
   .download-btn {

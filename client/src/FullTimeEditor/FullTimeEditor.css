@@ -12,6 +12,8 @@ body {
   margin-top: 1.1rem;
   margin-bottom: 1.5rem;
   flex-wrap: wrap;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .tab-button {
@@ -25,6 +27,7 @@ body {
   cursor: pointer;
   transition: all 0.3s ease;
   min-width: 100px;
+  box-sizing: border-box;
 }
 
 .tab-button:hover {
@@ -41,7 +44,30 @@ body {
   width: 100%;
   max-width: 800px;
   margin: 0 auto;
+  box-sizing: border-box;
   animation: fadeIn 0.3s ease-in-out;
+}
+
+@media (max-width: 768px) {
+  .tab-header {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.6rem;
+    margin-top: 0.8rem;
+    margin-bottom: 1.2rem;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .tab-button {
+    width: 100%;
+    min-width: 0;
+    padding: 0.65rem 0.4rem;
+    font-size: 0.88rem;
+    border-radius: 20px;
+    text-align: center;
+    box-sizing: border-box;
+  }
 }
 
 @keyframes fadeIn {

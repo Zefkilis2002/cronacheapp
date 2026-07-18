@@ -237,3 +237,35 @@
   text-align: center;
   flex-shrink: 0;
 }
+
+@media (max-width: 768px) {
+  .flashscore-import {
+    padding: 10px;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .flashscore-controls {
+    flex-direction: column;
+    gap: 10px;
+    width: 100%;
+  }
+
+  .flashscore-select,
+  .flashscore-search-btn {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+  }
+
+  .flashscore-match-teams {
+    gap: 4px;
+  }
+
+  .flashscore-team {
+    font-size: 12px;
+    word-break: break-word;
+    overflow-wrap: break-word;
+    min-width: 0;
+  }
+}

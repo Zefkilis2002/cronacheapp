@@ -466,16 +466,17 @@ function TabellinoControls({
           disabled={isLoading}
         />
         <button
-          className="instagramButton load-btn-circle"
+          className="load-btn-circle"
           onClick={fetchInstagramPost}
           disabled={isLoading}
+          title="Carica post Instagram"
         >
           {isLoading ? '...' : (
             <svg
               viewBox="0 0 24 24"
-              width="20"
-              height="20"
-              stroke="black"
+              width="18"
+              height="18"
+              stroke="#000"
               strokeWidth="3"
               fill="none"
               strokeLinecap="round"
@@ -593,28 +594,30 @@ function TabellinoControls({
 
       {/* Controlli risultato */}
       <div className="result-inputs">
-        <div className="result-group">
-          <label htmlFor="resultTeam1">Score 1:</label>
-          <input
-            id="resultTeam1"
-            type="number"
-            value={score1}
-            onChange={(e) => setScore1(Number(e.target.value))}
-          />
+        <div className="scores-row">
+          <div className="result-group">
+            <label htmlFor="resultTeam1">Score 1:</label>
+            <input
+              id="resultTeam1"
+              type="number"
+              value={score1}
+              onChange={(e) => setScore1(Number(e.target.value))}
+            />
+          </div>
+
+          <div className="result-group">
+            <label htmlFor="resultTeam2">Score 2:</label>
+            <input
+              id="resultTeam2"
+              type="number"
+              value={score2}
+              onChange={(e) => setScore2(Number(e.target.value))}
+            />
+          </div>
         </div>
 
-        <div className="result-group">
-          <label htmlFor="resultTeam2">Score 2:</label>
-          <input
-            id="resultTeam2"
-            type="number"
-            value={score2}
-            onChange={(e) => setScore2(Number(e.target.value))}
-          />
-        </div>
-
-        <div style={{ width: '100%', marginTop: '0.8rem', background: 'rgba(255, 255, 255, 0.05)', padding: '0.8rem', borderRadius: '8px', border: '1px solid rgba(180, 255, 0, 0.2)' }}>
-          <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#fff', fontWeight: '600', cursor: 'pointer', fontSize: '0.9rem' }}>
+        <div style={{ width: '100%', marginTop: '0.8rem', background: 'rgba(255, 255, 255, 0.05)', padding: '0.8rem', borderRadius: '8px', border: '1px solid rgba(180, 255, 0, 0.2)', boxSizing: 'border-box' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#fff', fontWeight: '600', cursor: 'pointer', fontSize: '0.9rem', flexWrap: 'wrap' }}>
             <input
               type="checkbox"
               checked={isPenaltyMatch}
@@ -624,25 +627,25 @@ function TabellinoControls({
             Partita terminata ai rigori?
           </label>
           {isPenaltyMatch && (
-            <div style={{ marginTop: '0.8rem', display: 'flex', gap: '1rem', alignItems: 'center' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', flex: 1 }}>
-                <label htmlFor="penalty1Input" style={{ fontSize: '0.82rem', color: '#b4ff00' }}>Rigori Squadra 1:</label>
+            <div style={{ marginTop: '0.8rem', display: 'flex', gap: '0.8rem', alignItems: 'center', width: '100%', boxSizing: 'border-box' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', flex: 1, minWidth: 0 }}>
+                <label htmlFor="penalty1Input" style={{ fontSize: '0.8rem', color: '#b4ff00' }}>Rigori Sq. 1:</label>
                 <input
                   id="penalty1Input"
                   type="number"
                   value={penaltiesScore1}
                   onChange={(e) => setPenaltiesScore1 && setPenaltiesScore1(Number(e.target.value))}
-                  style={{ width: '100%', padding: '0.4rem 0.6rem', borderRadius: '4px', border: '1px solid #444', background: '#111', color: '#fff', fontSize: '0.95rem', fontWeight: 'bold' }}
+                  style={{ width: '100%', padding: '0.4rem 0.6rem', borderRadius: '4px', border: '1px solid #444', background: '#111', color: '#fff', fontSize: '0.95rem', fontWeight: 'bold', boxSizing: 'border-box', textAlign: 'center' }}
                 />
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', flex: 1 }}>
-                <label htmlFor="penalty2Input" style={{ fontSize: '0.82rem', color: '#b4ff00' }}>Rigori Squadra 2:</label>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', flex: 1, minWidth: 0 }}>
+                <label htmlFor="penalty2Input" style={{ fontSize: '0.8rem', color: '#b4ff00' }}>Rigori Sq. 2:</label>
                 <input
                   id="penalty2Input"
                   type="number"
                   value={penaltiesScore2}
                   onChange={(e) => setPenaltiesScore2 && setPenaltiesScore2(Number(e.target.value))}
-                  style={{ width: '100%', padding: '0.4rem 0.6rem', borderRadius: '4px', border: '1px solid #444', background: '#111', color: '#fff', fontSize: '0.95rem', fontWeight: 'bold' }}
+                  style={{ width: '100%', padding: '0.4rem 0.6rem', borderRadius: '4px', border: '1px solid #444', background: '#111', color: '#fff', fontSize: '0.95rem', fontWeight: 'bold', boxSizing: 'border-box', textAlign: 'center' }}
                 />
               </div>
             </div>

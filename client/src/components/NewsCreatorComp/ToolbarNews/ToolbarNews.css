@@ -24,55 +24,71 @@
   }
   
   /* Ogni riga: flessore orizzontale per i pulsanti */
+.toolnews-row {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Stile per i pulsanti */
+.toolnews-row button {
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+  min-width: 80px;
+  width: 200px; /* Se non vuoi una larghezza fissa, rimuovi questa proprietà */
+
+  background-color: #00061b;
+  color: #b4ff00;
+  border: 2px solid #b4ff00;
+  font-weight: bold;
+  border-radius: 25px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.3);
+  text-align: center;
+  box-sizing: border-box;
+}
+
+.toolnews-row button:hover {
+  background-color: #b4ff00;
+  color: #00061b;
+  box-shadow: 0px 6px 12px rgba(180, 255, 0, 0.4);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .toolnews {
+    padding: 0.5rem 0.3rem;
+    box-sizing: border-box;
+  }
+  
+  .toolnews-inner {
+    gap: 0.35rem;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
   .toolnews-row {
-    display: flex;
-    flex-direction: row;
-    justify-content: center;
-    gap: 0.5rem;
+    gap: 4px;
+    width: 100%;
   }
-  
-  /* Stile per i pulsanti */
+
   .toolnews-row button {
-    padding: 0.5rem 1rem;
-    font-size: 0.9rem;
-    min-width: 80px;
-    width: 200px; /* Se non vuoi una larghezza fissa, rimuovi questa proprietà */
-  
-    background-color: #00061b;
-    color: #b4ff00;
-    border: 2px solid #b4ff00;
-    font-weight: bold;
-    border-radius: 25px;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.3);
-    text-align: center;
+    min-width: 44px;
+    width: auto;
+    flex: 1 1 calc(16.666% - 4px);
+    max-width: 62px;
+    padding: 0.4rem 0.1rem;
+    font-size: 0.75rem;
+    min-height: 36px;
+    border-radius: 12px;
+    margin: 0;
   }
-  
-  .toolnews-row button:hover {
-    background-color: #b4ff00;
-    color: #00061b;
-    box-shadow: 0px 6px 12px rgba(180, 255, 0, 0.4);
-  }
-  
-  /* Responsive */
-  @media (max-width: 768px) {
-    /* Riduci pulsanti in versione mobile */
-    .toolnews-row button {
-      min-width: 55px;
-      padding: 0.4rem;
-      font-size: 0.75rem;
-      width: auto; /* Evita larghezza fissa */
-    }
-    
-    .toolnews {
-      padding: 0.8rem;
-    }
-    
-    .toolnews-inner {
-      gap: 0.4rem;
-    }
-  }
+}
 
 
 /* ===== Toolbar rotazione: layout universale (desktop + mobile) ===== */
@@ -238,9 +254,11 @@
   }
   
   .toolnews .rot-row {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    padding: 8px 4px;
+    flex-wrap: wrap;
+    justify-content: center;
+    padding: 6px 2px;
+    width: 100%;
+    box-sizing: border-box;
   }
   
   .toolnews .rot-btn,

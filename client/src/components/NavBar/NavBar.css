@@ -136,14 +136,17 @@ body {
     right: 1rem;
     left: 1rem;
     background-color: #090612;
-    width: 100%;
+    width: calc(100% - 2rem);
     padding: 1rem;
     box-sizing: border-box;
-    width: calc(100% - 2rem); /* Larghezza ridotta */
+    border-radius: 12px;
+    border: 1px solid rgba(180, 255, 0, 0.3);
   }
 
   .navbar-container {
-    padding: 0 1.5rem; /* Padding ridotto per mobile */
+    padding: 0 1rem;
+    width: 100%;
+    box-sizing: border-box;
   }
 
   .nav-links.open {
@@ -152,36 +155,11 @@ body {
 
   .hamburger {
     display: flex;
-    margin-right: 1.5rem;
+    margin-right: 0.5rem;
   }
 
   .navbar.sticky .nav-links {
     background-color: #20153c;
     color: #000;
-  }
-}
-
-.App {
-  padding: 0.5rem 1.5rem;
-  max-width: 1000px;
-  margin: 0 auto;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-@media (max-width: 768px) {
-  .App {
-    padding: 1rem;
-  }
-
-  .controls-top {
-    padding: 1rem;
-    gap: 1rem;
-  }
-
-  .toolbar button {
-    min-width: 60px;
-    padding: 0.4rem;
   }
 }
