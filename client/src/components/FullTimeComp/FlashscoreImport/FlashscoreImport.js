@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import config from '../../../config';
 import './FlashscoreImport.css';
 import { findTeamLogo } from '../../../utils/LogoConstants';
@@ -34,6 +34,12 @@ const FlashscoreImport = ({ onMatchSelect, flashscoreData, setFlashscoreData }) 
     const [loadingDetails, setLoadingDetails] = useState(false);
     const [error, setError] = useState('');
 
+    // Traccia la richiesta marcatori in corso: se l'utente clicca un'altra
+    // partita, la richiesta precedente viene annullata e la sua risposta
+    // scartata (altrimenti i marcatori della partita vecchia sovrascrivono
+    // il tabellino di quella nuova).
+    const detailsRequestRef = useRef({ controller: null });
+
     const searchMatches = async () => {
         const comp = COMPETITIONS[selectedComp];
         setLoading(true);
@@ -63,6 +69,7 @@ const FlashscoreImport = ({ onMatchSelect, flashscoreData, setFlashscoreData }) 
     const handleMatchClick = async (match) => {
         setSelectedMatchId(match.matchId);
         setLoadingDetails(true);
+        setError('');
 
         const comp = COMPETITIONS[selectedComp];
 
@@ -89,10 +96,17 @@ const FlashscoreImport = ({ onMatchSelect, flashscoreData, setFlashscoreData }) 
         }
 
         // Poi cerca i marcatori in background (con timeout)
+        // Annulla l'eventuale richiesta precedente ancora in volo
+        if (detailsRequestRef.current.controller) {
+            detailsRequestRef.current.controller.abort();
+        }
+        const controller = new AbortController();
+        detailsRequestRef.current = { controller };
+
         try {
             if (match.matchUrl || match.matchId) {
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 45000);
+                // 35s: poco sopra il timeout server (30s), era 45s
+                const timeoutId = setTimeout(() => controller.abort(), 35000);
 
                 const params = new URLSearchParams();
                 if (match.matchUrl) params.set('matchUrl', match.matchUrl);
@@ -105,8 +119,8 @@ const FlashscoreImport = ({ onMatchSelect, flashscoreData, setFlashscoreData }) 
                 clearTimeout(timeoutId);
                 const detailsData = await detailsResponse.json();
 
-                if (detailsData.status) {
-                    // Aggiorna con i marcatori
+                // Applica solo se questa è ancora la richiesta corrente
+                if (detailsData.status && detailsRequestRef.current.controller === controller) {
                     const updatedData = {
                         ...matchData,
                         homeScorers: detailsData.homeGoals || [],
@@ -118,10 +132,14 @@ const FlashscoreImport = ({ onMatchSelect, flashscoreData, setFlashscoreData }) 
                 }
             }
         } catch (err) {
+            // Richiesta superata da un click più recente: ignora in silenzio
+            if (detailsRequestRef.current.controller !== controller) return;
             console.error('Error fetching match details:', err);
             setError('⚠️ Marcatori non disponibili. Inseriscili manualmente.');
         } finally {
-            setLoadingDetails(false);
+            if (detailsRequestRef.current.controller === controller) {
+                setLoadingDetails(false);
+            }
         }
     };
 
@@ -159,7 +177,7 @@ const FlashscoreImport = ({ onMatchSelect, flashscoreData, setFlashscoreData }) 
             {loading && (
                 <div className="flashscore-loading">
                     <div className="flashscore-loading-bar"></div>
-                    <p>Ricerca in corso... Lo scraping potrebbe richiedere 10-15 secondi.</p>
+                    <p>Ricerca in corso... di solito bastano pochi secondi.</p>
                 </div>
             )}
 

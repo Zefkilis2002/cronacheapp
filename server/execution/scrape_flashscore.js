@@ -1,14 +1,17 @@
 /**
  * scrape_flashscore.js
- * 
+ *
  * Modulo Node.js ad alte prestazioni per estrarre risultati e classifiche da Flashscore.
- * 
+ *
  * Architettura:
- *   1. BROWSER SINGLETON — Un'unica istanza Chromium "warm" per tutta la vita del server.
- *      Mutex via Promise per evitare launch concorrenti. Auto-healing su crash.
- *   2. API INTERCEPTION — Bypass completo del DOM: intercetta i payload JSON interni
+ *   1. HTTP DIRETTO (percorso primario) — La pagina risultati di Flashscore embedda
+ *      il payload del feed proprietario nell'HTML statico (cjs.initialFeeds["summary-results"]).
+ *      Una singola GET axios + regex → parse. ~1s, zero browser.
+ *   2. BROWSER SINGLETON (fallback) — Un'unica istanza Chromium "warm" per tutta la vita
+ *      del server. Mutex via Promise per evitare launch concorrenti. Auto-healing su crash.
+ *   3. API INTERCEPTION (fallback) — Bypass del DOM: intercetta i payload JSON interni
  *      di Flashscore via page.on('response'), chiude la pagina immediatamente.
- *   3. MEMORY TUNING — Flag V8 aggressivi per ambienti cloud a bassa RAM (Render 512MB).
+ *   4. MEMORY TUNING — Flag V8 aggressivi per ambienti cloud a bassa RAM (Render 512MB).
  * 
  * Uso come modulo:
  *   const { getRecentMatches, getMatchDetails, getStandings } = require('./scrape_flashscore');
@@ -178,15 +181,15 @@ async function acquirePage() {
 
 /**
  * Pre-lancia il browser all'avvio del server per evitare cold start.
+ * NON viene più invocato automaticamente al require del modulo: chi importa
+ * (es. server.js) decide se pre-riscaldare. In ambienti dove il browser serve
+ * raramente (percorso primario = HTTP diretto) evita ~100MB di RAM sprecata.
  */
 function prewarmBrowser() {
     getBrowser()
         .then(() => console.log('[Flashscore] Browser pre-warmed ✅'))
         .catch(err => console.warn('[Flashscore] Browser pre-warm failed:', err.message));
 }
-
-// Avvia il pre-warming al caricamento del modulo
-prewarmBrowser();
 
 // =============================================================================
 // SEZIONE 2: COMPETITION REGISTRY
@@ -240,19 +243,42 @@ const STANDINGS_URLS = {
 };
 
 /**
+ * Alias slug: il client invia slug italiani (flashscore.it), il registry usa
+ * chiavi canoniche inglesi. Senza questa normalizzazione il registry non veniva
+ * MAI usato (es. 'grecia' ≠ 'greece') e si finiva sempre nel fallback generico.
+ */
+const COUNTRY_ALIASES = {
+    grecia: 'greece',
+    europa: 'europe',
+};
+// Mappa inversa per costruire URL sul sito .it (che usa slug italiani)
+const COUNTRY_IT_SLUGS = {
+    greece: 'grecia',
+    europe: 'europa',
+};
+
+function normalizeCountry(country) {
+    const c = (country || '').toLowerCase();
+    return COUNTRY_ALIASES[c] || c;
+}
+
+/**
  * Ottieni gli URL per una competizione, con fallback generico.
  */
 function getCompetitionUrls(country, league) {
-    const key = `${country}/${league}`;
+    const normalized = normalizeCountry(country);
+    const key = `${normalized}/${league}`;
     if (COMPETITION_URLS[key]) return COMPETITION_URLS[key];
-    // Fallback generico
-    return [`https://www.flashscore.it/calcio/${country}/${league}/risultati/`];
+    // Fallback generico: il sito .it usa slug italiani
+    const itSlug = COUNTRY_IT_SLUGS[normalized] || country;
+    return [`https://www.flashscore.it/calcio/${itSlug}/${league}/risultati/`];
 }
 
 function getStandingsUrl(country, league) {
-    const key = `${country}/${league}`;
+    const normalized = normalizeCountry(country);
+    const key = `${normalized}/${league}`;
     if (STANDINGS_URLS[key] !== undefined) return STANDINGS_URLS[key];
-    return `https://www.flashscore.com/football/${country}/${league}/standings/`;
+    return `https://www.flashscore.com/football/${normalized}/${league}/standings/`;
 }
 
 // =============================================================================
@@ -338,7 +364,7 @@ function parseFlashscoreData(rawData) {
  * seguita da coppie: AD (timestamp), CX (team home), AF (team away),
  * AG (score home), AH (score away), AE (status).
  */
-function parseMatchesFromRawData(rawData, daysBack = 365) {
+function parseMatchesIntermediate(rawData) {
     const matches = [];
     const sections = parseFlashscoreData(rawData);
 
@@ -403,12 +429,24 @@ function parseMatchesFromRawData(rawData, daysBack = 365) {
         matches.push(currentMatch);
     }
 
-    // Filtra per data e formatta
+    return matches;
+}
+
+/**
+ * Dedupe (per matchId), filtra per data, ordina e formatta per il frontend.
+ */
+function finalizeMatches(matches, daysBack = 365) {
     const now = new Date();
     const cutoffDate = new Date(now.getTime() - (daysBack * 24 * 60 * 60 * 1000));
 
+    const seen = new Set();
+
     return matches
         .filter(m => {
+            if (m.matchId) {
+                if (seen.has(m.matchId)) return false;
+                seen.add(m.matchId);
+            }
             if (!m.parsedDate) return true;
             return m.parsedDate >= cutoffDate;
         })
@@ -426,6 +464,131 @@ function parseMatchesFromRawData(rawData, daysBack = 365) {
             matchUrl: '',
             matchId: m.matchId,
         }));
+}
+
+function parseMatchesFromRawData(rawData, daysBack = 365) {
+    return finalizeMatches(parseMatchesIntermediate(rawData), daysBack);
+}
+
+/**
+ * Nelle competizioni europee, i nomi squadra del feed hanno il suffisso
+ * nazione (es. "PAOK (Gre)", "AEK Larnaca (Cyp)"). Se il suffisso c'è,
+ * fa fede (evita falsi positivi tipo AEK Larnaca); altrimenti si ricade
+ * sui nomi dei club greci che giocano le coppe europee.
+ */
+const GREEK_TEAM_KEYWORDS = [
+    'olympiakos', 'olympiacos', 'paok', 'panathinaikos', 'aek athens',
+    'aris', 'asteras', 'atromitos', 'ofi', 'volos', 'kifisia', 'levadiakos',
+];
+
+function isGreekTeam(teamName) {
+    if (!teamName) return false;
+    const suffixMatch = teamName.match(/\(([A-Za-z]{2,3})\)\s*$/);
+    if (suffixMatch) {
+        return suffixMatch[1].toLowerCase() === 'gre';
+    }
+    const lower = teamName.toLowerCase();
+    return GREEK_TEAM_KEYWORDS.some(k => lower.includes(k));
+}
+
+/**
+ * Porta in cima alla lista le partite con almeno una squadra greca,
+ * preservando l'ordine per data all'interno dei due gruppi (sort stabile).
+ */
+function prioritizeGreekMatches(matches) {
+    return matches
+        .map(m => ({ m, greek: isGreekTeam(m.homeTeam) || isGreekTeam(m.awayTeam) ? 1 : 0 }))
+        .sort((a, b) => b.greek - a.greek)
+        .map(x => x.m);
+}
+
+// =============================================================================
+// SEZIONE 4A: HTTP DIRETTO — percorso primario, zero browser
+// =============================================================================
+
+const HTTP_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36';
+
+/**
+ * Token x-fsign richiesto dalle API feed di Flashscore.
+ * Valore di default noto, sovrascrivibile via env; viene inoltre aggiornato
+ * automaticamente quando il fallback Puppeteer intercetta il valore reale
+ * dagli header delle richieste feed della pagina.
+ */
+let _fsign = process.env.FLASHSCORE_FSIGN || 'SW9D1eZo';
+
+async function fetchStaticHtml(url) {
+    const res = await axios.get(url, {
+        headers: {
+            'User-Agent': HTTP_USER_AGENT,
+            'Accept-Language': 'it-IT,it;q=0.9,en;q=0.8',
+        },
+        timeout: 12000,
+        responseType: 'text',
+    });
+    return res.data;
+}
+
+/**
+ * La pagina risultati embedda il payload del feed proprietario direttamente
+ * nell'HTML statico: cjs.initialFeeds["summary-results"] = { data: `...`, ... }.
+ * Nessun rendering JS necessario per estrarlo.
+ */
+function extractEmbeddedFeed(html, feedName = 'summary-results') {
+    const re = new RegExp(
+        'cjs\\.initialFeeds\\["' + feedName + '"\\]\\s*=\\s*\\{\\s*data:\\s*`([\\s\\S]*?)`,'
+    );
+    const m = html.match(re);
+    return (m && m[1] && m[1].length > 0) ? m[1] : null;
+}
+
+/**
+ * Scarica una pagina risultati e ne estrae le partite dal feed embedded.
+ * Ritorna partite in formato intermedio (con parsedDate, senza filtro/sort).
+ */
+async function getMatchesViaHttp(pageUrl) {
+    const t0 = Date.now();
+    const html = await fetchStaticHtml(pageUrl);
+    const raw = extractEmbeddedFeed(html);
+    if (!raw) {
+        console.log(`[Flashscore HTTP] No embedded results in ${pageUrl} (${Date.now() - t0}ms)`);
+        return [];
+    }
+    const matches = parseMatchesIntermediate(raw);
+    console.log(`[Flashscore HTTP] ${matches.length} matches from ${pageUrl} in ${Date.now() - t0}ms`);
+    return matches;
+}
+
+/**
+ * In offseason la pagina della stagione corrente non ha risultati/classifica.
+ * Genera gli URL delle stagioni archiviate (es. .../super-league-2025-2026/risultati/)
+ * per le due stagioni concluse più recenti. Non applicabile alle pagine squadra.
+ */
+function buildArchiveUrls(pageUrl) {
+    if (pageUrl.includes('/squadra/')) return [];
+    const m = pageUrl.match(/^(.*\/)([^/]+)(\/(?:risultati|standings)\/?)$/);
+    if (!m) return [];
+    const [, prefix, leagueSlug, suffix] = m;
+    // Non riappendere la stagione a slug già archiviati
+    if (/\d{4}-\d{4}$/.test(leagueSlug)) return [];
+    const y = new Date().getFullYear();
+    const seasons = [`${y - 1}-${y}`, `${y - 2}-${y - 1}`];
+    return seasons.map(s => `${prefix}${leagueSlug}-${s}${suffix}`);
+}
+
+/**
+ * Fetch parallelo di più pagine risultati; tollera i fallimenti dei singoli URL.
+ */
+async function fetchAllEmbedded(urls) {
+    const results = await Promise.allSettled(urls.map(u => getMatchesViaHttp(u)));
+    const out = [];
+    results.forEach((r, i) => {
+        if (r.status === 'fulfilled') {
+            out.push(...r.value);
+        } else {
+            console.warn(`[Flashscore HTTP] Failed ${urls[i]}: ${r.reason && r.reason.message}`);
+        }
+    });
+    return out;
 }
 
 // =============================================================================
@@ -449,6 +612,34 @@ function parseMatchesFromRawData(rawData, daysBack = 365) {
  */
 async function getRecentMatches({ country, league, daysBack = 365 }) {
     const urlsToTry = getCompetitionUrls(country, league);
+    // Nelle coppe europee, le partite delle squadre greche vanno in cima
+    const isEuropean = normalizeCountry(country) === 'europe';
+
+    // --- STRADA A: HTTP diretto (feed embedded nell'HTML statico, ~1s) ---
+    try {
+        const t0 = Date.now();
+        let intermediates = await fetchAllEmbedded(urlsToTry);
+
+        // Offseason: la stagione corrente non ha ancora risultati → prova l'archivio
+        if (intermediates.length === 0) {
+            const archiveUrls = urlsToTry.flatMap(buildArchiveUrls);
+            if (archiveUrls.length > 0) {
+                console.log(`[Flashscore HTTP] No current-season results, trying ${archiveUrls.length} archive URLs...`);
+                intermediates = await fetchAllEmbedded(archiveUrls);
+            }
+        }
+
+        const finalized = finalizeMatches(intermediates, daysBack);
+        if (finalized.length > 0) {
+            console.log(`[Flashscore HTTP] ✅ Direct fetch: ${finalized.length} matches in ${Date.now() - t0}ms`);
+            return isEuropean ? prioritizeGreekMatches(finalized) : finalized;
+        }
+        console.warn('[Flashscore HTTP] Direct fetch returned 0 matches — falling back to Puppeteer');
+    } catch (httpErr) {
+        console.warn(`[Flashscore HTTP] Direct fetch failed: ${httpErr.message} — falling back to Puppeteer`);
+    }
+
+    // --- STRADA B: Puppeteer (interception API + DOM parsing) ---
     let page;
 
     try {
@@ -490,7 +681,7 @@ async function getRecentMatches({ country, league, daysBack = 365 }) {
         }
 
         console.log(`[Flashscore] Final: ${allMatches.length} matches in last ${daysBack} days`);
-        return allMatches;
+        return isEuropean ? prioritizeGreekMatches(allMatches) : allMatches;
 
     } catch (error) {
         console.error('[Flashscore] Scrape Error:', error);
@@ -514,19 +705,36 @@ async function interceptApiResponse(page, url) {
     return new Promise(async (resolve, reject) => {
         let resolved = false;
 
+        // Cleanup centralizzato: rimuove SEMPRE il listener (prima veniva
+        // accumulato un listener per ogni URL tentato sulla stessa pagina)
+        const finish = (fn, value) => {
+            if (resolved) return;
+            resolved = true;
+            clearTimeout(timer);
+            page.off('response', onResponse);
+            fn(value);
+        };
+
         // Timeout: se non riceviamo il payload in 20s, fallback al DOM
-        const timer = setTimeout(() => {
-            if (!resolved) {
-                resolved = true;
-                resolve(null);
-            }
-        }, 20000);
+        const timer = setTimeout(() => finish(resolve, null), 20000);
 
         // Listener per intercettare le risposte API
         const onResponse = async (response) => {
             if (resolved) return;
 
             const resUrl = response.url();
+
+            // Cattura il token x-fsign reale dagli header delle richieste feed:
+            // tiene aggiornato il valore usato dalle chiamate API dirette
+            if (resUrl.includes('/x/feed/')) {
+                try {
+                    const reqFsign = response.request().headers()['x-fsign'];
+                    if (reqFsign && reqFsign !== _fsign) {
+                        console.log(`[Flashscore] x-fsign updated: ${_fsign} → ${reqFsign}`);
+                        _fsign = reqFsign;
+                    }
+                } catch (e) { /* ignore */ }
+            }
 
             // Pattern 1: Feed proprietario Flashscore (formato ¬ delimitato)
             // URL tipici: local-it.flashscore.ninja/1/x/feed/f_1_..._results
@@ -544,11 +752,7 @@ async function interceptApiResponse(page, url) {
                     // Verifica che sia il payload di dati (non una risposta vuota/errore)
                     if (text && text.length > 100) {
                         console.log(`[Flashscore] ✅ Intercepted API response: ${resUrl.substring(0, 80)}... (${text.length} bytes)`);
-                        if (!resolved) {
-                            resolved = true;
-                            clearTimeout(timer);
-                            resolve(text);
-                        }
+                        finish(resolve, text);
                     }
                 } catch (e) {
                     // response.text() può fallire se la pagina è già chiusa
@@ -559,7 +763,6 @@ async function interceptApiResponse(page, url) {
         page.on('response', onResponse);
 
         try {
-            // Naviga con 'commit' — il minimo necessario, non aspetta il DOM
             await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 25000 });
 
             // Attendi un po' per dare tempo alle API di rispondere
@@ -567,17 +770,9 @@ async function interceptApiResponse(page, url) {
             await sleep(5000);
 
             // Se dopo la navigazione + attesa non è arrivato nulla, resolve null
-            if (!resolved) {
-                resolved = true;
-                clearTimeout(timer);
-                resolve(null);
-            }
+            finish(resolve, null);
         } catch (navErr) {
-            if (!resolved) {
-                resolved = true;
-                clearTimeout(timer);
-                reject(navErr);
-            }
+            finish(reject, navErr);
         }
     });
 }
@@ -658,14 +853,89 @@ async function extractMatchesFromDOM(page, url, daysBack) {
 }
 
 // =============================================================================
-// SEZIONE 5: STANDINGS (CLASSIFICA) — Puppeteer-only (richiede rendering)
+// SEZIONE 5: STANDINGS (CLASSIFICA) — HTTP diretto + Puppeteer fallback
 // =============================================================================
 
 /**
+ * Parsa il feed classifica proprietario (to_{tournamentId}_{stageId}_1).
+ * Ogni riga è una sezione ~TR: valore = rank, poi TN (nome squadra),
+ * TM (giocate), TW (vinte), TDR (pareggi), TL (perse), TG (gol "26:15"), TP (punti).
+ */
+function parseStandingsFromRawData(rawData) {
+    const sections = parseFlashscoreData(rawData);
+    const data = [];
+
+    for (const section of sections) {
+        if (section.id !== '~TR') continue;
+        const get = (key) => {
+            const pair = section.pairs.find(p => p.key === key);
+            return pair ? pair.value : '';
+        };
+
+        const rank = section.pairs[0] ? section.pairs[0].value : '';
+        const team = get('TN');
+        if (!team) continue;
+
+        const goalsRaw = get('TG');
+        let gd = 0;
+        if (goalsRaw.includes(':')) {
+            const [gf, ga] = goalsRaw.split(':').map(n => parseInt(n));
+            if (!isNaN(gf) && !isNaN(ga)) gd = gf - ga;
+        }
+        const gdStr = gd > 0 ? `+${gd}` : `${gd}`;
+
+        data.push({
+            rank,
+            team,
+            p: get('TM'),
+            w: get('TW'),
+            d: get('TDR'),
+            l: get('TL'),
+            gd: gdStr,
+            pts: get('TP'),
+        });
+    }
+
+    return data;
+}
+
+/**
+ * Classifica via HTTP diretto: l'HTML statico della pagina standings contiene
+ * tournamentId/tournamentStageId/projectId; con quelli si chiama il feed
+ * to_{tournamentId}_{stageId}_1 direttamente. ~1s totale, zero browser.
+ */
+async function getStandingsViaHttp(pageUrl) {
+    const t0 = Date.now();
+    const html = await fetchStaticHtml(pageUrl);
+    const tournamentId = (html.match(/tournamentId:\s*"([^"]+)"/) || [])[1];
+    const stageId = (html.match(/tournamentStageId:\s*"([^"]+)"/) || [])[1];
+    const projectId = (html.match(/projectId:\s*(\d+)/) || [])[1];
+
+    if (!tournamentId || !stageId || !projectId) {
+        throw new Error(`IDs torneo non trovati nella pagina standings: ${pageUrl}`);
+    }
+
+    const feedUrl = `https://${projectId}.flashscore.ninja/${projectId}/x/feed/to_${tournamentId}_${stageId}_1`;
+    const res = await axios.get(feedUrl, {
+        headers: {
+            'x-fsign': _fsign,
+            'User-Agent': HTTP_USER_AGENT,
+            'Referer': 'https://www.flashscore.com/',
+            'Accept': '*/*',
+        },
+        timeout: 10000,
+        responseType: 'text',
+    });
+
+    const standings = parseStandingsFromRawData(res.data || '');
+    console.log(`[Flashscore Standings HTTP] ${standings.length} teams from ${pageUrl} in ${Date.now() - t0}ms`);
+    return standings;
+}
+
+/**
  * Scrape league standings (classifica).
- * Le classifiche richiedono rendering DOM perché i dati sono in una tabella
- * che viene popolata da JavaScript lato client.
- * 
+ * Percorso primario: HTTP diretto. Fallback: rendering DOM via Puppeteer.
+ *
  * @param {Object} options
  * @param {string} options.country - Country slug
  * @param {string} options.league - League slug
@@ -679,6 +949,34 @@ async function getStandings({ country, league }) {
         return [];
     }
 
+    // --- STRADA A: HTTP diretto ---
+    try {
+        let standings = await getStandingsViaHttp(url);
+
+        // Offseason: la nuova stagione non ha ancora una classifica → archivio
+        if (standings.length === 0) {
+            for (const archiveUrl of buildArchiveUrls(url)) {
+                try {
+                    standings = await getStandingsViaHttp(archiveUrl);
+                } catch (e) { /* prova la prossima stagione */ }
+                if (standings.length > 0) break;
+            }
+        }
+
+        if (standings.length > 0) return standings;
+        console.warn('[Flashscore Standings HTTP] 0 teams — falling back to Puppeteer');
+    } catch (httpErr) {
+        console.warn(`[Flashscore Standings HTTP] Failed: ${httpErr.message} — falling back to Puppeteer`);
+    }
+
+    // --- STRADA B: Puppeteer (rendering DOM) ---
+    return getStandingsViaPuppeteer(url);
+}
+
+/**
+ * Fallback: classifica via rendering DOM (lento, richiede browser).
+ */
+async function getStandingsViaPuppeteer(url) {
     let page;
     try {
         page = await acquirePage();
@@ -686,22 +984,21 @@ async function getStandings({ country, league }) {
         console.log(`[Flashscore Standings] Navigating to: ${url}`);
         const t0 = Date.now();
 
-        await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 45000 });
+        // Inietta il cookie Onetrust già "accettato": il banner non compare
+        // e si evitano click + attese (~1.5s risparmiati)
+        await page.setCookie({
+            name: 'OptanonAlertBoxClosed',
+            value: new Date().toISOString(),
+            domain: '.flashscore.com',
+            path: '/',
+        }).catch(() => {});
 
-        // Handle Cookies (Onetrust) - Generic handler
-        try {
-            const cookieBtn = await page.waitForSelector('#onetrust-accept-btn-handler', { timeout: 4000 });
-            if (cookieBtn) {
-                console.log('[Flashscore Standings] Clicking Cookie Consent...');
-                await cookieBtn.click();
-                await sleep(500);
-            }
-        } catch (e) { /* Ignore */ }
+        await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 45000 });
 
         // Wait for the standings table container
         console.log('[Flashscore Standings] Waiting for table...');
         await page.waitForSelector('.ui-table__row', { timeout: 15000 });
-        await sleep(1000);
+        await sleep(250);
 
         console.log(`[Flashscore Standings] Rows found in ${Date.now() - t0}ms`);
 
@@ -932,8 +1229,8 @@ async function getMatchDetailsViaAPI(matchId) {
     ];
 
     const headers = {
-        'x-fsign': 'SW9D1eZo',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'x-fsign': _fsign,
+        'User-Agent': HTTP_USER_AGENT,
         'Referer': 'https://www.flashscore.it/',
         'Accept': '*/*',
         'Accept-Language': 'it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7',
@@ -1107,4 +1404,4 @@ if (require.main === module) {
     }
 }
 
-module.exports = { getRecentMatches, getMatchDetails, getStandings, prewarmBrowser };
+module.exports = { getRecentMatches, getMatchDetails, getStandings, prewarmBrowser, isGreekTeam, prioritizeGreekMatches };

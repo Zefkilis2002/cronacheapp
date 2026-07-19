@@ -840,5 +840,12 @@ app.get('/api/search-logos', async (req, res) => {
 // SERVER START
 // =============================================================================
 
-const PORT = 5000;
-app.listen(PORT, () => console.log(`Server aggiornato running on port ${PORT}`));
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+  console.log(`Server aggiornato running on port ${PORT}`);
+  // Pre-riscalda Chromium per i percorsi che ancora lo richiedono
+  // (classifiche, fallback scraping). Disattivabile con FLASHSCORE_NO_PREWARM=1.
+  if (!process.env.FLASHSCORE_NO_PREWARM) {
+    prewarmBrowser();
+  }
+});

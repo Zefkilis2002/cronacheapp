@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import './LogoFetcher.css';
+import config from '../../../config';
+import { TEAM_LOGOS, TEAM_NAME_MAP } from '../../../utils/LogoConstants';
+import { pingServer } from '../../../utils/serverWarmup';
 
 // Sotto-componente per gestire il caricamento dell'immagine con skeleton loader e lazy loading
 const DropdownLogo = ({ src, alt }) => {
@@ -19,29 +22,90 @@ const DropdownLogo = ({ src, alt }) => {
   );
 };
 
+// =============================================================================
+// RICERCA LOCALE ISTANTANEA (zero rete)
+// I loghi greci sono già nel bundle: si mostrano subito, mentre la ricerca
+// remota (TheSportsDB via backend) arriva in un secondo momento.
+// =============================================================================
+
+const ACRONYMS = new Set(['PAOK', 'AEK', 'OFI', 'AEL']);
+
+// "AEL_LARISSA" → "AEL Larissa"
+const LOCAL_TEAMS = Object.entries(TEAM_LOGOS).map(([key, path]) => ({
+  name: key
+    .split('_')
+    .map(w => (ACRONYMS.has(w) ? w : w.charAt(0) + w.slice(1).toLowerCase()))
+    .join(' '),
+  logoUrl: path,
+}));
+
+function searchLocalTeams(query) {
+  const q = query.toLowerCase().trim();
+  if (q.length < 2) return [];
+
+  const matchedPaths = new Set();
+  const results = [];
+
+  for (const team of LOCAL_TEAMS) {
+    if (team.name.toLowerCase().includes(q)) {
+      matchedPaths.add(team.logoUrl);
+      results.push(team);
+    }
+  }
+
+  // Match sugli alias (es. "olympiacos", "pas giannina", "aek atene")
+  for (const [alias, path] of Object.entries(TEAM_NAME_MAP)) {
+    if (matchedPaths.has(path)) continue;
+    if (alias.includes(q)) {
+      const team = LOCAL_TEAMS.find(t => t.logoUrl === path);
+      if (team) {
+        matchedPaths.add(path);
+        results.push(team);
+      }
+    }
+  }
+
+  return results.slice(0, 6);
+}
+
+const REMOTE_DEBOUNCE_MS = 300;
+const SLOW_HINT_AFTER_MS = 2500;   // dopo 2.5s mostra l'avviso cold start
+const REMOTE_TIMEOUT_MS = 60000;   // il cold start di Render può durare ~45s
+
 const LogoFetcher = ({ onLogoSelect, onClose }) => {
   const [inputValue, setInputValue] = useState('');
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [slowHint, setSlowHint] = useState(false);
   const [error, setError] = useState('');
 
-  // Determine API Base URL
-  const hostname = window.location.hostname;
-  const isLocalhost = hostname === "localhost" || hostname === "127.0.0.1";
-  const API_BASE_URL = isLocalhost
-    ? "http://localhost:5000"
-    : "https://cronacheapp.onrender.com";
+  const API_BASE_URL = config.API_BASE_URL;
 
-  const fetchTimeoutRef = useRef(null);
+  const debounceRef = useRef(null);
+  const slowHintTimerRef = useRef(null);
+  const abortRef = useRef(null);
   const currentQueryRef = useRef('');
 
-  // Ricerca debouncata stabile basata su ref e callback per evitare ricreazioni ad ogni render
+  // Appena si apre il modal, sveglia il server: quando l'utente avrà finito
+  // di digitare, il cold start sarà già in corso da qualche secondo
+  useEffect(() => {
+    pingServer();
+  }, []);
+
   const performSearch = useCallback((query) => {
-    if (fetchTimeoutRef.current) {
-      clearTimeout(fetchTimeoutRef.current);
-    }
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (slowHintTimerRef.current) clearTimeout(slowHintTimerRef.current);
+    setSlowHint(false);
 
     const trimmed = query.trim();
+    currentQueryRef.current = trimmed;
+
+    // Annulla l'eventuale richiesta remota precedente ancora in volo
+    if (abortRef.current) {
+      abortRef.current.abort();
+      abortRef.current = null;
+    }
+
     if (!trimmed || trimmed.length < 2) {
       setResults([]);
       setLoading(false);
@@ -49,45 +113,83 @@ const LogoFetcher = ({ onLogoSelect, onClose }) => {
       return;
     }
 
-    setLoading(true);
+    // 1) RISULTATI LOCALI ISTANTANEI (nessuna attesa di rete)
+    const localResults = searchLocalTeams(trimmed);
+    setResults(localResults);
     setError('');
+    setLoading(true);
 
-    fetchTimeoutRef.current = setTimeout(async () => {
-      currentQueryRef.current = trimmed;
+    // 2) RICERCA REMOTA debouncata, in merge sui locali quando arriva
+    debounceRef.current = setTimeout(async () => {
+      const controller = new AbortController();
+      abortRef.current = controller;
+      const timeoutId = setTimeout(() => controller.abort(), REMOTE_TIMEOUT_MS);
+
+      // Se il server è freddo la risposta tarda: avvisa l'utente
+      slowHintTimerRef.current = setTimeout(() => {
+        if (currentQueryRef.current === trimmed) setSlowHint(true);
+      }, SLOW_HINT_AFTER_MS);
+
       try {
-        const res = await fetch(`${API_BASE_URL}/api/search-logos?q=${encodeURIComponent(trimmed)}`);
-        
+        const res = await fetch(
+          `${API_BASE_URL}/api/search-logos?q=${encodeURIComponent(trimmed)}`,
+          { signal: controller.signal }
+        );
+        clearTimeout(timeoutId);
+
         if (!res.ok) {
           throw new Error(`Errore HTTP! Status: ${res.status}`);
         }
 
         const data = await res.json();
-        
+
         // Evita race conditions: scarta i risultati se l'utente ha già digitato altro
         if (currentQueryRef.current !== trimmed) return;
 
-        if (data.status && data.results && data.results.length > 0) {
-          setResults(data.results);
-        } else {
-          setResults([]);
+        const remote = (data.status && data.results) ? data.results : [];
+
+        // Merge: locali prima, remoti non duplicati dopo
+        const seenUrls = new Set(localResults.map(t => t.logoUrl));
+        const seenNames = new Set(localResults.map(t => t.name.toLowerCase()));
+        const merged = [...localResults];
+        for (const team of remote) {
+          const url = team.logoUrl || team.logo_url;
+          if (!url) continue;
+          if (seenUrls.has(url) || seenNames.has((team.name || '').toLowerCase())) continue;
+          seenUrls.add(url);
+          seenNames.add((team.name || '').toLowerCase());
+          merged.push(team);
+        }
+
+        setResults(merged.slice(0, 10));
+        if (merged.length === 0) {
           setError(`Nessun logo trovato per "${trimmed}".`);
         }
       } catch (err) {
-        console.error("Errore Fetch:", err);
-        setError("Errore di connessione al server.");
-        setResults([]);
+        clearTimeout(timeoutId);
+        if (currentQueryRef.current !== trimmed) return; // richiesta superata
+        console.error('Errore Fetch:', err);
+        // Se abbiamo almeno i risultati locali, non disturbare l'utente
+        if (localResults.length === 0) {
+          setError('Errore di connessione al server.');
+          setResults([]);
+        }
       } finally {
-        setLoading(false);
+        if (currentQueryRef.current === trimmed) {
+          setLoading(false);
+          setSlowHint(false);
+        }
+        if (slowHintTimerRef.current) clearTimeout(slowHintTimerRef.current);
       }
-    }, 350); // 350ms di debounce per stabilità assoluta da mobile
+    }, REMOTE_DEBOUNCE_MS);
   }, [API_BASE_URL]);
 
-  // Pulisce il timer all'unmount
+  // Pulisce timer e richieste in volo all'unmount
   useEffect(() => {
     return () => {
-      if (fetchTimeoutRef.current) {
-        clearTimeout(fetchTimeoutRef.current);
-      }
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      if (slowHintTimerRef.current) clearTimeout(slowHintTimerRef.current);
+      if (abortRef.current) abortRef.current.abort();
     };
   }, []);
 
@@ -99,7 +201,7 @@ const LogoFetcher = ({ onLogoSelect, onClose }) => {
 
   const handleSelect = (logoUrl) => {
     if (!logoUrl) {
-      console.warn("[LogoFetcher] Tentativo di selezionare un logo con URL indefinito.");
+      console.warn('[LogoFetcher] Tentativo di selezionare un logo con URL indefinito.');
       return;
     }
     // Evita il proxy per le risorse interne /loghi/ per massimizzare la velocità
@@ -129,6 +231,12 @@ const LogoFetcher = ({ onLogoSelect, onClose }) => {
           {loading && <div className="spinner-small">⏳</div>}
         </div>
 
+        {slowHint && loading && (
+          <div className="error-msg" style={{ color: '#f0ad4e' }}>
+            ⏳ Sto svegliando il server... la prima ricerca può richiedere fino a 40s.
+          </div>
+        )}
+
         {error && !loading && results.length === 0 && <div className="error-msg">{error}</div>}
 
         {results.length > 0 && (
@@ -136,7 +244,7 @@ const LogoFetcher = ({ onLogoSelect, onClose }) => {
             {results.map((team, index) => {
               const url = team.logoUrl || team.logo_url;
               return (
-                <li key={index} className="result-item" onClick={() => handleSelect(url)}>
+                <li key={url || index} className="result-item" onClick={() => handleSelect(url)}>
                   <DropdownLogo src={url} alt={team.name} />
                   <div className="result-info">
                     <span className="result-name">{team.name}</span>
