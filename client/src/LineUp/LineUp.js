@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import * as htmlToImage from 'html-to-image';
 import LineUpPoster from './LineUpPoster';
 import { saveImage } from '../utils/saveImage';
@@ -149,6 +149,12 @@ const formationsData = {
     ]
 };
 
+// Dimensioni fisse di design del poster: il rendering è sempre a questa
+// risoluzione e viene solo riscalato via transform, così mobile e desktop
+// mostrano esattamente la stessa immagine
+const POSTER_WIDTH = 600;
+const POSTER_HEIGHT = 800;
+
 const LineUp = () => {
     const [teamName, setTeamName] = useState('PAOK');
     const [subtitle, setSubtitle] = useState('POSSIBLE LINEUP');
@@ -161,6 +167,42 @@ const LineUp = () => {
     // Team badge and decoration images
     const [teamBadgeSrc, setTeamBadgeSrc] = useState(null);
     const [decoLeftSrc, setDecoLeftSrc] = useState(null);
+
+    // Scala del poster: riempie la larghezza disponibile senza mai superare
+    // la dimensione di design (1 = desktop). Parte già da una stima basata
+    // sulla larghezza dello schermo così nemmeno il primo paint sborda
+    const previewAreaRef = useRef(null);
+    const [posterScale, setPosterScale] = useState(() =>
+        Math.min(1, (window.innerWidth - 16) / POSTER_WIDTH)
+    );
+
+    // useLayoutEffect: misura e corregge la scala PRIMA che il browser
+    // disegni, così su mobile non appare mai il poster a dimensione piena
+    React.useLayoutEffect(() => {
+        const el = previewAreaRef.current;
+        if (!el) return;
+
+        const compute = () => {
+            const styles = window.getComputedStyle(el);
+            const availWidth = el.clientWidth
+                - parseFloat(styles.paddingLeft)
+                - parseFloat(styles.paddingRight);
+            if (availWidth > 0) {
+                setPosterScale(Math.min(1, availWidth / POSTER_WIDTH));
+            }
+        };
+
+        compute();
+        const resizeObserver = new ResizeObserver(compute);
+        resizeObserver.observe(el);
+        window.addEventListener('resize', compute);
+        window.addEventListener('orientationchange', compute);
+        return () => {
+            resizeObserver.disconnect();
+            window.removeEventListener('resize', compute);
+            window.removeEventListener('orientationchange', compute);
+        };
+    }, []);
 
     // Initial state setup for players
     const [players, setPlayers] = useState(() => {
@@ -264,13 +306,14 @@ const LineUp = () => {
             // Assicura che i font siano caricati prima di catturare
             await document.fonts.ready;
 
-            // Cattura alle dimensioni reali del nodo, così l'output combacia con l'anteprima
-            const rect = container.getBoundingClientRect();
+            // Cattura sempre alle dimensioni di design (non scalate): offsetWidth
+            // ignora il transform scale dell'anteprima, così l'export è identico
+            // su desktop e mobile
             const options = {
                 quality: 1.0,
                 pixelRatio: 2,
-                width: rect.width,
-                height: rect.height,
+                width: container.offsetWidth,
+                height: container.offsetHeight,
                 backgroundColor: '#0a0a0a',
                 cacheBust: true,
                 style: {
@@ -294,7 +337,7 @@ const LineUp = () => {
 
     return (
         <div
-            className="flex flex-col md:flex-row overflow-hidden text-gray-200 lineup-wrapper"
+            className="flex flex-col md:flex-row overflow-y-auto overflow-x-hidden md:overflow-hidden text-gray-200 lineup-wrapper"
             style={{
                 fontFamily: "'Poppins', sans-serif",
                 backgroundColor: "#111827",
@@ -306,10 +349,21 @@ const LineUp = () => {
                 zIndex: 10
             }}
         >
-            {/* Sidebar Controlli */}
-            <aside className="w-full md:w-[450px] h-[50vh] md:h-full bg-gray-900 border-r border-gray-800 flex flex-col shadow-2xl z-20 overflow-hidden shrink-0 lineup-sidebar">
+            {/* Header mobile: titolo + download sempre raggiungibili (sticky) */}
+            <div className="md:hidden order-1 sticky top-0 z-30 p-4 border-b border-gray-800 bg-gray-950 flex justify-between items-center shrink-0">
+                <h1 className="text-lg font-bold text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-green-500 font-[Bebas Neue] tracking-wider">
+                    LINEUP CREATOR PRO
+                </h1>
+                <button onClick={exportImage} className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded font-bold shadow transition-all text-sm flex items-center">
+                    <i className="fa-solid fa-download mr-2" />
+                    Download
+                </button>
+            </div>
 
-                <div className="p-5 border-b border-gray-800 bg-gray-950 flex justify-between items-center shrink-0">
+            {/* Sidebar Controlli */}
+            <aside className="w-full md:w-[450px] md:h-full bg-gray-900 border-r border-gray-800 flex flex-col shadow-2xl z-20 md:overflow-hidden shrink-0 lineup-sidebar order-3 md:order-none">
+
+                <div className="hidden md:flex p-5 border-b border-gray-800 bg-gray-950 justify-between items-center shrink-0">
                     <h1 className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-green-500 font-[Bebas Neue] tracking-wider">
                         LINEUP CREATOR PRO
                     </h1>
@@ -319,12 +373,12 @@ const LineUp = () => {
                     </button>
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-5 pb-20">
+                <div className="flex-1 md:overflow-y-auto p-5 pb-20">
                     {/* Impostazioni Grafica */}
                     <div className="mb-6 bg-gray-800 p-4 rounded-xl shadow-inner border border-gray-700">
                         <h2 className="text-xs uppercase tracking-widest text-gray-400 font-bold mb-4 border-b border-gray-700 pb-2">Impostazioni Poster</h2>
 
-                        <div className="grid grid-cols-2 gap-4 mb-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                             <div>
                                 <label className="block text-xs font-semibold mb-1 text-gray-300">Nome Squadra</label>
                                 <input
@@ -417,7 +471,7 @@ const LineUp = () => {
                         </div>
 
                         {/* Asset uploads */}
-                        <div className="grid grid-cols-2 gap-4 mb-4 border-t border-gray-700 pt-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4 border-t border-gray-700 pt-4">
                             <div>
                                 <label className="block text-xs font-semibold mb-2 text-gray-300">Stemma Squadra</label>
                                 <div className="flex items-center space-x-2">
@@ -571,19 +625,32 @@ const LineUp = () => {
             </aside>
 
             {/* Area Principale (Preview) */}
-            <main className="flex-1 bg-[#050505] h-[50vh] md:h-full overflow-y-auto lineup-main">
-                <div className="min-h-full flex items-center justify-center p-4">
-                    <LineUpPoster
-                        players={players}
-                        teamName={teamName}
-                        subtitle={subtitle}
-                        groupName={groupName}
-                        primaryColor={primaryColor}
-                        secondaryColor={secondaryColor}
-                        teamBadgeSrc={teamBadgeSrc}
-                        decoLeftSrc={decoLeftSrc}
-                        globalScale={globalScale}
-                    />
+            <main className="md:flex-1 bg-[#050505] md:h-full md:overflow-y-auto lineup-main order-2 md:order-none shrink-0 md:shrink">
+                <div ref={previewAreaRef} className="min-h-full flex items-center justify-center p-2 md:p-4">
+                    {/* Il poster è renderizzato sempre a 600x800 e riscalato via
+                        transform: su mobile è identico al desktop, solo più piccolo */}
+                    <div style={{ width: POSTER_WIDTH * posterScale, height: POSTER_HEIGHT * posterScale }}>
+                        <div
+                            style={{
+                                width: POSTER_WIDTH,
+                                height: POSTER_HEIGHT,
+                                transform: `scale(${posterScale})`,
+                                transformOrigin: 'top left'
+                            }}
+                        >
+                            <LineUpPoster
+                                players={players}
+                                teamName={teamName}
+                                subtitle={subtitle}
+                                groupName={groupName}
+                                primaryColor={primaryColor}
+                                secondaryColor={secondaryColor}
+                                teamBadgeSrc={teamBadgeSrc}
+                                decoLeftSrc={decoLeftSrc}
+                                globalScale={globalScale}
+                            />
+                        </div>
+                    </div>
                 </div>
             </main>
         </div>

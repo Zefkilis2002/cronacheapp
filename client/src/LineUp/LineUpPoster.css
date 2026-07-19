@@ -4,9 +4,10 @@
 
 /* --- Main Poster Container --- */
 .poster {
-    width: 100%;
-    max-width: 600px;
-    aspect-ratio: 3 / 4;
+    /* Dimensioni di design fisse: l'anteprima viene riscalata via transform
+       dal wrapper in LineUp.js, così mobile e desktop sono identici */
+    width: 600px;
+    height: 800px;
     position: relative;
     overflow: hidden;
     border-radius: 12px;
@@ -528,33 +529,5 @@
 /* --- Footer Branding --- */
 
 
-/* --- Responsive Player Sizing --- */
-@media (max-width: 500px) {
-    .poster-player-photo-wrap {
-        width: 70px;
-        height: 70px;
-    }
-
-    .poster-player-name {
-        font-size: 0.65rem;
-        padding: 3px 4px 1px 4px;
-        min-width: 80px;
-    }
-
-    .poster-player-flag {
-        width: 18px;
-        height: 18px;
-    }
-
-    .poster-team-name {
-        font-size: 3rem;
-    }
-
-    .poster-subtitle {
-        font-size: 0.75rem;
-    }
-
-    .poster-player {
-        width: 110px;
-    }
-}
+/* Il ridimensionamento responsive è gestito dal transform scale del wrapper
+   in LineUp.js: nessuna media query, il poster è identico a ogni larghezza */

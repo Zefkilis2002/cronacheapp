@@ -130,7 +130,20 @@ const CanvaClassifica = ({
       const originalWidth = CLASSIFICA_LAYOUT.STAGE.WIDTH;
       const originalHeight = CLASSIFICA_LAYOUT.STAGE.HEIGHT;
 
-      const containerWidth = window.innerWidth * 0.9;
+      // Usa la larghezza reale del contenitore (la pagina ha padding propri),
+      // non window.innerWidth, altrimenti il canvas sborda a destra su mobile
+      const wrapper = stage.container()?.parentElement;
+      let containerWidth = 0;
+      if (wrapper) {
+        const wrapperStyle = window.getComputedStyle(wrapper);
+        containerWidth = wrapper.clientWidth
+          - parseFloat(wrapperStyle.paddingLeft)
+          - parseFloat(wrapperStyle.paddingRight);
+      }
+      // Al primo mount il contenitore può non essere ancora misurabile
+      if (!containerWidth || containerWidth <= 0) {
+        containerWidth = window.innerWidth * 0.9;
+      }
       const containerHeight = window.innerHeight * 0.9;
 
       const scale = Math.min(
@@ -138,15 +151,18 @@ const CanvaClassifica = ({
         containerHeight / originalHeight
       );
 
-      stage.width(originalWidth);
-      stage.height(originalHeight);
+      const scaledWidth = originalWidth * scale;
+      const scaledHeight = originalHeight * scale;
+
+      // Il canvas deve avere le dimensioni scalate reali, altrimenti resta
+      // largo 2000px e sborda a destra su mobile (margin auto non centra
+      // un elemento più largo del suo contenitore)
+      stage.width(scaledWidth);
+      stage.height(scaledHeight);
       stage.scale({ x: scale, y: scale });
 
       const container = stage.container();
       if (container) {
-        const scaledWidth = originalWidth * scale;
-        const scaledHeight = originalHeight * scale;
-
         container.style.width = `${scaledWidth}px`;
         container.style.height = `${scaledHeight}px`;
         container.style.margin = '0 auto';
@@ -168,14 +184,22 @@ const CanvaClassifica = ({
     };
 
     window.addEventListener('resize', handleResize);
-    window.addEventListener('orientationchange', () => {
-      setTimeout(scaleCanvas, 100);
-    });
+    window.addEventListener('orientationchange', handleResize);
+
+    // Riesegue lo scaling quando il contenitore ottiene/cambia dimensione
+    // (al mount clientWidth può essere ancora 0)
+    let resizeObserver;
+    const wrapper = stageRef.current?.container()?.parentElement;
+    if (wrapper && typeof ResizeObserver !== 'undefined') {
+      resizeObserver = new ResizeObserver(handleResize);
+      resizeObserver.observe(wrapper);
+    }
 
     return () => {
       window.removeEventListener('resize', handleResize);
       window.removeEventListener('orientationchange', handleResize);
       clearTimeout(resizeTimeout);
+      if (resizeObserver) resizeObserver.disconnect();
     };
   }, [stageRef]);
 
