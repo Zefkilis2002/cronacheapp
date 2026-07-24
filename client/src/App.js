@@ -6,6 +6,9 @@ import NewsEditor from "./NewsEditor/NewsEditor"; // Assicurati che il nome dell
 import BioCreator from "./BioCreator/BioCreator";
 import Classifica from "./Classifica/Classifica";
 import LineUp from "./LineUp/LineUp";
+import SquadList from "./SquadList/SquadList";
+import KeyPlayers from "./KeyPlayers/KeyPlayers";
+import LeagueHistory from "./LeagueHistory/LeagueHistory";
 import { startServerKeepAlive } from "./utils/serverWarmup";
 import "./App.css";
 
@@ -28,6 +31,9 @@ function App() {
           <Route path="/bio-creator" element={<BioCreator />} />
           <Route path="/classifica" element={<Classifica />} />
           <Route path="/lineup" element={<LineUp />} />
+          <Route path="/squad" element={<SquadList />} />
+          <Route path="/keyplayers" element={<KeyPlayers />} />
+          <Route path="/campionati" element={<LeagueHistory />} />
         </Routes>
       </div>
     </div>

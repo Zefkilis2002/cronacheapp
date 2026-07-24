@@ -43,7 +43,23 @@
       "Bash(curl -s \"http://localhost:52740/api/standings?country=norway&league=eliteserien\")",
       "Bash(npx eslint *)",
       "Bash(grep -o '\\\\\\\\r')",
-      "Bash(git config *)"
+      "Bash(git config *)",
+      "Bash(node \"C:\\\\Users\\\\kozeu\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\F--cronacheapp\\\\25a1d82d-e970-46d3-b0ee-c6ddcd537b81\\\\scratchpad\\\\discover_incidents.js\")",
+      "Bash(node \"C:\\\\Users\\\\kozeu\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\F--cronacheapp\\\\25a1d82d-e970-46d3-b0ee-c6ddcd537b81\\\\scratchpad\\\\verify_owngoal.js\")",
+      "Bash(node \"C:\\\\Users\\\\kozeu\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\F--cronacheapp\\\\25a1d82d-e970-46d3-b0ee-c6ddcd537b81\\\\scratchpad\\\\verify_delta.js\")",
+      "Bash(node \"C:\\\\Users\\\\kozeu\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\F--cronacheapp\\\\25a1d82d-e970-46d3-b0ee-c6ddcd537b81\\\\scratchpad\\\\verify_final.js\")",
+      "Bash(node \"C:\\\\Users\\\\kozeu\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\F--cronacheapp\\\\25a1d82d-e970-46d3-b0ee-c6ddcd537b81\\\\scratchpad\\\\scan_all_markers.js\")",
+      "Bash(node \"C:\\\\Users\\\\kozeu\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\F--cronacheapp\\\\25a1d82d-e970-46d3-b0ee-c6ddcd537b81\\\\scratchpad\\\\check_paks.js\")",
+      "Bash(xargs grep -l \"font-family\")",
+      "Bash(curl -s -o /dev/null -w \"dev server: %{http_code}\\\\n\" http://localhost:63417/)",
+      "Bash(node shot.js)",
+      "Bash(node shot2.js)",
+      "Bash(node shot3.js)",
+      "Bash(node shot4.js)",
+      "Bash(node crop.js)",
+      "Bash(node decouple.js)",
+      "Bash(node nav.js)",
+      "Bash(node squadjson.js)"
     ]
   }
 }

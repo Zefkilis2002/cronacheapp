@@ -1082,8 +1082,29 @@ function extractMatchId(matchUrl) {
 }
 
 /**
- * Estrai i gol dal dato parsato di una partita Flashscore.
- * Gestisce: IE=3 (gol), IE=10 (rigore segnato).
+ * Estrae il cognome da un nome Flashscore in formato "Cognome Iniziale."
+ * rimuovendo l'iniziale finale del nome. Gestisce cognomi multi-parola:
+ *   "De Vrij S."      → "DE VRIJ"
+ *   "Isimat-Mirin N." → "ISIMAT-MIRIN"
+ *   "Rodinei"         → "RODINEI"   (mononimo, nessuna iniziale da togliere)
+ */
+function extractLastName(fullName) {
+    const parts = fullName.trim().split(/\s+/);
+    // Rimuovi tutte le iniziali finali del nome (es. "Chidera O. M." → "Chidera",
+    // "De Vrij S." → "De Vrij"), fermandoti al cognome vero e proprio.
+    while (parts.length > 1 && /^[A-Za-zÀ-ÿ]\.?$/.test(parts[parts.length - 1])) {
+        parts.pop();
+    }
+    return parts.join(' ').toUpperCase();
+}
+
+/**
+ * Estrai gol, autogol e cartellini rossi dal dato parsato di una partita.
+ * Codici IE (verificati empiricamente sul feed df_sui):
+ *   3  = gol            10 = rigore segnato
+ *   4  = autogol        2  = cartellino rosso (diretto o doppio giallo)
+ * Attribuzione squadra (IA): 1 = casa, 2 = trasferta. Per l'autogol IA è la
+ * squadra che BENEFICIA del gol; per il rosso è la squadra del giocatore.
  * Filtra i calci di rigore finali (shootout).
  */
 function extractGoalsFromSections(sections) {
@@ -1114,44 +1135,61 @@ function extractGoalsFromSections(sections) {
             if ((p.key === 'IB' || p.key === 'IBX') && !minute) minute = p.value;
         }
 
+        // Ogni IE/IEX apre un sub-evento; IF/IFX ne è il nome giocatore.
+        // Una sezione può avere più sub-eventi (es. gol + assist, giallo + rosso,
+        // rigore assegnato + rigore segnato).
         const subEvents = [];
         let currentSub = null;
         for (const p of pairs) {
             if (p.key === 'IE' || p.key === 'IEX') {
                 if (currentSub) subEvents.push(currentSub);
-                currentSub = { ie: p.value, if: '' };
-            } else if (currentSub && (p.key === 'IF')) {
-                currentSub.if = p.value;
+                currentSub = { ie: p.value, name: '' };
+            } else if (currentSub && (p.key === 'IF' || p.key === 'IFX') && !currentSub.name) {
+                currentSub.name = p.value;
             }
         }
         if (currentSub) subEvents.push(currentSub);
 
-        let goalSub = null;
-        for (const sub of subEvents) {
-            if (sub.ie === '3' || sub.ie === '10') {
-                goalSub = sub;
-                break;
-            }
+        const findSub = (codes) => subEvents.find(s => codes.includes(s.ie));
+
+        // Priorità: gol > autogol > rosso (una sezione conta come un solo evento)
+        let sub = null;
+        let type = null;
+        let isPenalty = false;
+
+        const goalSub = findSub(['3', '10']);
+        const ownGoalSub = findSub(['4']);
+        const redSub = findSub(['2']);
+
+        if (goalSub) {
+            sub = goalSub;
+            type = 'goal';
+            isPenalty = goalSub.ie === '10';
+        } else if (ownGoalSub) {
+            sub = ownGoalSub;
+            type = 'owngoal';
+        } else if (redSub) {
+            sub = redSub;
+            type = 'redcard';
+        } else {
+            continue; // giallo, sostituzione, assist isolato, gol annullato, ecc.
         }
 
-        if (!goalSub || !goalSub.if) continue;
+        if (!sub.name) continue;
 
-        const playerName = goalSub.if.trim();
-        const nameParts = playerName.split(/\s+/);
-        const lastName = nameParts[0] || playerName;
-        const isPenalty = goalSub.ie === '10';
-
-        const goalData = {
+        const playerName = sub.name.trim();
+        const incident = {
             player: playerName,
-            lastName: lastName.toUpperCase(),
+            lastName: extractLastName(playerName),
             minute,
+            type,
             isPenalty,
         };
 
         if (team === '1') {
-            homeGoals.push(goalData);
+            homeGoals.push(incident);
         } else if (team === '2') {
-            awayGoals.push(goalData);
+            awayGoals.push(incident);
         }
     }
 
@@ -1159,35 +1197,73 @@ function extractGoalsFromSections(sections) {
 }
 
 /**
- * Formatta l'array di gol per il frontend.
- * - Home: "27' 83' JOVIC", Away: "JOVIC 27' 83'"
- * - Rigori: "33' [R] VARGA" (home), "VARGA 33' [R]" (away)
+ * Converte un minuto Flashscore in valore numerico ordinabile.
+ *   "41'" → 41 ; "90+3'" → 90.03 ; "45+2'" → 45.02
+ * Il recupero è messo dopo il minuto base ma prima del minuto successivo.
+ * Un minuto assente finisce in fondo.
  */
-function formatGoalscorers(goals, side) {
-    const grouped = {};
-    for (const g of goals) {
-        if (!grouped[g.lastName]) grouped[g.lastName] = [];
-        grouped[g.lastName].push({ minute: g.minute, isPenalty: g.isPenalty });
+function parseMinute(min) {
+    const m = String(min || '').match(/(\d+)(?:\s*\+\s*(\d+))?/);
+    if (!m) return Number.MAX_SAFE_INTEGER;
+    const base = parseInt(m[1], 10);
+    const extra = m[2] ? parseInt(m[2], 10) : 0;
+    return base + extra / 100;
+}
+
+/**
+ * Formatta gli eventi (gol, autogol, rossi) per il frontend, in ordine
+ * CRONOLOGICO per minuto (gol, autogol e rossi mescolati sulla timeline).
+ * - Gol:      Home "27' 83' JOVIC"      Away "JOVIC 27' 83'"
+ * - Rigore:   Home "33' [R] VARGA"      Away "VARGA 33' [R]"
+ * - Autogol:  Home "31' DE VRIJ [A]"    Away "[A] DE VRIJ 31'"
+ * - Rosso:    Home "31' DE VRIJ 🔴"     Away "🔴 DE VRIJ 31'"
+ * Le doppiette dello stesso giocatore restano raggruppate ("27' 83' JOVIC")
+ * e vengono ordinate in base al loro primo gol.
+ */
+function formatGoalscorers(incidents, side) {
+    const isHome = side === 'home';
+    const units = []; // { sort, text }
+
+    // 1) Gol reali raggruppati per giocatore; minuti interni ordinati
+    const goalGroups = new Map(); // lastName -> [{minute, isPenalty, sort}]
+    for (const g of incidents) {
+        if (g.type !== 'goal') continue;
+        if (!goalGroups.has(g.lastName)) goalGroups.set(g.lastName, []);
+        goalGroups.get(g.lastName).push({ minute: g.minute, isPenalty: g.isPenalty, sort: parseMinute(g.minute) });
+    }
+    for (const [name, goals] of goalGroups) {
+        goals.sort((a, b) => a.sort - b.sort);
+        const minuteParts = goals.map(e => e.isPenalty ? `${e.minute} [R]` : e.minute);
+        const minutes = minuteParts.join(' ');
+        units.push({
+            sort: goals[0].sort, // ordina il gruppo in base al primo gol
+            text: isHome ? `${minutes} ${name}` : `${name} ${minutes}`,
+        });
     }
 
-    const seen = [];
-    for (const g of goals) {
-        if (!seen.includes(g.lastName)) seen.push(g.lastName);
+    // 2) Autogol (marker [A])
+    for (const og of incidents) {
+        if (og.type !== 'owngoal') continue;
+        units.push({
+            sort: parseMinute(og.minute),
+            text: isHome ? `${og.minute} ${og.lastName} [A]` : `[A] ${og.lastName} ${og.minute}`,
+        });
     }
 
-    const result = [];
-    for (const name of seen) {
-        const entries = grouped[name];
-        if (side === 'home') {
-            const minuteParts = entries.map(e => e.isPenalty ? `${e.minute} [R]` : e.minute);
-            result.push(`${minuteParts.join(' ')} ${name}`);
-        } else {
-            const minuteParts = entries.map(e => e.isPenalty ? `${e.minute} [R]` : e.minute);
-            result.push(`${name} ${minuteParts.join(' ')}`);
-        }
+    // 3) Cartellini rossi (marker 🔴)
+    for (const rc of incidents) {
+        if (rc.type !== 'redcard') continue;
+        units.push({
+            sort: parseMinute(rc.minute),
+            text: isHome ? `${rc.minute} ${rc.lastName} 🔴` : `🔴 ${rc.lastName} ${rc.minute}`,
+        });
     }
 
-    return result;
+    // Ordina cronologicamente (Array.sort è stabile: a parità di minuto
+    // mantiene l'ordine di inserimento gol → autogol → rosso)
+    units.sort((a, b) => a.sort - b.sort);
+
+    return units.map(u => u.text);
 }
 
 /**

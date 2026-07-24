@@ -1,0 +1,315 @@
+/* ============================================================
+   LeagueHistoryPoster.css — timeline "Scotland World Cup" style
+   Dimensioni di design fisse 1440x1800: l'anteprima viene
+   riscalata via transform dal wrapper in LeagueHistory.js
+   ============================================================ */
+
+.lhp-poster {
+    width: 1440px;
+    height: 1800px;
+    position: relative;
+    overflow: hidden;
+    font-family: 'Poppins', system-ui, -apple-system, sans-serif;
+    box-shadow:
+        0 25px 50px -12px rgba(0, 0, 0, 0.7),
+        0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+/* --- Sfondo: foto sfocata + tinta + bagliore + vignettatura --- */
+.lhp-bg {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+}
+
+.lhp-bg img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    /* lo scale evita i bordi trasparenti che il blur lascerebbe ai lati */
+    transform: scale(1.12);
+}
+
+.lhp-bg-tint,
+.lhp-bg-glow,
+.lhp-bg-vignette {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+}
+
+/* --- Giocatore / protagonista --- */
+.lhp-player {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+}
+
+.lhp-player img {
+    width: 100%;
+    height: 100%;
+    /* contain: i ritagli PNG non vengono mai tagliati */
+    object-fit: contain;
+    object-position: bottom center;
+    display: block;
+    filter: drop-shadow(0 18px 34px rgba(0, 0, 0, 0.5));
+}
+
+.lhp-player-empty {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    background-image: repeating-linear-gradient(
+        -45deg,
+        rgba(255, 255, 255, 0.10) 0px,
+        rgba(255, 255, 255, 0.10) 14px,
+        rgba(255, 255, 255, 0.03) 14px,
+        rgba(255, 255, 255, 0.03) 28px
+    );
+    border-radius: 28px;
+    color: rgba(255, 255, 255, 0.75);
+    font-family: 'Benzin-Bold', 'Bebas Neue', Impact, sans-serif;
+    font-size: 28px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+}
+
+.lhp-accent {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+}
+
+/* --- Colonna destra --- */
+.lhp-right {
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Riga del titolo: targhetta a larghezza piena (allineata al pannello
+   sottostante) con lo stemma sovrapposto sopra il bordo sinistro */
+.lhp-title-row {
+    position: relative;
+    display: flex;
+    align-items: stretch;
+    flex-shrink: 0;
+}
+
+/* Barra del titolo: bordo a gradiente ottenuto con un wrapper
+   sfondo-gradiente + padding e un inner con il colore pieno */
+.lhp-title-frame {
+    flex: 1;
+    min-width: 0;
+    border-radius: 999px;
+    display: flex;
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.42);
+}
+
+/* Stemma del club: sporge sopra la targhetta e ne invade il bordo
+   sinistro. Assoluto, così può sforare senza spostare la targhetta */
+.lhp-title-logo {
+    position: absolute;
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.lhp-title-logo img {
+    max-width: 100%;
+    max-height: 100%;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    display: block;
+    filter: drop-shadow(0 8px 18px rgba(0, 0, 0, 0.55));
+}
+
+.lhp-title-inner {
+    flex: 1;
+    border-radius: 999px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.lhp-title-text {
+    line-height: 1;
+    text-transform: uppercase;
+    white-space: nowrap;
+    text-shadow: 0 3px 8px rgba(0, 0, 0, 0.45);
+}
+
+/* --- Pannello timeline --- */
+.lhp-panel {
+    flex: 1;
+    min-height: 0;
+    border-radius: 46px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-around;
+    box-shadow:
+        0 18px 40px rgba(0, 0, 0, 0.38),
+        inset 0 1px 0 rgba(255, 255, 255, 0.18);
+    backdrop-filter: blur(2px);
+}
+
+/* --- Riga --- */
+.lhp-row {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.lhp-rail {
+    border-radius: 999px;
+    flex-shrink: 0;
+}
+
+/* Logo competizione + badge esito sovrapposto */
+.lhp-row-logo {
+    position: relative;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.lhp-row-logo img {
+    max-width: 100%;
+    max-height: 100%;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    display: block;
+    filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.4));
+}
+
+.lhp-row-logo-empty {
+    width: 86%;
+    height: 86%;
+    border-radius: 18px;
+    border: 3px dashed rgba(255, 255, 255, 0.35);
+    box-sizing: border-box;
+}
+
+.lhp-row-icon {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 3px solid rgba(255, 255, 255, 0.92);
+    box-shadow: 0 5px 12px rgba(0, 0, 0, 0.45);
+    box-sizing: border-box;
+}
+
+/* Anno + pill esito (la pill si sovrappone al fondo dell'anno) */
+.lhp-row-main {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.lhp-year {
+    line-height: 0.92;
+    letter-spacing: 1px;
+    white-space: nowrap;
+    text-transform: uppercase;
+}
+
+.lhp-result {
+    line-height: 1;
+    text-transform: uppercase;
+    white-space: nowrap;
+    border-radius: 999px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow:
+        0 6px 14px rgba(0, 0, 0, 0.38),
+        inset 0 -3px 0 rgba(0, 0, 0, 0.18);
+}
+
+/* Logo competizione a destra dell'anno */
+.lhp-row-comp {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.lhp-row-comp img {
+    max-width: 100%;
+    max-height: 100%;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    display: block;
+    filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.4));
+}
+
+/* Stemma / logo del club a destra */
+.lhp-row-badge {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+/* Cerchio bianco opzionale dietro allo stemma */
+.lhp-row-badge.circle {
+    border-radius: 50%;
+    background: #ffffff;
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.4);
+}
+
+.lhp-row-badge img {
+    max-width: 82%;
+    max-height: 82%;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    display: block;
+}
+
+/* Senza cerchio il logo occupa tutto lo spazio ed è mostrato trasparente */
+.lhp-row-badge:not(.circle) img {
+    max-width: 100%;
+    max-height: 100%;
+    filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.4));
+}
+
+/* --- Logo brand in basso a destra --- */
+.lhp-brand {
+    position: absolute;
+    z-index: 30;
+}
+
+.lhp-brand img {
+    /* max-height/max-width con width e height auto mantengono sempre le
+       proporzioni originali del logo, comunque sia fatto */
+    max-height: 104px;
+    max-width: 420px;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    display: block;
+    filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.55));
+}

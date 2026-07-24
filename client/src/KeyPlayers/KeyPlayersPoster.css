@@ -1,0 +1,185 @@
+/* ============================================================
+   KeyPlayersPoster.css — "Manager / Star Player / One To Watch"
+   Dimensioni di design fisse 1440x1800: l'anteprima viene
+   riscalata via transform dal wrapper in KeyPlayers.js
+   ============================================================ */
+
+.kpp-poster {
+    width: 1440px;
+    height: 1800px;
+    position: relative;
+    overflow: hidden;
+    font-family: 'Poppins', system-ui, -apple-system, sans-serif;
+    box-shadow:
+        0 25px 50px -12px rgba(0, 0, 0, 0.7),
+        0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+/* --- Fascia (una per ruolo) --- */
+.kpp-band {
+    position: absolute;
+    left: 0;
+    width: 100%;
+    /* overflow visibile: la foto può sbordare verso l'alto sulla fascia
+       precedente, come nella grafica di riferimento */
+    overflow: visible;
+}
+
+/* Wrapper dello sfondo: qui invece si taglia, così il cerchio decorativo
+   resta dentro i bordi della fascia */
+.kpp-band-bg {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+}
+
+/* Grande cerchio decorativo dietro al blocco di testo */
+.kpp-shape {
+    position: absolute;
+    border-radius: 50%;
+}
+
+/* Luce radiale in alto + vignettatura in basso, indipendenti dal colore */
+.kpp-band-light {
+    position: absolute;
+    inset: 0;
+    background:
+        radial-gradient(110% 90% at 50% 0%, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0) 60%),
+        linear-gradient(to bottom, rgba(0, 0, 0, 0) 55%, rgba(0, 0, 0, 0.22) 100%);
+    pointer-events: none;
+}
+
+/* --- Foto --- */
+.kpp-photo {
+    position: absolute;
+    bottom: 0;
+    overflow: hidden;
+    z-index: 1;
+}
+
+.kpp-photo img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    transform-origin: center center;
+}
+
+/* Segnaposto quando non è stata ancora caricata una foto */
+.kpp-photo-empty {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    background-image: repeating-linear-gradient(
+        -45deg,
+        rgba(255, 255, 255, 0.10) 0px,
+        rgba(255, 255, 255, 0.10) 14px,
+        rgba(255, 255, 255, 0.03) 14px,
+        rgba(255, 255, 255, 0.03) 28px
+    );
+    color: rgba(255, 255, 255, 0.75);
+    font-family: 'Benzin-Bold', 'Bebas Neue', Impact, sans-serif;
+    font-size: 26px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+}
+
+/* --- Icone accento (stella, frecce, ...) --- */
+.kpp-accents {
+    position: absolute;
+    bottom: 0;
+    z-index: 4;
+    pointer-events: none;
+}
+
+.kpp-accent {
+    position: absolute;
+    transform: translate(-50%, -50%);
+}
+
+/* --- Blocco di testo --- */
+.kpp-text {
+    position: absolute;
+    top: 0;
+    height: 100%;
+    z-index: 3;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 0 44px;
+    text-align: center;
+}
+
+.kpp-crest {
+    width: 112px;
+    height: 112px;
+    border-radius: 50%;
+    background: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    margin-bottom: 22px;
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.32);
+    flex-shrink: 0;
+}
+
+.kpp-crest img {
+    max-width: 80%;
+    max-height: 80%;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    display: block;
+}
+
+.kpp-pill {
+    line-height: 1;
+    text-transform: uppercase;
+    white-space: nowrap;
+    border-radius: 999px;
+    padding: 18px 48px 14px 48px;
+    margin-bottom: 16px;
+    box-shadow:
+        0 8px 16px rgba(0, 0, 0, 0.28),
+        inset 0 -4px 0 rgba(0, 0, 0, 0.16);
+}
+
+.kpp-last {
+    line-height: 0.94;
+    text-transform: uppercase;
+    white-space: nowrap;
+    text-shadow: 0 5px 12px rgba(0, 0, 0, 0.32);
+}
+
+.kpp-first {
+    line-height: 1;
+    text-transform: uppercase;
+    white-space: nowrap;
+    margin-top: 8px;
+    opacity: 0.96;
+    text-shadow: 0 3px 8px rgba(0, 0, 0, 0.28);
+}
+
+/* --- Logo brand in alto --- */
+.kpp-brand {
+    position: absolute;
+    z-index: 60;
+}
+
+.kpp-brand img {
+    /* max-height/max-width con width e height auto mantengono sempre le
+       proporzioni originali del logo, comunque sia fatto */
+    max-height: 104px;
+    max-width: 420px;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    display: block;
+    filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.45));
+}

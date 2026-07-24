@@ -82,15 +82,21 @@ export function useFullTimeState() {
       setSelectedTabellino(matchData.tabellino);
     }
 
-    if (matchData.homeLogo) {
-      setSelectedLogo1(matchData.homeLogo);
-      setUploadedLogo1(null);
-    }
+    // I loghi esterni (URL web dalla ricerca, via proxy) vanno in uploadedLogo,
+    // quelli locali (path /loghi/...) in selectedLogo: il canvas li tratta
+    // diversamente (uploadedLogo || origin + selectedLogo).
+    const applyLogo = (logo, setSelected, setUploaded) => {
+      if (!logo) return;
+      if (/^(https?:|data:)/.test(logo)) {
+        setUploaded(logo);
+      } else {
+        setSelected(logo);
+        setUploaded(null);
+      }
+    };
 
-    if (matchData.awayLogo) {
-      setSelectedLogo2(matchData.awayLogo);
-      setUploadedLogo2(null);
-    }
+    applyLogo(matchData.homeLogo, setSelectedLogo1, setUploadedLogo1);
+    applyLogo(matchData.awayLogo, setSelectedLogo2, setUploadedLogo2);
 
     const homePadded = [...(matchData.homeScorers || []), ...Array(7).fill('')].slice(0, 7);
     setScorersTeam1(homePadded);

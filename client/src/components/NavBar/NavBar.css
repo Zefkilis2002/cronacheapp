@@ -99,6 +99,104 @@ body {
   width: 100%;
 }
 
+/* ================== */
+/* Dropdown "Grafiche" */
+/* ================== */
+.dropdown {
+  list-style: none;
+  position: relative;
+}
+
+.dropdown-trigger {
+  background: none;
+  border: none;
+  color: #ffffff;
+  font-size: 1rem;
+  font-family: inherit;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0;
+  transition: color 0.3s ease;
+}
+
+.dropdown-trigger:hover {
+  color: #b4ff00;
+}
+
+.dropdown-caret {
+  font-size: 0.7rem;
+  transition: transform 0.25s ease;
+}
+
+/* Menu a comparsa: nascosto di default, appare in hover (desktop) o quando la
+   voce ha classe .open (mobile, gestita via JS) */
+.dropdown-menu {
+  position: absolute;
+  top: 100%;
+  /* allineato a destra del trigger: "Grafiche" è l'ultima voce, così il menu
+     si apre verso l'interno senza sforare dal bordo destro */
+  right: 0;
+  left: auto;
+  padding: 0.5rem;
+  margin-top: 0.6rem;
+  min-width: 180px;
+  display: none;
+  flex-direction: column;
+  gap: 0.15rem;
+  background-color: #0b1022;
+  border: 1px solid rgba(180, 255, 0, 0.25);
+  border-radius: 12px;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45);
+  z-index: 1001;
+}
+
+/* Ponte invisibile che copre il gap tra trigger e menu, così passando il
+   mouse verso il menu l'hover non si interrompe */
+.dropdown-menu::before {
+  content: '';
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  right: 0;
+  height: 0.6rem;
+}
+
+.dropdown:hover .dropdown-menu,
+.dropdown.open .dropdown-menu {
+  display: flex;
+}
+
+.dropdown:hover .dropdown-caret,
+.dropdown.open .dropdown-caret {
+  transform: rotate(180deg);
+}
+
+.dropdown-menu li {
+  list-style: none;
+}
+
+.dropdown-menu a {
+  display: block;
+  padding: 0.55rem 0.85rem;
+  border-radius: 8px;
+  white-space: nowrap;
+  color: #ffffff;
+  font-size: 0.95rem;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.dropdown-menu a:hover {
+  color: #b4ff00;
+  background-color: rgba(180, 255, 0, 0.10);
+}
+
+/* Nel menu non serve l'animazione della sottolineatura */
+.dropdown-menu a::after {
+  display: none;
+}
+
 .hamburger {
   display: none;
   flex-direction: column;
@@ -161,5 +259,33 @@ body {
   .navbar.sticky .nav-links {
     background-color: #20153c;
     color: #000;
+  }
+
+  /* Su mobile il sottomenu è in linea nel menu hamburger: si apre col tap
+     (classe .open), non in hover, e resta indentato sotto "Grafiche" */
+  .dropdown {
+    width: 100%;
+  }
+
+  .dropdown-trigger {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .dropdown:hover .dropdown-menu {
+    display: none;
+  }
+
+  .dropdown.open .dropdown-menu {
+    display: flex;
+    position: static;
+    transform: none;
+    margin-top: 0.5rem;
+    min-width: 0;
+    padding: 0.25rem 0 0.25rem 0.85rem;
+    background-color: transparent;
+    border: none;
+    box-shadow: none;
+    border-left: 2px solid rgba(180, 255, 0, 0.3);
   }
 }

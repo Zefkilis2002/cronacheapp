@@ -1,0 +1,225 @@
+/* ============================================================
+   SpotlightPoster.css — "Manager / Star Player / One To Watch"
+   Dimensioni di design fisse 1440x1800: l'anteprima viene
+   riscalata via transform dal wrapper in Spotlight.js
+   ============================================================ */
+
+.spot-poster {
+    width: 1440px;
+    height: 1800px;
+    position: relative;
+    overflow: hidden;
+    font-family: 'Poppins', system-ui, -apple-system, sans-serif;
+    box-shadow:
+        0 25px 50px -12px rgba(0, 0, 0, 0.7),
+        0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+/* Texture diagonale sottile su tutto lo sfondo */
+.spot-bg-texture {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    opacity: 0.05;
+    background-image: repeating-linear-gradient(45deg, #fff 0px, #fff 2px, transparent 2px, transparent 46px);
+    pointer-events: none;
+}
+
+/* Cerchi decorativi semi-trasparenti sullo sfondo */
+.spot-deco-circle {
+    position: absolute;
+    z-index: 1;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.035);
+    pointer-events: none;
+}
+
+/* Logo in alto a sinistra */
+.spot-brand {
+    position: absolute;
+    top: 44px;
+    left: 56px;
+    z-index: 10;
+}
+
+.spot-brand img {
+    max-height: 76px;
+    max-width: 260px;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    display: block;
+    filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.4));
+}
+
+/* --- Fasce --- */
+.spot-bands {
+    position: relative;
+    z-index: 5;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+}
+
+.spot-band {
+    position: relative;
+    display: flex;
+    align-items: stretch;
+    flex: 1 1 600px;
+    height: 600px;
+    border-bottom: 2px solid rgba(255, 255, 255, 0.12);
+}
+
+.spot-bands .spot-band:last-child {
+    border-bottom: none;
+}
+
+/* --- Colonna foto --- */
+.spot-band-photo {
+    position: relative;
+    flex: 0 0 640px;
+    height: 100%;
+    overflow: hidden;
+}
+
+.spot-photo-wrap {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+}
+
+.spot-photo {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center 12%;
+    display: block;
+}
+
+.spot-photo-fade,
+.spot-photo-fade-bottom {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+}
+
+/* Piccolo badge stella sovrapposto alla spalla del giocatore (Star Player) */
+.spot-star-badge {
+    position: absolute;
+    top: 66px;
+    width: 92px;
+    height: 92px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 4px solid;
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.45);
+    z-index: 6;
+}
+
+/* Frecce verdi neon "in ascesa" sovrapposte alla foto (One To Watch) */
+.spot-arrows {
+    position: absolute;
+    bottom: 64px;
+    z-index: 6;
+    width: 120px;
+    height: 150px;
+}
+
+.spot-arrow {
+    position: absolute;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-left: 44px solid transparent;
+    border-right: 44px solid transparent;
+    border-bottom: 64px solid;
+    transform: translateX(-50%);
+}
+
+.spot-arrow-back {
+    bottom: 42px;
+    opacity: 0.85;
+}
+
+.spot-arrow-front {
+    bottom: 0;
+}
+
+/* --- Colonna testo --- */
+.spot-band-text {
+    position: relative;
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 24px 80px;
+    min-width: 0;
+    text-align: center;
+}
+
+.spot-badge-circle {
+    width: 176px;
+    height: 176px;
+    border-radius: 50%;
+    border: 6px solid;
+    background: rgba(255, 255, 255, 0.06);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+    flex-shrink: 0;
+}
+
+.spot-badge-circle img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    padding: 12px;
+    box-sizing: border-box;
+}
+
+.spot-pill {
+    margin-top: 24px;
+    padding: 14px 42px;
+    border-radius: 999px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-family: 'Benzin-ExtraBold', 'Bebas Neue', Impact, sans-serif;
+    font-size: 26px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35);
+    white-space: nowrap;
+}
+
+.spot-surname {
+    margin-top: 20px;
+    font-family: 'Kuunari-Black-Condensed', 'Benzin-ExtraBold', Impact, sans-serif;
+    font-size: 124px;
+    line-height: 0.88;
+    color: #ffffff;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    text-shadow: 0 6px 14px rgba(0, 0, 0, 0.45);
+    max-width: 100%;
+    overflow-wrap: break-word;
+    word-break: break-word;
+}
+
+.spot-firstname {
+    margin-top: 8px;
+    font-family: 'Benzin-Medium', 'Poppins', sans-serif;
+    font-size: 34px;
+    letter-spacing: 8px;
+    color: rgba(255, 255, 255, 0.82);
+    text-transform: uppercase;
+}

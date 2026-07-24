@@ -1,0 +1,173 @@
+/* Input file nascosto + pulsante upload stilizzato (scoped alla sidebar KeyPlayers) */
+.keyplayers-sidebar input[type="file"] {
+    display: none;
+}
+
+.keyplayers-sidebar .file-upload-label {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #374151;
+    color: #d1d5db;
+    padding: 6px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.75rem;
+    font-weight: 600;
+    transition: all 0.2s;
+    border: 1px solid #4b5563;
+}
+
+.keyplayers-sidebar .file-upload-label:hover {
+    background-color: #4b5563;
+    color: white;
+}
+
+/* Overrides per stili globali provenienti dagli altri componenti */
+.keyplayers-sidebar input[type="text"],
+.keyplayers-sidebar input[type="number"],
+.keyplayers-sidebar select {
+    background-color: #111827 !important;
+    border: 1px solid #4b5563 !important;
+    border-radius: 0.25rem !important;
+    padding: 0.5rem 0.75rem !important;
+    color: white !important;
+    font-size: 0.875rem !important;
+    height: auto !important;
+    margin: 0 !important;
+    outline: none !important;
+    box-shadow: none !important;
+    text-align: left !important;
+}
+
+.keyplayers-sidebar input[type="text"]:focus,
+.keyplayers-sidebar input[type="number"]:focus,
+.keyplayers-sidebar select:focus {
+    border-color: #38bdf8 !important;
+}
+
+/* Color picker */
+.keyplayers-sidebar input[type="color"] {
+    -webkit-appearance: none;
+    appearance: none;
+    border: none;
+    width: 38px;
+    height: 38px;
+    border-radius: 6px;
+    cursor: pointer;
+    padding: 0;
+}
+
+.keyplayers-sidebar input[type="color"]::-webkit-color-swatch-wrapper {
+    padding: 0;
+}
+
+.keyplayers-sidebar input[type="color"]::-webkit-color-swatch {
+    border: 2px solid #4b5563;
+    border-radius: 6px;
+}
+
+/* Slider (zoom, offset, sbordo foto) */
+.keyplayers-sidebar input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 4px;
+    border-radius: 999px;
+    background: #4b5563;
+    outline: none;
+    margin: 0;
+    padding: 0;
+}
+
+.keyplayers-sidebar input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+    background: #38bdf8;
+    cursor: pointer;
+    border: none;
+}
+
+.keyplayers-sidebar input[type="range"]::-moz-range-thumb {
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+    background: #38bdf8;
+    cursor: pointer;
+    border: none;
+}
+
+/* Pulsanti palette */
+.kp-preset-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    border-radius: 6px;
+    border: 1px solid #4b5563;
+    background: #111827;
+    color: #d1d5db;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.kp-preset-btn:hover {
+    border-color: #38bdf8;
+    color: white;
+}
+
+.kp-preset-swatch {
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    flex-shrink: 0;
+}
+
+/* Toggle lato foto */
+.kp-side-btn {
+    flex: 1;
+    padding: 6px 0;
+    border-radius: 6px;
+    border: 1px solid #4b5563;
+    background: #111827;
+    color: #9ca3af;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.kp-side-btn.active {
+    background: #0ea5e9;
+    border-color: #0ea5e9;
+    color: white;
+}
+
+/* Scrollbar */
+.keyplayers-sidebar::-webkit-scrollbar,
+.keyplayers-main::-webkit-scrollbar {
+    width: 8px;
+}
+
+.keyplayers-sidebar::-webkit-scrollbar-track {
+    background: #1f2937;
+}
+
+.keyplayers-main::-webkit-scrollbar-track {
+    background: #050505;
+}
+
+.keyplayers-sidebar::-webkit-scrollbar-thumb,
+.keyplayers-main::-webkit-scrollbar-thumb {
+    background: #4b5563;
+    border-radius: 4px;
+}

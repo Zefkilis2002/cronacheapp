@@ -21,6 +21,42 @@ function findLocalLogo(teamName) {
     return findTeamLogo(teamName);
 }
 
+/**
+ * Ripulisce il nome squadra dal suffisso nazione delle coppe europee
+ * (es. "Paks (Hun)" → "Paks") per migliorare la ricerca web del logo.
+ */
+function cleanTeamName(teamName) {
+    return (teamName || '').replace(/\s*\([A-Za-z]{2,3}\)\s*$/, '').trim();
+}
+
+/**
+ * Risolve il logo di una squadra non presente nella lista locale cercandolo
+ * sul web (stesso endpoint di "Cerca Web"). Ritorna un URL già pronto per
+ * il canvas (loghi esterni passano dal proxy-image) oppure null.
+ */
+async function resolveWebLogo(teamName, signal) {
+    const query = cleanTeamName(teamName);
+    if (query.length < 2) return null;
+    try {
+        const res = await fetch(
+            `${config.API_BASE_URL}/api/search-logos?q=${encodeURIComponent(query)}`,
+            { signal }
+        );
+        if (!res.ok) return null;
+        const data = await res.json();
+        const first = data && data.results && data.results[0];
+        const url = first && (first.logoUrl || first.logo_url);
+        if (!url) return null;
+        // I loghi esterni (TheSportsDB) vanno serviti tramite proxy per CORS
+        const isExternal = /^https?:\/\//.test(url);
+        return isExternal
+            ? `${config.API_BASE_URL}/proxy-image?url=${encodeURIComponent(url)}`
+            : url;
+    } catch (err) {
+        return null; // abort o errore: nessun logo web
+    }
+}
+
 const FlashscoreImport = ({ onMatchSelect, flashscoreData, setFlashscoreData }) => {
     // Destructuring state from props
     const { matches, selectedComp, selectedMatchId } = flashscoreData;
@@ -73,41 +109,60 @@ const FlashscoreImport = ({ onMatchSelect, flashscoreData, setFlashscoreData }) 
 
         const comp = COMPETITIONS[selectedComp];
 
-        // Cerca loghi locali
-        const homeLogo = findLocalLogo(match.homeTeam);
-        const awayLogo = findLocalLogo(match.awayTeam);
-
-        // Prepara dati base (senza marcatori, arriveranno dopo)
-        const matchData = {
-            homeTeam: match.homeTeam,
-            awayTeam: match.awayTeam,
-            homeScore: parseInt(match.homeScore) || 0,
-            awayScore: parseInt(match.awayScore) || 0,
-            tabellino: comp.tabellino,
-            homeLogo: homeLogo,
-            awayLogo: awayLogo,
-            homeScorers: [],
-            awayScorers: [],
-        };
-
-        // Notifica subito con i dati base (risultato, loghi, tabellino)
-        if (onMatchSelect) {
-            onMatchSelect(matchData);
-        }
-
-        // Poi cerca i marcatori in background (con timeout)
         // Annulla l'eventuale richiesta precedente ancora in volo
         if (detailsRequestRef.current.controller) {
             detailsRequestRef.current.controller.abort();
         }
         const controller = new AbortController();
         detailsRequestRef.current = { controller };
+        const isCurrent = () => detailsRequestRef.current.controller === controller;
 
-        try {
-            if (match.matchUrl || match.matchId) {
-                // 35s: poco sopra il timeout server (30s), era 45s
-                const timeoutId = setTimeout(() => controller.abort(), 35000);
+        // Loghi locali (istantanei); quelli mancanti verranno cercati sul web
+        const localHome = findLocalLogo(match.homeTeam);
+        const localAway = findLocalLogo(match.awayTeam);
 
+        // Stato consolidato: ogni aggiornamento invia SEMPRE l'ultima versione
+        // nota di loghi e marcatori, così i due flussi asincroni (loghi web /
+        // marcatori) non si sovrascrivono a vicenda.
+        let curHomeLogo = localHome;
+        let curAwayLogo = localAway;
+        let curHomeScorers = [];
+        let curAwayScorers = [];
+
+        const pushUpdate = () => {
+            if (!isCurrent() || !onMatchSelect) return;
+            onMatchSelect({
+                homeTeam: match.homeTeam,
+                awayTeam: match.awayTeam,
+                homeScore: parseInt(match.homeScore) || 0,
+                awayScore: parseInt(match.awayScore) || 0,
+                tabellino: comp.tabellino,
+                homeLogo: curHomeLogo,
+                awayLogo: curAwayLogo,
+                homeScorers: curHomeScorers,
+                awayScorers: curAwayScorers,
+            });
+        };
+
+        // Notifica subito con i dati base (risultato, tabellino, loghi locali)
+        pushUpdate();
+
+        // Cerca sul web i loghi non presenti nella lista locale, in parallelo
+        const logosPromise = Promise.all([
+            localHome ? Promise.resolve(localHome) : resolveWebLogo(match.homeTeam, controller.signal),
+            localAway ? Promise.resolve(localAway) : resolveWebLogo(match.awayTeam, controller.signal),
+        ]).then(([home, away]) => {
+            if (!isCurrent()) return;
+            if (home) curHomeLogo = home;
+            if (away) curAwayLogo = away;
+            pushUpdate();
+        }).catch(() => { /* loghi web non disponibili: si resta con i locali */ });
+
+        // Marcatori (con timeout), in parallelo ai loghi
+        const detailsPromise = (async () => {
+            if (!match.matchUrl && !match.matchId) return;
+            const timeoutId = setTimeout(() => controller.abort(), 35000);
+            try {
                 const params = new URLSearchParams();
                 if (match.matchUrl) params.set('matchUrl', match.matchUrl);
                 if (match.matchId) params.set('matchId', match.matchId);
@@ -119,25 +174,23 @@ const FlashscoreImport = ({ onMatchSelect, flashscoreData, setFlashscoreData }) 
                 clearTimeout(timeoutId);
                 const detailsData = await detailsResponse.json();
 
-                // Applica solo se questa è ancora la richiesta corrente
-                if (detailsData.status && detailsRequestRef.current.controller === controller) {
-                    const updatedData = {
-                        ...matchData,
-                        homeScorers: detailsData.homeGoals || [],
-                        awayScorers: detailsData.awayGoals || [],
-                    };
-                    if (onMatchSelect) {
-                        onMatchSelect(updatedData);
-                    }
+                if (detailsData.status && isCurrent()) {
+                    curHomeScorers = detailsData.homeGoals || [];
+                    curAwayScorers = detailsData.awayGoals || [];
+                    pushUpdate();
                 }
+            } catch (err) {
+                clearTimeout(timeoutId);
+                if (!isCurrent()) return; // superata da un click più recente
+                console.error('Error fetching match details:', err);
+                setError('⚠️ Marcatori non disponibili. Inseriscili manualmente.');
             }
-        } catch (err) {
-            // Richiesta superata da un click più recente: ignora in silenzio
-            if (detailsRequestRef.current.controller !== controller) return;
-            console.error('Error fetching match details:', err);
-            setError('⚠️ Marcatori non disponibili. Inseriscili manualmente.');
+        })();
+
+        try {
+            await Promise.all([logosPromise, detailsPromise]);
         } finally {
-            if (detailsRequestRef.current.controller === controller) {
+            if (isCurrent()) {
                 setLoadingDetails(false);
             }
         }

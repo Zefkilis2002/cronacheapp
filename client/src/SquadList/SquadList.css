@@ -1,0 +1,108 @@
+/* Input file nascosto + pulsante upload stilizzato (scoped alla sidebar Squad) */
+.squad-sidebar input[type="file"] {
+    display: none;
+}
+
+.squad-sidebar .file-upload-label {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #374151;
+    color: #d1d5db;
+    padding: 6px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.75rem;
+    font-weight: 600;
+    transition: all 0.2s;
+    border: 1px solid #4b5563;
+}
+
+.squad-sidebar .file-upload-label:hover {
+    background-color: #4b5563;
+    color: white;
+}
+
+/* Overrides per stili globali provenienti dagli altri componenti */
+.squad-sidebar input[type="text"],
+.squad-sidebar input[type="number"],
+.squad-sidebar select {
+    background-color: #111827 !important;
+    border: 1px solid #4b5563 !important;
+    border-radius: 0.25rem !important;
+    padding: 0.5rem 0.75rem !important;
+    color: white !important;
+    font-size: 0.875rem !important;
+    height: auto !important;
+    margin: 0 !important;
+    outline: none !important;
+    box-shadow: none !important;
+    text-align: left !important;
+}
+
+.squad-sidebar input[type="text"]:focus,
+.squad-sidebar input[type="number"]:focus,
+.squad-sidebar select:focus {
+    border-color: #10b981 !important;
+}
+
+/* Color picker */
+.squad-sidebar input[type="color"] {
+    -webkit-appearance: none;
+    appearance: none;
+    border: none;
+    width: 40px;
+    height: 40px;
+    border-radius: 6px;
+    cursor: pointer;
+    padding: 0;
+}
+
+.squad-sidebar input[type="color"]::-webkit-color-swatch-wrapper {
+    padding: 0;
+}
+
+.squad-sidebar input[type="color"]::-webkit-color-swatch {
+    border: 2px solid #4b5563;
+    border-radius: 6px;
+}
+
+/* Scrollbar */
+.squad-sidebar::-webkit-scrollbar,
+.squad-main::-webkit-scrollbar {
+    width: 8px;
+}
+
+.squad-sidebar::-webkit-scrollbar-track {
+    background: #1f2937;
+}
+
+.squad-main::-webkit-scrollbar-track {
+    background: #050505;
+}
+
+.squad-sidebar::-webkit-scrollbar-thumb,
+.squad-main::-webkit-scrollbar-thumb {
+    background: #4b5563;
+    border-radius: 4px;
+}
+
+/* Bottoni stelle nel pannello controlli */
+.squad-star-btn {
+    background: none;
+    border: none;
+    padding: 0 2px;
+    cursor: pointer;
+    font-size: 1.05rem;
+    line-height: 1;
+    color: #4b5563;
+    transition: color 0.15s;
+}
+
+.squad-star-btn.active {
+    color: #fbbf24;
+}
+
+.squad-star-btn:hover {
+    color: #fcd34d;
+}

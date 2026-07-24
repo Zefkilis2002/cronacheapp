@@ -1,7 +1,8 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState } from 'react';
 import * as htmlToImage from 'html-to-image';
 import LineUpPoster from './LineUpPoster';
 import { saveImage } from '../utils/saveImage';
+import { usePosterScale } from '../utils/usePosterScale';
 import './LineUp.css';
 
 const formationsData = {
@@ -169,40 +170,8 @@ const LineUp = () => {
     const [decoLeftSrc, setDecoLeftSrc] = useState(null);
 
     // Scala del poster: riempie la larghezza disponibile senza mai superare
-    // la dimensione di design (1 = desktop). Parte già da una stima basata
-    // sulla larghezza dello schermo così nemmeno il primo paint sborda
-    const previewAreaRef = useRef(null);
-    const [posterScale, setPosterScale] = useState(() =>
-        Math.min(1, (window.innerWidth - 16) / POSTER_WIDTH)
-    );
-
-    // useLayoutEffect: misura e corregge la scala PRIMA che il browser
-    // disegni, così su mobile non appare mai il poster a dimensione piena
-    React.useLayoutEffect(() => {
-        const el = previewAreaRef.current;
-        if (!el) return;
-
-        const compute = () => {
-            const styles = window.getComputedStyle(el);
-            const availWidth = el.clientWidth
-                - parseFloat(styles.paddingLeft)
-                - parseFloat(styles.paddingRight);
-            if (availWidth > 0) {
-                setPosterScale(Math.min(1, availWidth / POSTER_WIDTH));
-            }
-        };
-
-        compute();
-        const resizeObserver = new ResizeObserver(compute);
-        resizeObserver.observe(el);
-        window.addEventListener('resize', compute);
-        window.addEventListener('orientationchange', compute);
-        return () => {
-            resizeObserver.disconnect();
-            window.removeEventListener('resize', compute);
-            window.removeEventListener('orientationchange', compute);
-        };
-    }, []);
+    // la dimensione di design (1 = desktop)
+    const [previewAreaRef, posterScale] = usePosterScale(POSTER_WIDTH);
 
     // Initial state setup for players
     const [players, setPlayers] = useState(() => {
