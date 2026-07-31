@@ -481,7 +481,7 @@ app.get('/api/get-matches', async (req, res) => {
         const matches = await getRecentMatches({ country, league, daysBack: days });
         return { status: true, matches, count: matches.length };
       },
-      { softTTL: 180, hardTTL: 1800 } // 3 min fresh, 30 min stale max
+      { softTTL: 60, hardTTL: 1800 } // 1 min fresh, 30 min stale max — risultati "live" appena finita la partita
     );
 
     clearTimeout(timeout);

@@ -136,6 +136,14 @@ const FlashscoreImport = ({ onMatchSelect, flashscoreData, setFlashscoreData }) 
                 awayTeam: match.awayTeam,
                 homeScore: parseInt(match.homeScore) || 0,
                 awayScore: parseInt(match.awayScore) || 0,
+                // Partita finita ai rigori: spunta la casella e imposta il
+                // punteggio dello shootout. Passiamo SEMPRE il flag (anche false)
+                // così cambiando partita la casella si ripristina correttamente.
+                isPenaltyMatch: !!match.isPenaltyMatch,
+                ...(match.isPenaltyMatch ? {
+                    penaltiesScore1: parseInt(match.penaltiesScore1) || 0,
+                    penaltiesScore2: parseInt(match.penaltiesScore2) || 0,
+                } : {}),
                 tabellino: comp.tabellino,
                 homeLogo: curHomeLogo,
                 awayLogo: curAwayLogo,
@@ -265,6 +273,11 @@ const FlashscoreImport = ({ onMatchSelect, flashscoreData, setFlashscoreData }) 
                                     <span className="flashscore-team home">{match.homeTeam}</span>
                                     <span className="flashscore-match-score">
                                         {match.homeScore} - {match.awayScore}
+                                        {match.isPenaltyMatch && (
+                                            <span className="flashscore-match-pens">
+                                                {' '}dcr {match.penaltiesScore1}-{match.penaltiesScore2}
+                                            </span>
+                                        )}
                                     </span>
                                     <span className="flashscore-team away">{match.awayTeam}</span>
                                 </div>

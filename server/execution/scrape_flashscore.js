@@ -387,6 +387,16 @@ function parseMatchesIntermediate(rawData) {
                     awayTeam: '',
                     homeScore: '',
                     awayScore: '',
+                    // Punteggio a fine tempi (regolamentari + supplementari), PRIMA
+                    // dell'eventuale shootout. Per le partite ai rigori è il vero
+                    // risultato di parità (es. 1-1), mentre AG/AH aggiunge +1 al
+                    // vincitore dei rigori (bug segnalato).
+                    homeScoreReg: '',
+                    awayScoreReg: '',
+                    // Punteggio dei calci di rigore (shootout), se presente.
+                    homePenalties: '',
+                    awayPenalties: '',
+                    status: '',
                     matchUrl: '',
                 };
                 continue;
@@ -414,9 +424,13 @@ function parseMatchesIntermediate(rawData) {
                 case 'AF': currentMatch.awayTeam = value; break;
                 case 'AG': currentMatch.homeScore = value; break;
                 case 'AH': currentMatch.awayScore = value; break;
-                case 'AE': {
-                    // Status del match: trascuriamo partite non finite
-                    // AE contiene codici come "3" (finito), "1" (non iniziato), etc.
+                case 'AT': currentMatch.homeScoreReg = value; break;
+                case 'AU': currentMatch.awayScoreReg = value; break;
+                case 'RPA': currentMatch.homePenalties = value; break;
+                case 'RPB': currentMatch.awayPenalties = value; break;
+                case 'AC': {
+                    // Stato del match. Codici rilevanti: 3 = finito,
+                    // 10 = finito dopo i supplementari, 11 = finito ai rigori.
                     currentMatch.status = value;
                     break;
                 }
@@ -455,15 +469,34 @@ function finalizeMatches(matches, daysBack = 365) {
             if (!b.parsedDate) return -1;
             return b.parsedDate - a.parsedDate;
         })
-        .map(m => ({
-            date: m.dateStr,
-            homeTeam: m.homeTeam,
-            awayTeam: m.awayTeam,
-            homeScore: m.homeScore,
-            awayScore: m.awayScore,
-            matchUrl: '',
-            matchId: m.matchId,
-        }));
+        .map(m => {
+            // Partita decisa ai calci di rigore (status 11): Flashscore in AG/AH
+            // aggiunge +1 al vincitore dello shootout. Il risultato reale è la
+            // parità di fine tempi in AT/AU, e il punteggio dei rigori è RPA/RPB.
+            const isPenaltyMatch = m.status === '11';
+
+            let homeScore = m.homeScore;
+            let awayScore = m.awayScore;
+            const out = {
+                date: m.dateStr,
+                homeTeam: m.homeTeam,
+                awayTeam: m.awayTeam,
+                matchUrl: '',
+                matchId: m.matchId,
+                isPenaltyMatch,
+            };
+
+            if (isPenaltyMatch) {
+                if (m.homeScoreReg !== '') homeScore = m.homeScoreReg;
+                if (m.awayScoreReg !== '') awayScore = m.awayScoreReg;
+                out.penaltiesScore1 = parseInt(m.homePenalties) || 0;
+                out.penaltiesScore2 = parseInt(m.awayPenalties) || 0;
+            }
+
+            out.homeScore = homeScore;
+            out.awayScore = awayScore;
+            return out;
+        });
 }
 
 function parseMatchesFromRawData(rawData, daysBack = 365) {
@@ -542,20 +575,92 @@ function extractEmbeddedFeed(html, feedName = 'summary-results') {
 }
 
 /**
- * Scarica una pagina risultati e ne estrae le partite dal feed embedded.
+ * Numero di pagine del feed live risultati da scaricare (pagina 1 = più recenti).
+ * Poche pagine bastano per la freschezza: lo storico arriva dal feed embedded.
+ */
+const LIVE_FEED_PAGES = 3;
+
+/**
+ * Estrae dagli ID statici della pagina i parametri per costruire l'URL del
+ * feed live risultati (t_...). Sono valori fissi per competizione (non cambiano
+ * a partita finita), quindi vanno bene anche da un HTML servito dalla cache CDN.
+ *   country_id (ZB nel feed)          → id nazione/categoria
+ *   tournamentTemplateId (ZEE)        → id template torneo (usato dal feed t_)
+ */
+function extractFeedIds(html) {
+    const countryId = (html.match(/country_id\s*=\s*(\d+)/) || [])[1]
+        || (html.match(/ZB\xF7(\d+)/) || [])[1];
+    const templateId = (html.match(/tournamentTemplateId:\s*"([^"]+)"/) || [])[1]
+        || (html.match(/ZEE\xF7([A-Za-z0-9]+)/) || [])[1];
+    const projectId = (html.match(/projectId:\s*(\d+)/) || [])[1] || '6';
+    return { countryId, templateId, projectId };
+}
+
+/**
+ * Freschezza: il feed live `t_1_{countryId}_{templateId}_{page}_it_1` è servito
+ * con `no-cache, no-store` (age 0) — è la stessa sorgente che il sito usa per
+ * mostrare i risultati in tempo reale. Il feed embedded nell'HTML statico, invece,
+ * è uno snapshot congelato alla generazione della pagina e cacheato dal CDN (~5
+ * min): è la causa del ritardo di 10-15 min lamentato. Qui bypassiamo quella cache.
+ *
+ * Ritorna partite in formato intermedio, oppure [] se gli ID non sono estraibili
+ * (es. pagine /squadra/) così da ricadere sul feed embedded.
+ */
+async function getMatchesViaLiveFeed(html) {
+    const { countryId, templateId, projectId } = extractFeedIds(html);
+    if (!countryId || !templateId) return [];
+
+    const reqs = [];
+    for (let page = 1; page <= LIVE_FEED_PAGES; page++) {
+        const feedUrl = `https://${projectId}.flashscore.ninja/${projectId}/x/feed/t_1_${countryId}_${templateId}_${page}_it_1`;
+        reqs.push(
+            axios.get(feedUrl, {
+                headers: {
+                    'x-fsign': _fsign,
+                    'User-Agent': HTTP_USER_AGENT,
+                    'Referer': 'https://www.flashscore.it/',
+                    'Accept': '*/*',
+                    'Accept-Language': 'it-IT,it;q=0.9',
+                },
+                timeout: 10000,
+                responseType: 'text',
+            }).then(r => r.data).catch(() => '')
+        );
+    }
+
+    const bodies = await Promise.all(reqs);
+    const out = [];
+    for (const body of bodies) {
+        if (body && body.length > 50) out.push(...parseMatchesIntermediate(body));
+    }
+    return out;
+}
+
+/**
+ * Scarica una pagina risultati e ne estrae le partite.
+ * Sorgente primaria: feed live non-cachato (freschezza immediata a partita finita).
+ * Sorgente storica/fallback: feed embedded nell'HTML statico.
+ * Le due liste vengono unite con le live PRIMA, così a parità di matchId il
+ * dedupe (in finalizeMatches) tiene la versione live più fresca.
  * Ritorna partite in formato intermedio (con parsedDate, senza filtro/sort).
  */
 async function getMatchesViaHttp(pageUrl) {
     const t0 = Date.now();
     const html = await fetchStaticHtml(pageUrl);
-    const raw = extractEmbeddedFeed(html);
-    if (!raw) {
-        console.log(`[Flashscore HTTP] No embedded results in ${pageUrl} (${Date.now() - t0}ms)`);
-        return [];
+
+    let live = [];
+    try {
+        live = await getMatchesViaLiveFeed(html);
+    } catch (err) {
+        console.warn(`[Flashscore LIVE] feed failed for ${pageUrl}: ${err.message}`);
     }
-    const matches = parseMatchesIntermediate(raw);
-    console.log(`[Flashscore HTTP] ${matches.length} matches from ${pageUrl} in ${Date.now() - t0}ms`);
-    return matches;
+
+    const raw = extractEmbeddedFeed(html);
+    const embedded = raw ? parseMatchesIntermediate(raw) : [];
+
+    const combined = [...live, ...embedded];
+    console.log(`[Flashscore HTTP] ${pageUrl}: ${live.length} live + ${embedded.length} embedded in ${Date.now() - t0}ms`);
+    return combined;
 }
 
 /**

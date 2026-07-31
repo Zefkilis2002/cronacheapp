@@ -59,7 +59,19 @@
       "Bash(node crop.js)",
       "Bash(node decouple.js)",
       "Bash(node nav.js)",
-      "Bash(node squadjson.js)"
+      "Bash(node squadjson.js)",
+      "Bash(node lv2.js)",
+      "Bash(node lv2depth.js)",
+      "Bash(sed -i \"s/el.dispatchEvent\\(new Event\\('input', { bubbles: true }\\)\\);/el.dispatchEvent\\(new Event\\('input', { bubbles: true }\\)\\); el.dispatchEvent\\(new Event\\('change', { bubbles: true }\\)\\);/\" lv2depth.js)",
+      "Bash(sed 's#/lineupv2.png#/lineupv2b.png#' lv2.js)",
+      "Bash(node lv2b.js)",
+      "Bash(mkdir -p C:/Users/kozeu/AppData/Local/Temp/claude/F--cronacheapp/16722c3f-0fe3-4f0e-97dc-16af4d965217/scratchpad/LineupV2_backup)",
+      "Bash(cp -r F:/cronacheapp/client/src/LineupV2/. C:/Users/kozeu/AppData/Local/Temp/claude/F--cronacheapp/16722c3f-0fe3-4f0e-97dc-16af4d965217/scratchpad/LineupV2_backup/)",
+      "Bash(timeout 90 node -e ' *)",
+      "Bash(timeout 100 node -e ' *)",
+      "Bash(timeout 60 node -e ' *)",
+      "Bash(cd F:/cronacheapp && rm -f .tmp/feed_*.txt .tmp/tfeed.txt && git status --short | grep -v node_modules)",
+      "Bash(timeout 120 node -e ' *)"
     ]
   }
 }
