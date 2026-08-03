@@ -71,7 +71,16 @@
       "Bash(timeout 100 node -e ' *)",
       "Bash(timeout 60 node -e ' *)",
       "Bash(cd F:/cronacheapp && rm -f .tmp/feed_*.txt .tmp/tfeed.txt && git status --short | grep -v node_modules)",
-      "Bash(timeout 120 node -e ' *)"
+      "Bash(timeout 120 node -e ' *)",
+      "Bash(git push *)",
+      "Bash(curl -s http://localhost:3000)",
+      "Bash(npm install *)",
+      "Bash(curl -s \"http://localhost:3000/static/js/bundle.js\" -o /dev/null -w \"%{http_code}\")",
+      "Bash(npm uninstall *)",
+      "Bash(node -e \"console.log\\('tasks-vision', require\\('./node_modules/@mediapipe/tasks-vision/package.json'\\).version\\)\")",
+      "Bash(cp \"C:/Users/kozeu/.claude/uploads/05cda4e8-e8ed-466d-921d-aec6c5121431/820e13d4-IMG_1070.png\" \"F:/cronacheapp/client/public/__ref_measure.png\")",
+      "Bash(python -c \"from PIL import Image; im=Image.open\\('F:/cronacheapp/client/public/__ref_measure.png'\\); print\\('size', im.size\\)\")",
+      "Bash(python -)"
     ]
   }
 }

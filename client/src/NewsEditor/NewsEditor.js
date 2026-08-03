@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { useCanvasElements } from '../hooks/useCanvasElements';
 import { useTextEditor } from '../hooks/useTextEditor';
 import NewsCreator from '../components/NewsCreatorComp/NewsCreator/NewsCreator';
@@ -6,6 +6,7 @@ import ImagesSelector from '../components/NewsCreatorComp/ImagesSelector/ImagesS
 import CanvasNews from '../components/NewsCreatorComp/CanvasNews/CanvasNews';
 import ToolbarNews from '../components/NewsCreatorComp/ToolbarNews/ToolbarNews';
 import { applyAcrSportFilterToSrc, applyUpscaleFilterToSrc } from '../filters/acrSport';
+import { separateSubjectFromSrc, warmupSegmenter } from '../filters/subjectSeparation';
 import { saveImage } from '../utils/saveImage';
 import useImage from 'use-image';
 import '../fonts.css';
@@ -64,6 +65,14 @@ function NewsEditor() {
   const MOVE_STEP = 2;    // px
   const FONT_STEP = 2;    // px
 
+
+  // Precarica il modello di segmentazione quando si apre la scheda immagini,
+  // così la funzione "Soggetto / Sfondo" è già pronta al primo clic.
+  useEffect(() => {
+    if (activeTab === 'images') {
+      warmupSegmenter();
+    }
+  }, [activeTab]);
 
   const handleBackgroundChange = useCallback((e) => {
     setBackgroundImage(e.target.value);
@@ -150,6 +159,57 @@ function NewsEditor() {
     };
     setBackgroundImages(updated);
   }, [selectedBackground, backgroundImages, setBackgroundImages]);
+
+  // Separa il soggetto principale dallo sfondo creando due livelli distinti:
+  // il soggetto (in alto) e lo sfondo ricostruito (in basso), con le stesse
+  // trasformazioni dell'immagine originale così da restare perfettamente allineati.
+  const separateSubjectBackground = useCallback(async () => {
+    if (!selectedBackground) return;
+    const idx = backgroundImages.findIndex(i => i.id === selectedBackground);
+    if (idx < 0) return;
+    const item = backgroundImages[idx];
+    try {
+      setBusyFilter(true);
+      const { subject, background } = await separateSubjectFromSrc(item.originalSrc || item.src);
+
+      const now = Date.now();
+      const common = {
+        position: { ...item.position },
+        scale: { ...item.scale },
+        rotation: item.rotation || 0,
+        blurRadius: 0
+      };
+      const subjectEntry = {
+        ...common,
+        id: `bg-subj-${now}`,
+        src: subject.url,
+        originalSrc: subject.url,
+        _revoke: subject._revoke,
+        _layer: 'subject'
+      };
+      const backgroundEntry = {
+        ...common,
+        id: `bg-bgnd-${now}`,
+        src: background.url,
+        originalSrc: background.url,
+        blurRadius: item.blurRadius || 0,
+        _revoke: background._revoke,
+        _layer: 'background'
+      };
+
+      // Sostituisce l'immagine originale con [soggetto, sfondo].
+      // Indice più basso = livello più in alto -> il soggetto sta sopra lo sfondo.
+      const updated = [...backgroundImages];
+      updated.splice(idx, 1, subjectEntry, backgroundEntry);
+      setBackgroundImages(updated);
+      setSelectedBackground(subjectEntry.id);
+    } catch (err) {
+      console.error('Errore separazione soggetto/sfondo:', err);
+      alert('Impossibile separare il soggetto dallo sfondo per questa immagine.');
+    } finally {
+      setBusyFilter(false);
+    }
+  }, [selectedBackground, backgroundImages, setBackgroundImages, setSelectedBackground]);
 
   /*
   // Keyboard shortcuts: arrows to move selected, +/- to resize, Delete to remove
@@ -433,6 +493,7 @@ function NewsEditor() {
               onApplyAcrSport={applyAcrSportToSelectedBackground}
               onApplyUpscale={applyUpscaleToSelectedBackground}
               onRemoveAcrSport={removeFilterFromSelectedBackground}
+              onSeparateSubject={separateSubjectBackground}
               busyFilter={busyFilter}
               copiedTransform={copiedTransform}
               copyItemTransform={copyItemTransform}

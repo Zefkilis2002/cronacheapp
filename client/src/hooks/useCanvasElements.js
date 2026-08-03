@@ -58,10 +58,6 @@ export function useCanvasElements() {
 
     setLogos(prev => {
       const customId = customOptions?.id;
-      if (prev.length >= 8 && !customId) {
-        alert("Puoi caricare al massimo 8 loghi");
-        return prev;
-      }
 
       const objectUrl = URL.createObjectURL(file);
       blobUrlsRef.current.push(objectUrl);

@@ -19,6 +19,7 @@ function ImagesSelector({
   onApplyAcrSport,
   onApplyUpscale,
   onRemoveAcrSport,
+  onSeparateSubject,
   busyFilter,
   copiedTransform,
   copyItemTransform,
@@ -204,6 +205,18 @@ function ImagesSelector({
             style={{ borderColor: '#00ccff', color: '#00ccff' }}
           >
             {busyFilter ? '...' : 'Migliora HD'}
+          </button>
+        </div>
+
+        <div className="logo-actions-row" style={{ marginBottom: '15px' }}>
+          <button
+            className="logo-selector"
+            disabled={!selectedBackground || busyFilter}
+            onClick={onSeparateSubject}
+            title="Separa automaticamente il soggetto principale dallo sfondo creando due livelli distinti"
+            style={{ borderColor: '#ff9500', color: '#ff9500' }}
+          >
+            {busyFilter ? '...' : '✂ Soggetto / Sfondo'}
           </button>
         </div>
 
@@ -408,7 +421,7 @@ function ImagesSelector({
           </div>
         )}
 
-        <h3>Loghi (max 8):</h3>
+        <h3>Loghi:</h3>
 
         {/* Buttons Row */}
         <div className="logo-actions-row">
@@ -428,7 +441,6 @@ function ImagesSelector({
               handleLogoUpload(e, options);
             }}
             className="file-input"
-            disabled={logos.length >= 8}
             id="logo-upload"
             style={{ display: 'none' }}
           />
@@ -442,7 +454,6 @@ function ImagesSelector({
               setLogoSearchOptions(null);
               setShowLogoSearch(true);
             }}
-            disabled={logos.length >= 8}
           >
             Cerca web
           </button>

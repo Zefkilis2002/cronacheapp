@@ -8,6 +8,7 @@ import Classifica from "./Classifica/Classifica";
 import LineUp from "./LineUp/LineUp";
 import SquadList from "./SquadList/SquadList";
 import KeyPlayers from "./KeyPlayers/KeyPlayers";
+import PlayerStats from "./PlayerStats/PlayerStats";
 import LeagueHistory from "./LeagueHistory/LeagueHistory";
 import { startServerKeepAlive } from "./utils/serverWarmup";
 import "./App.css";
@@ -33,6 +34,7 @@ function App() {
           <Route path="/lineup" element={<LineUp />} />
           <Route path="/squad" element={<SquadList />} />
           <Route path="/keyplayers" element={<KeyPlayers />} />
+          <Route path="/player-stats" element={<PlayerStats />} />
           <Route path="/campionati" element={<LeagueHistory />} />
         </Routes>
       </div>

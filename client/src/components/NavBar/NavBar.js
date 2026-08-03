@@ -55,6 +55,7 @@ const NavBar = () => {
             <li><Link to="/lineup" onClick={closeAll}>LineUp</Link></li>
             <li><Link to="/squad" onClick={closeAll}>Squad</Link></li>
             <li><Link to="/keyplayers" onClick={closeAll}>Key Players</Link></li>
+            <li><Link to="/player-stats" onClick={closeAll}>Player Stats</Link></li>
             <li><Link to="/campionati" onClick={closeAll}>Campionati</Link></li>
           </ul>
         </li>

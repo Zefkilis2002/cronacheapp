@@ -1,0 +1,152 @@
+/* ============================================================
+   PlayerStatsPoster.css — card statistiche giocatore
+   Dimensioni di design fisse 1440x1800: l'anteprima viene
+   riscalata via transform dal wrapper in PlayerStats.js
+   ============================================================ */
+
+.ps-poster {
+    width: 1440px;
+    height: 1800px;
+    position: relative;
+    overflow: hidden;
+    background: #0a0a0a;
+    font-family: 'Benzin-ExtraBold', 'Poppins', system-ui, sans-serif;
+    box-shadow:
+        0 25px 50px -12px rgba(0, 0, 0, 0.7),
+        0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+/* --- Foto a tutto campo --- */
+.ps-photo-wrap {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    z-index: 1;
+}
+
+.ps-photo {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    user-select: none;
+}
+
+.ps-photo-placeholder {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background:
+        radial-gradient(120% 90% at 50% 20%, #1f2937 0%, #0a0a0a 75%);
+}
+
+.ps-photo-placeholder svg {
+    width: 46%;
+    height: 46%;
+    opacity: 0.25;
+}
+
+/* Sfumatura scura in basso per la leggibilità di nome e statistiche */
+.ps-bottom-fade {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    pointer-events: none;
+}
+
+/* Logo brand in alto a destra */
+.ps-brand {
+    position: absolute;
+    top: 22px;
+    right: 14px;
+    z-index: 10;
+}
+
+.ps-brand img {
+    max-height: 104px;
+    max-width: 160px;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    display: block;
+    filter: drop-shadow(0 3px 8px rgba(0, 0, 0, 0.5));
+}
+
+/* --- Contenuto in basso: nome + statistiche --- */
+.ps-content {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 96px;
+    z-index: 5;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 0 60px;
+}
+
+.ps-name {
+    font-family: 'Benzin-ExtraBold', 'Kuunari-Black-Condensed', Impact, sans-serif;
+    font-size: 168px;
+    line-height: 0.92;
+    color: #ffffff;
+    text-transform: uppercase;
+    letter-spacing: -1px;
+    text-align: center;
+    white-space: nowrap;
+    text-shadow: 0 8px 22px rgba(0, 0, 0, 0.55);
+    margin-bottom: 60px;
+}
+
+.ps-stats {
+    display: flex;
+    flex-direction: row;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 58px;
+}
+
+/* Colonna a larghezza fissa del riquadro: l'etichetta (più larga) sfora
+   centrata senza allargare la colonna, così i riquadri restano a 58px di gap */
+.ps-stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 250px;
+}
+
+.ps-stat-box {
+    width: 250px;
+    height: 250px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    font-family: 'Benzin-ExtraBold', Impact, sans-serif;
+    font-size: 176px;
+    line-height: 1;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.22);
+}
+
+.ps-stat-box span {
+    display: block;
+    transform: translateY(-6px);
+}
+
+.ps-stat-label {
+    margin-top: 38px;
+    font-family: 'Benzin-ExtraBold', 'Poppins', sans-serif;
+    font-size: 60px;
+    line-height: 1;
+    color: #ffffff;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    text-shadow: 0 3px 10px rgba(0, 0, 0, 0.5);
+    text-align: center;
+    white-space: nowrap;
+}
