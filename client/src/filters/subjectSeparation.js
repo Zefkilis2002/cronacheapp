@@ -196,6 +196,39 @@ function smoothstep(e0, e1, x) {
   return t * t * (3 - 2 * t);
 }
 
+// --------------------------- GUIDED FILTER (edge-aware matting) ---------------------------
+// Rifinisce una maschera morbida `p` usando l'immagine guida `I` (stessa
+// dimensione, valori 0..1): l'alpha viene "agganciata" ai contorni reali
+// dell'immagine, trasformando bordi sfocati da upsampling in bordi netti.
+// Riferimento: He, Sun, Tang - "Guided Image Filtering".
+function guidedFilter(I, p, w, h, radius, eps) {
+  const N = w * h;
+  const meanI = boxBlur(I, w, h, radius);
+  const meanP = boxBlur(p, w, h, radius);
+  const Ip = new Float32Array(N);
+  const II = new Float32Array(N);
+  for (let i = 0; i < N; i++) { Ip[i] = I[i] * p[i]; II[i] = I[i] * I[i]; }
+  const meanIp = boxBlur(Ip, w, h, radius);
+  const meanII = boxBlur(II, w, h, radius);
+  const a = new Float32Array(N);
+  const b = new Float32Array(N);
+  for (let i = 0; i < N; i++) {
+    const varI = meanII[i] - meanI[i] * meanI[i];
+    const covIp = meanIp[i] - meanI[i] * meanP[i];
+    const ai = covIp / (varI + eps);
+    a[i] = ai;
+    b[i] = meanP[i] - ai * meanI[i];
+  }
+  const meanA = boxBlur(a, w, h, radius);
+  const meanB = boxBlur(b, w, h, radius);
+  const q = new Float32Array(N);
+  for (let i = 0; i < N; i++) {
+    const v = meanA[i] * I[i] + meanB[i];
+    q[i] = v < 0 ? 0 : v > 1 ? 1 : v;
+  }
+  return q;
+}
+
 // --------------------------- PIPELINE PRINCIPALE ---------------------------
 
 export async function separateSubjectFromSrc(src) {
@@ -220,39 +253,50 @@ export async function separateSubjectFromSrc(src) {
   if (seg.confidenceMasks) seg.confidenceMasks.forEach(m => m.close());
   if (seg.categoryMask) seg.categoryMask.close();
 
-  // 2) Alpha morbida dalla probabilità + leggero feather.
-  const alphaArr = new Float32Array(mw * mh);
+  // 2) Probabilità grezza portata a piena risoluzione di lavoro
+  //    (upsampling bilineare della maschera 256px).
+  const probMaskCanvas = makeCanvas(mw, mh);
+  {
+    const pmCtx = probMaskCanvas.getContext('2d');
+    const pmImg = pmCtx.createImageData(mw, mh);
+    for (let p = 0; p < mw * mh; p++) {
+      const v = prob[p] * 255;
+      pmImg.data[p * 4] = v; pmImg.data[p * 4 + 1] = v; pmImg.data[p * 4 + 2] = v; pmImg.data[p * 4 + 3] = 255;
+    }
+    pmCtx.putImageData(pmImg, 0, 0);
+  }
+  const probUpCanvas = makeCanvas(W, H);
+  const puCtx = probUpCanvas.getContext('2d', { willReadFrequently: true });
+  puCtx.imageSmoothingEnabled = true;
+  puCtx.drawImage(probMaskCanvas, 0, 0, W, H);
+  const probUpData = puCtx.getImageData(0, 0, W, H).data;
+  const probFull = new Float32Array(W * H);
+  for (let p = 0; p < W * H; p++) probFull[p] = probUpData[p * 4] / 255;
+
+  // 3) Rifinitura dei bordi con GUIDED FILTER: la maschera viene agganciata ai
+  //    contorni reali dell'immagine (luminanza) -> bordi netti e ben definiti
+  //    invece dell'alone morbido prodotto dal semplice upsampling.
+  const guide = new Float32Array(W * H);
+  const wd = workData.data;
+  for (let p = 0; p < W * H; p++) {
+    guide[p] = (0.299 * wd[p * 4] + 0.587 * wd[p * 4 + 1] + 0.114 * wd[p * 4 + 2]) / 255;
+  }
+  const gfRadius = Math.max(2, Math.round(Math.min(W, H) * 0.01));
+  const refined = guidedFilter(guide, probFull, W, H, gfRadius, 1e-4);
+
+  // 4) Curva alpha netta (banda stretta) + micro-feather anti-alias.
+  const alphaArr = new Float32Array(W * H);
   let fgCount = 0;
-  for (let p = 0; p < mw * mh; p++) {
-    alphaArr[p] = smoothstep(0.35, 0.65, prob[p]) * 255;
-    if (prob[p] > 0.5) fgCount++;
+  for (let p = 0; p < W * H; p++) {
+    const r0 = refined[p];
+    alphaArr[p] = smoothstep(0.45, 0.62, r0) * 255;
+    if (r0 > 0.5) fgCount++;
   }
   if (fgCount === 0) throw new Error('Nessun soggetto rilevato nell\'immagine.');
-  const featherR = Math.max(1, Math.round(Math.min(mw, mh) * 0.006));
-  const alphaBlur = boxBlur(alphaArr, mw, mh, featherR);
+  const featherR = Math.max(1, Math.round(Math.min(W, H) * 0.0022));
+  const alpha = boxBlur(alphaArr, W, H, featherR); // Float32 (0..255), canale singolo
 
-  // Alpha allineata alla risoluzione di lavoro (mask upsampling via canvas).
-  const alphaMaskCanvas = makeCanvas(mw, mh);
-  const amCtx = alphaMaskCanvas.getContext('2d');
-  const amImg = amCtx.createImageData(mw, mh);
-  for (let p = 0; p < mw * mh; p++) {
-    const a = alphaBlur[p];
-    amImg.data[p * 4] = a; amImg.data[p * 4 + 1] = a; amImg.data[p * 4 + 2] = a; amImg.data[p * 4 + 3] = 255;
-  }
-  amCtx.putImageData(amImg, 0, 0);
-  const alphaCanvas = makeCanvas(W, H);
-  const aCtx = alphaCanvas.getContext('2d', { willReadFrequently: true });
-  aCtx.imageSmoothingEnabled = true;
-  aCtx.drawImage(alphaMaskCanvas, 0, 0, W, H);
-  const alpha = aCtx.getImageData(0, 0, W, H).data;
-
-  // 3) LIVELLO SOGGETTO: RGB di lavoro + alpha.
-  const subjData = new Uint8ClampedArray(workData.data);
-  for (let p = 0; p < W * H; p++) subjData[p * 4 + 3] = alpha[p * 4];
-  const subjectCanvas = makeCanvas(W, H);
-  subjectCanvas.getContext('2d').putImageData(new ImageData(subjData, W, H), 0, 0);
-
-  // 4) LIVELLO SFONDO: immagine di lavoro con l'area del soggetto ricostruita.
+  // 5) LIVELLO SFONDO ricostruito (inpainting sull'area del soggetto).
   const iScale = Math.min(1, INP_MAX / Math.max(W, H));
   const iw = Math.max(1, Math.round(W * iScale));
   const ih = Math.max(1, Math.round(H * iScale));
@@ -271,14 +315,35 @@ export async function separateSubjectFromSrc(src) {
   ffCtx.drawImage(fillCanvas, 0, 0, W, H);
   const fillFullData = ffCtx.getImageData(0, 0, W, H).data;
 
+  // 6) LIVELLO SOGGETTO: RGB + alpha, con DECONTAMINAZIONE del colore ai bordi.
+  //    I pixel semi-trasparenti sono una miscela soggetto/sfondo: stimiamo il
+  //    colore puro del soggetto F = (C - (1-a)*B) / a usando lo sfondo ricostruito
+  //    come B, così sparisce l'alone colorato lungo i contorni.
+  const subjData = new Uint8ClampedArray(workData.data);
+  for (let p = 0; p < W * H; p++) {
+    const a255 = alpha[p];
+    subjData[p * 4 + 3] = a255;
+    const a = a255 / 255;
+    if (a > 0.04 && a < 0.97) {
+      const inv = 1 - a;
+      subjData[p * 4]     = (subjData[p * 4]     - inv * fillFullData[p * 4])     / a;
+      subjData[p * 4 + 1] = (subjData[p * 4 + 1] - inv * fillFullData[p * 4 + 1]) / a;
+      subjData[p * 4 + 2] = (subjData[p * 4 + 2] - inv * fillFullData[p * 4 + 2]) / a;
+    }
+  }
+  const subjectCanvas = makeCanvas(W, H);
+  subjectCanvas.getContext('2d').putImageData(new ImageData(subjData, W, H), 0, 0);
+
+  // 7) LIVELLO SFONDO finale: originale con l'area del soggetto sostituita dal fill.
   const bgCanvas = makeCanvas(W, H);
   const bgData = new Uint8ClampedArray(workData.data);
   for (let p = 0; p < W * H; p++) {
-    const a = alpha[p * 4] / 255; // 1 = soggetto -> usa il riempimento
+    const a = alpha[p] / 255; // 1 = soggetto -> usa il riempimento
     if (a > 0.01) {
-      bgData[p * 4]     = bgData[p * 4]     * (1 - a) + fillFullData[p * 4]     * a;
-      bgData[p * 4 + 1] = bgData[p * 4 + 1] * (1 - a) + fillFullData[p * 4 + 1] * a;
-      bgData[p * 4 + 2] = bgData[p * 4 + 2] * (1 - a) + fillFullData[p * 4 + 2] * a;
+      const inv = 1 - a;
+      bgData[p * 4]     = bgData[p * 4]     * inv + fillFullData[p * 4]     * a;
+      bgData[p * 4 + 1] = bgData[p * 4 + 1] * inv + fillFullData[p * 4 + 1] * a;
+      bgData[p * 4 + 2] = bgData[p * 4 + 2] * inv + fillFullData[p * 4 + 2] * a;
     }
     bgData[p * 4 + 3] = 255;
   }
