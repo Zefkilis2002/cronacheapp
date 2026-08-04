@@ -284,17 +284,18 @@ export async function separateSubjectFromSrc(src) {
   const gfRadius = Math.max(2, Math.round(Math.min(W, H) * 0.01));
   const refined = guidedFilter(guide, probFull, W, H, gfRadius, 1e-4);
 
-  // 4) Curva alpha netta (banda stretta) + micro-feather anti-alias.
+  // 4) Curva alpha netta e leggermente interna: il taglio cade appena dentro il
+  //    soggetto, così sparisce l'alone chiaro sullo sfondo. Solo un micro-feather
+  //    di 1px per l'anti-alias (un feather ampio ricreerebbe la fascia sfumata).
   const alphaArr = new Float32Array(W * H);
   let fgCount = 0;
   for (let p = 0; p < W * H; p++) {
     const r0 = refined[p];
-    alphaArr[p] = smoothstep(0.45, 0.62, r0) * 255;
+    alphaArr[p] = smoothstep(0.52, 0.60, r0) * 255;
     if (r0 > 0.5) fgCount++;
   }
   if (fgCount === 0) throw new Error('Nessun soggetto rilevato nell\'immagine.');
-  const featherR = Math.max(1, Math.round(Math.min(W, H) * 0.0022));
-  const alpha = boxBlur(alphaArr, W, H, featherR); // Float32 (0..255), canale singolo
+  const alpha = boxBlur(alphaArr, W, H, 1); // Float32 (0..255), canale singolo
 
   // 5) LIVELLO SFONDO ricostruito (inpainting sull'area del soggetto).
   const iScale = Math.min(1, INP_MAX / Math.max(W, H));
@@ -324,7 +325,9 @@ export async function separateSubjectFromSrc(src) {
     const a255 = alpha[p];
     subjData[p * 4 + 3] = a255;
     const a = a255 / 255;
-    if (a > 0.04 && a < 0.97) {
+    // Solo sui bordi abbastanza opachi: su pixel molto trasparenti la formula
+    // dividerebbe per un valore minuscolo amplificando la luminosità (alone).
+    if (a > 0.35 && a < 0.95) {
       const inv = 1 - a;
       subjData[p * 4]     = (subjData[p * 4]     - inv * fillFullData[p * 4])     / a;
       subjData[p * 4 + 1] = (subjData[p * 4 + 1] - inv * fillFullData[p * 4 + 1]) / a;
