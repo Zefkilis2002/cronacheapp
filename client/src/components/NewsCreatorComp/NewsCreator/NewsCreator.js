@@ -85,15 +85,40 @@ function NewsCreator({
               <option value="/sfondoNotizie/vuoto.png">Vuoto</option>
             </select>
           </div>
-          <div className="checkbox-container">
-            <label className="checkbox-label">
-              <input
-                type="checkbox"
-                checked={!!textAboveImages}
-                onChange={(e) => setTextAboveImages(e.target.checked)}
-              />
-              Testo sopra immagini e loghi
-            </label>
+          <div className="layer-order-field">
+            <label className="layer-order-title">Livelli — posizione del testo</label>
+            <div className="layer-toggle" role="group" aria-label="Ordine dei livelli">
+              <button
+                type="button"
+                className={`layer-toggle-btn ${textAboveImages ? 'is-active' : ''}`}
+                aria-pressed={!!textAboveImages}
+                onClick={() => setTextAboveImages(true)}
+              >
+                <span className="layer-toggle-stack" aria-hidden="true">
+                  <span className="layer-chip layer-chip--text">Aa</span>
+                  <span className="layer-chip layer-chip--img"></span>
+                </span>
+                <span className="layer-toggle-labels">
+                  <span className="layer-toggle-main">Testo sopra</span>
+                  <span className="layer-toggle-hint">davanti a immagini e loghi</span>
+                </span>
+              </button>
+              <button
+                type="button"
+                className={`layer-toggle-btn ${!textAboveImages ? 'is-active' : ''}`}
+                aria-pressed={!textAboveImages}
+                onClick={() => setTextAboveImages(false)}
+              >
+                <span className="layer-toggle-stack" aria-hidden="true">
+                  <span className="layer-chip layer-chip--img"></span>
+                  <span className="layer-chip layer-chip--text">Aa</span>
+                </span>
+                <span className="layer-toggle-labels">
+                  <span className="layer-toggle-main">Testo sotto</span>
+                  <span className="layer-toggle-hint">dietro immagini e loghi</span>
+                </span>
+              </button>
+            </div>
           </div>
         </div>
       </div>

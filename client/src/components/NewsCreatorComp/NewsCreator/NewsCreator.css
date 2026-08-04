@@ -50,32 +50,137 @@
   margin-bottom: 0.5rem;
 }
 
-/* Checkbox Style */
-.checkbox-container {
+/* Layer Order Toggle (chi sta sopra / sotto) */
+.layer-order-field {
   display: flex;
-  align-items: center;
-  height: 100%;
-  padding-top: 2rem;
-  /* Allinea col selettore */
-}
-
-.checkbox-label {
-  display: flex;
-  align-items: center;
+  flex-direction: column;
   gap: 0.5rem;
-  cursor: pointer;
-  color: #fff !important;
-  font-weight: normal !important;
+  min-width: 0;
 }
 
-.checkbox-label input[type="checkbox"] {
-  width: 20px;
-  height: 20px;
-  accent-color: #b4ff00;
-  background-color: #2a2a3c;
-  border: 2px solid #b4ff00;
-  border-radius: 4px;
+.layer-order-title {
+  display: block;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #b4ff00 !important;
+  margin-bottom: 0.5rem;
+}
+
+.layer-toggle {
+  display: flex;
+  gap: 0.5rem;
+  background: #2a2a3c;
+  border: 2px solid #3a3a4c;
+  border-radius: 14px;
+  padding: 6px;
+  box-sizing: border-box;
+}
+
+.layer-toggle-btn {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.7rem 0.8rem;
+  min-height: 56px;
+  border: 2px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  color: #cfcfe0;
   cursor: pointer;
+  text-align: left;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.layer-toggle-btn:hover {
+  border-color: rgba(180, 255, 0, 0.4);
+}
+
+.layer-toggle-btn.is-active {
+  background: #b4ff00;
+  color: #00061b;
+  border-color: #b4ff00;
+  box-shadow: 0 4px 12px rgba(180, 255, 0, 0.25);
+}
+
+/* Mini illustrazione dell'impilamento dei livelli */
+.layer-toggle-stack {
+  position: relative;
+  flex: 0 0 auto;
+  width: 30px;
+  height: 34px;
+}
+
+.layer-chip {
+  position: absolute;
+  left: 0;
+  width: 26px;
+  height: 20px;
+  border-radius: 5px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.layer-chip--img {
+  background: #6b6b85;
+  border: 1px solid #8a8aa5;
+}
+
+.layer-chip--text {
+  background: #1e1e2d;
+  border: 1px solid #b4ff00;
+  color: #b4ff00;
+}
+
+.layer-toggle-btn.is-active .layer-chip--img {
+  background: #00061b;
+  border-color: #00061b;
+}
+
+.layer-toggle-btn.is-active .layer-chip--text {
+  background: #ffffff;
+  border-color: #00061b;
+  color: #00061b;
+}
+
+/* Primo chip in alto, secondo in basso e leggermente spostato per dare profondità */
+.layer-toggle-stack .layer-chip:first-child {
+  top: 0;
+  left: 0;
+  z-index: 2;
+}
+
+.layer-toggle-stack .layer-chip:last-child {
+  top: 13px;
+  left: 4px;
+  z-index: 1;
+}
+
+.layer-toggle-labels {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.15;
+}
+
+.layer-toggle-main {
+  font-size: 0.98rem;
+  font-weight: 700;
+}
+
+.layer-toggle-hint {
+  font-size: 0.72rem;
+  opacity: 0.75;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Inputs comuni */
@@ -293,9 +398,17 @@
     box-sizing: border-box !important;
   }
 
-  .checkbox-container {
-    padding-top: 0;
-    margin-bottom: 1rem;
+  .layer-order-field {
+    margin-bottom: 0.5rem;
+  }
+
+  .layer-toggle-btn {
+    min-height: 60px;
+    padding: 0.7rem 0.7rem;
+  }
+
+  .layer-toggle-hint {
+    white-space: normal;
   }
 
   .row {
