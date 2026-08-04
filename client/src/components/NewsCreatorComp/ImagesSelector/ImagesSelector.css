@@ -568,3 +568,89 @@
     background: #b4ff00;
     color: #00061b;
 }
+
+/* ===== Riordino livelli con tap (mobile-friendly) ===== */
+/* Miniature un filo più grandi per ospitare i comandi e restare toccabili */
+.thumbnails-container .thumbnail {
+    width: 72px;
+    height: 72px;
+}
+
+/* Numero del livello spostato in alto a sinistra per non coprire i comandi */
+.thumbnails-container .thumbnail .level-indicator {
+    top: 2px;
+    bottom: auto;
+    left: 2px;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+/* Barra comandi in basso: ▲ porta sopra / ▼ porta sotto */
+.layer-reorder {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    height: 26px;
+    background: rgba(0, 0, 0, 0.55);
+}
+
+.layer-reorder-btn {
+    flex: 1;
+    min-width: 0;
+    border: none;
+    background: transparent;
+    color: #b4ff00;
+    font-size: 13px;
+    line-height: 1;
+    padding: 0;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    -webkit-tap-highlight-color: transparent;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.layer-reorder-btn:first-child {
+    border-right: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+.layer-reorder-btn:hover:not(:disabled) {
+    background: rgba(180, 255, 0, 0.3);
+    color: #fff;
+}
+
+.layer-reorder-btn:active:not(:disabled) {
+    background: #b4ff00;
+    color: #00061b;
+}
+
+.layer-reorder-btn:disabled {
+    color: #5a5a5a;
+    cursor: default;
+}
+
+/* Su mobile miniature e comandi restano ampi e toccabili */
+@media (max-width: 768px) {
+    .thumbnails-container .thumbnail {
+        width: 76px;
+        height: 76px;
+    }
+
+    .layer-reorder {
+        height: 30px;
+    }
+
+    .layer-reorder-btn {
+        font-size: 15px;
+    }
+}
+
+@media (max-width: 480px) {
+    .thumbnails-container .thumbnail {
+        width: 70px;
+        height: 70px;
+    }
+}

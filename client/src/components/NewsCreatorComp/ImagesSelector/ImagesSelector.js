@@ -74,6 +74,17 @@ function ImagesSelector({
     dragOverItem.current = null;
   };
 
+  // Riordino livelli con un tap (mobile-friendly).
+  // Nel canvas l'array viene reso al contrario: indice 0 = livello in cima.
+  // 'up' = porta sopra (verso indice 0), 'down' = porta sotto (verso la fine).
+  const moveLayer = (type, index, direction) => {
+    const items = type === 'background' ? backgroundImages : logos;
+    const setter = type === 'background' ? setBackgroundImages : setLogos;
+    const target = direction === 'up' ? index - 1 : index + 1;
+    if (target < 0 || target >= items.length) return;
+    reorderItems(index, target, items, setter);
+  };
+
   const handleBackgroundSelect = (image) => {
     setSelectedBackground(image.id);
     setSelectedLogo(null);
@@ -319,6 +330,28 @@ function ImagesSelector({
                   ×
                 </button>
                 <span className="level-indicator">{index + 1}</span>
+                <div className="layer-reorder">
+                  <button
+                    type="button"
+                    className="layer-reorder-btn"
+                    disabled={index === 0}
+                    onClick={(e) => { e.stopPropagation(); moveLayer('background', index, 'up'); }}
+                    title="Porta sopra"
+                    aria-label="Porta il livello sopra"
+                  >
+                    ▲
+                  </button>
+                  <button
+                    type="button"
+                    className="layer-reorder-btn"
+                    disabled={index === backgroundImages.length - 1}
+                    onClick={(e) => { e.stopPropagation(); moveLayer('background', index, 'down'); }}
+                    title="Porta sotto"
+                    aria-label="Porta il livello sotto"
+                  >
+                    ▼
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -491,6 +524,28 @@ function ImagesSelector({
                   ×
                 </button>
                 <span className="level-indicator">{index + 1}</span>
+                <div className="layer-reorder">
+                  <button
+                    type="button"
+                    className="layer-reorder-btn"
+                    disabled={index === 0}
+                    onClick={(e) => { e.stopPropagation(); moveLayer('logo', index, 'up'); }}
+                    title="Porta sopra"
+                    aria-label="Porta il livello sopra"
+                  >
+                    ▲
+                  </button>
+                  <button
+                    type="button"
+                    className="layer-reorder-btn"
+                    disabled={index === logos.length - 1}
+                    onClick={(e) => { e.stopPropagation(); moveLayer('logo', index, 'down'); }}
+                    title="Porta sotto"
+                    aria-label="Porta il livello sotto"
+                  >
+                    ▼
+                  </button>
+                </div>
               </div>
             ))}
           </div>
