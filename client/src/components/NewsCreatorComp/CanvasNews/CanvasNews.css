@@ -212,6 +212,9 @@
   justify-content: center;
   cursor: pointer;
   z-index: 100;
+  /* Il container del canvas usa pointer-events:none su mobile (regola globale):
+     riabilitiamo esplicitamente qui, altrimenti il tasto eredita "none" e non risponde al tocco. */
+  pointer-events: auto;
   transition: background-color 0.2s ease, opacity 0.2s ease;
   padding: 0;
 }

@@ -119,6 +119,9 @@ body {
   justify-content: center;
   cursor: pointer;
   z-index: 100;
+  /* Su mobile .canvas-container ha pointer-events:none: riabilitiamo qui
+     esplicitamente, altrimenti il tasto eredita "none" e non risponde al tocco. */
+  pointer-events: auto;
   transition: background-color 0.2s ease, opacity 0.2s ease;
   padding: 0;
 }
