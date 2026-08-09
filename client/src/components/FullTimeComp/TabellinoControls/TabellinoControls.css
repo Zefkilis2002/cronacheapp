@@ -24,6 +24,41 @@
   box-sizing: border-box;
 }
 
+/* Sezione Logo Competizione (tabellino Generale) */
+.competition-logo-section {
+  width: 100%;
+  margin-top: -0.5rem;
+  padding: 1rem;
+  background: rgba(180, 255, 0, 0.06);
+  border: 1px solid rgba(180, 255, 0, 0.25);
+  border-radius: 12px;
+  box-sizing: border-box;
+}
+
+.competition-logo-section h3 {
+  margin: 0 0 0.6rem 0;
+  color: #b4ff00;
+  font-size: 1rem;
+}
+
+.competition-logo-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.competition-logo-actions .upload-logo {
+  flex: 1 1 auto;
+  min-width: 110px;
+  padding: 0.6rem 0.8rem;
+  border: none;
+  border-radius: 8px;
+  background-color: #2d7d2d;
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+}
+
 /* Gruppo Input Instagram + Load */
 .instagram-container {
   position: relative;

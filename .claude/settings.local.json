@@ -80,7 +80,23 @@
       "Bash(node -e \"console.log\\('tasks-vision', require\\('./node_modules/@mediapipe/tasks-vision/package.json'\\).version\\)\")",
       "Bash(cp \"C:/Users/kozeu/.claude/uploads/05cda4e8-e8ed-466d-921d-aec6c5121431/820e13d4-IMG_1070.png\" \"F:/cronacheapp/client/public/__ref_measure.png\")",
       "Bash(python -c \"from PIL import Image; im=Image.open\\('F:/cronacheapp/client/public/__ref_measure.png'\\); print\\('size', im.size\\)\")",
-      "Bash(python -)"
+      "Bash(python -)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000)",
+      "Bash(git restore *)",
+      "WebFetch(domain:www.thesportsdb.com)",
+      "Bash(curl -s \"http://localhost:5000/api/search-competitions?q=portogallo2\" -o /dev/null)",
+      "Bash(curl -s \"https://www.thesportsdb.com/api/v1/json/3/search_all_leagues.php?c=Portugal&s=Soccer\")",
+      "Bash(curl -s \"https://www.thesportsdb.com/api/v1/json/3/all_leagues.php\")",
+      "Bash(curl -s \"https://www.thesportsdb.com/api/v1/json/3/searchteams.php?t=Benfica\")",
+      "Bash(curl -s \"https://www.thesportsdb.com/api/v1/json/3/search_all_leagues.php?c=England&s=Soccer\")",
+      "Bash(echo \"collected: $\\(wc -l < /tmp/leagues.txt 2>/dev/null\\)\"; cat /tmp/leagues.txt 2>/dev/null)",
+      "Bash(curl -s \"http://localhost:5000/api/search-competitions?q=portogallo\")",
+      "Bash(python -c \"import sys,json; [print\\(r['name'],'->',r['logoUrl'][:60]\\) for r in json.load\\(sys.stdin\\)['results']]\")",
+      "Bash(curl -s \"http://localhost:5000/api/search-competitions?q=italia\")",
+      "Bash(curl -s \"http://localhost:5000/api/search-competitions?q=champions\")",
+      "Bash(curl -s \"http://localhost:5000/api/search-competitions?q=eredivisie\")",
+      "Bash(cat)",
+      "Bash(python -c \"import base64; open\\('/tmp/preview.jpg','wb'\\).write\\(base64.b64decode\\(open\\('/tmp/b64.txt'\\).read\\(\\).strip\\(\\)\\)\\)\")"
     ]
   }
 }

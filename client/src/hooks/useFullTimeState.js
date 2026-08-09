@@ -26,6 +26,11 @@ export function useFullTimeState() {
   const [logo1Scale, setLogo1Scale] = useState({ scaleX: FULLTIME_LAYOUT.LOGO_1.defaultScaleX, scaleY: FULLTIME_LAYOUT.LOGO_1.defaultScaleY });
   const [logo2Scale, setLogo2Scale] = useState({ scaleX: FULLTIME_LAYOUT.LOGO_2.defaultScaleX, scaleY: FULLTIME_LAYOUT.LOGO_2.defaultScaleY });
 
+  // Logo competizione (solo tabellino "general"): posizionato al centro
+  const [competitionLogo, setCompetitionLogo] = useState(null);
+  const [competitionLogoPosition, setCompetitionLogoPosition] = useState({ x: FULLTIME_LAYOUT.COMPETITION_LOGO.startX, y: FULLTIME_LAYOUT.COMPETITION_LOGO.startY });
+  const [competitionLogoScale, setCompetitionLogoScale] = useState({ scaleX: FULLTIME_LAYOUT.COMPETITION_LOGO.defaultScaleX, scaleY: FULLTIME_LAYOUT.COMPETITION_LOGO.defaultScaleY });
+
   const [score1Y, setScore1Y] = useState(FULLTIME_LAYOUT.SCORE_1.startY);
   const [score2Y, setScore2Y] = useState(FULLTIME_LAYOUT.SCORE_2.startY);
 
@@ -48,7 +53,7 @@ export function useFullTimeState() {
   }, []);
 
   const moveLogo = useCallback((logo, direction) => {
-    const setter = logo === 1 ? setLogo1Position : setLogo2Position;
+    const setter = logo === 1 ? setLogo1Position : logo === 2 ? setLogo2Position : setCompetitionLogoPosition;
     setter(prev => ({
       x: direction === 'left' ? prev.x - FULLTIME_LAYOUT.MOVE_STEP : direction === 'right' ? prev.x + FULLTIME_LAYOUT.MOVE_STEP : prev.x,
       y: direction === 'up' ? prev.y - FULLTIME_LAYOUT.MOVE_STEP : direction === 'down' ? prev.y + FULLTIME_LAYOUT.MOVE_STEP : prev.y,
@@ -56,11 +61,15 @@ export function useFullTimeState() {
   }, []);
 
   const resizeLogo = useCallback((logo, type) => {
-    const setter = logo === 1 ? setLogo1Scale : setLogo2Scale;
+    const setter = logo === 1 ? setLogo1Scale : logo === 2 ? setLogo2Scale : setCompetitionLogoScale;
     setter(prev => ({
       scaleX: type === 'increase' ? prev.scaleX + FULLTIME_LAYOUT.SCALE_STEP : Math.max(FULLTIME_LAYOUT.USER_IMAGE.minScale, prev.scaleX - FULLTIME_LAYOUT.SCALE_STEP),
       scaleY: type === 'increase' ? prev.scaleY + FULLTIME_LAYOUT.SCALE_STEP : Math.max(FULLTIME_LAYOUT.USER_IMAGE.minScale, prev.scaleY - FULLTIME_LAYOUT.SCALE_STEP),
     }));
+  }, []);
+
+  const handleCompetitionDragEnd = useCallback((e) => {
+    setCompetitionLogoPosition({ x: e.target.x(), y: e.target.y() });
   }, []);
 
   const increaseImageSize = useCallback(() => {
@@ -139,6 +148,9 @@ export function useFullTimeState() {
     logo2Position, setLogo2Position,
     logo1Scale, setLogo1Scale,
     logo2Scale, setLogo2Scale,
+    competitionLogo, setCompetitionLogo,
+    competitionLogoPosition, setCompetitionLogoPosition,
+    competitionLogoScale, setCompetitionLogoScale,
     score1Y, setScore1Y,
     score2Y, setScore2Y,
     imagePosition, setImagePosition,
@@ -146,6 +158,7 @@ export function useFullTimeState() {
     activeTab, setActiveTab,
     flashscoreData, setFlashscoreData,
     handleDragEnd, handleTransform, moveLogo, resizeLogo,
+    handleCompetitionDragEnd,
     increaseImageSize, decreaseImageSize, handleFlashscoreMatch
   };
 }

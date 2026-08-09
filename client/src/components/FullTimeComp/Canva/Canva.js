@@ -26,6 +26,10 @@ const Canva = ({
   logo2Position,
   logo1Scale,
   logo2Scale,
+  competitionLogo,
+  competitionLogoPosition,
+  competitionLogoScale,
+  handleCompetitionDragEnd,
   score1,
   score2,
   score1Y,
@@ -40,6 +44,9 @@ const Canva = ({
   const [uploadedImg] = useImage(userImage);
   const [logo1] = useImage(uploadedLogo1 || `${window.location.origin}${selectedLogo1}`, 'anonymous');
   const [logo2] = useImage(uploadedLogo2 || `${window.location.origin}${selectedLogo2}`, 'anonymous');
+  const [compLogo] = useImage(competitionLogo || undefined, 'anonymous');
+
+  const showCompetitionLogo = selectedTabellino === 'general.png' && compLogo;
 
   // 🔧 PINCH ZOOM LOGIC (IMAGE ONLY)
   const wrapperRef = React.useRef(null);
@@ -414,6 +421,24 @@ const Canva = ({
               height={getScaledDimensions(logo2, FULLTIME_LAYOUT.LOGO_2.maxWidth, FULLTIME_LAYOUT.LOGO_2.maxHeight).height}
             />
           )}
+          {showCompetitionLogo && (() => {
+            const compDims = getScaledDimensions(compLogo, FULLTIME_LAYOUT.COMPETITION_LOGO.maxWidth, FULLTIME_LAYOUT.COMPETITION_LOGO.maxHeight);
+            return (
+              <KonvaImage
+                image={compLogo}
+                x={competitionLogoPosition.x}
+                y={competitionLogoPosition.y}
+                offsetX={compDims.width / 2}
+                offsetY={compDims.height / 2}
+                scaleX={competitionLogoScale.scaleX}
+                scaleY={competitionLogoScale.scaleY}
+                width={compDims.width}
+                height={compDims.height}
+                draggable
+                onDragEnd={handleCompetitionDragEnd}
+              />
+            );
+          })()}
           <Text
             text={String(score1)}
             fontSize={FULLTIME_LAYOUT.SCORE_1.fontSize}

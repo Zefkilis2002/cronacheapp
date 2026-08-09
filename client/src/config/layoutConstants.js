@@ -27,6 +27,17 @@ export const FULLTIME_LAYOUT = {
     maxWidth: 200,
     maxHeight: 200
   },
+  // Logo competizione (solo tabellino "general"): centrato nel pannello centrale.
+  // startX/startY sono il PUNTO CENTRALE del logo (nel Canva si usa offset = metà
+  // delle dimensioni), così il logo resta centrato qualunque sia il suo aspect ratio.
+  COMPETITION_LOGO: {
+    startX: 720,
+    startY: 1364,
+    defaultScaleX: 1,
+    defaultScaleY: 1,
+    maxWidth: 170,
+    maxHeight: 170
+  },
   SCORE_1: {
     startX: 485,
     startY: 1282,

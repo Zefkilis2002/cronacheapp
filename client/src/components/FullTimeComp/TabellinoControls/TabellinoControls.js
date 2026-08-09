@@ -5,6 +5,7 @@ import config from '../../../config';
 import { applyAcrSportFilterToSrc, applyUpscaleFilterToSrc } from '../../../filters/acrSport';
 import axios from 'axios';
 import { saveImage } from '../../../utils/saveImage';
+import LogoFetcher from '../LogoFetcher/LogoFetcher';
 import './TabellinoControls.css';
 
 function TabellinoControls({
@@ -25,10 +26,13 @@ function TabellinoControls({
   setPenaltiesScore1,
   penaltiesScore2,
   setPenaltiesScore2,
-  setUserImage
+  setUserImage,
+  competitionLogo,
+  setCompetitionLogo
 }) {
 
   const [isLoading, setIsLoading] = useState(false);
+  const [showCompetitionFetcher, setShowCompetitionFetcher] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [carouselImages, setCarouselImages] = useState([]);
   const [showCarouselSelector, setShowCarouselSelector] = useState(false);
@@ -451,7 +455,60 @@ function TabellinoControls({
         <option value="friendly.png">Friendly</option>
         <option value="worldcup2014.png">World Cup 2014</option>
         <option value="euro2004.png">Euro 2004</option>
+        <option value="general.png">Generale (logo competizione)</option>
       </select>
+
+      {/* Logo competizione: disponibile solo per il tabellino "Generale".
+          Il logo scelto si posiziona automaticamente al centro del tabellino. */}
+      {selectedTabellino === 'general.png' && (
+        <div className="competition-logo-section">
+          <h3><label>Logo Competizione:</label></h3>
+          <div className="competition-logo-actions">
+            <button
+              className="upload-logo"
+              style={{ backgroundColor: '#007bff' }}
+              onClick={() => setShowCompetitionFetcher(true)}
+            >
+              Cerca Web
+            </button>
+            <button
+              className="upload-logo"
+              onClick={() => document.getElementById('competitionLogoUpload').click()}
+            >
+              Carica Logo
+            </button>
+            {competitionLogo && (
+              <button
+                className="upload-logo"
+                style={{ backgroundColor: '#c0392b' }}
+                onClick={() => setCompetitionLogo(null)}
+              >
+                Rimuovi
+              </button>
+            )}
+            <input
+              type="file"
+              id="competitionLogoUpload"
+              accept="image/*"
+              onChange={(e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (ev) => setCompetitionLogo(ev.target.result);
+                reader.readAsDataURL(file);
+              }}
+              style={{ display: 'none' }}
+            />
+          </div>
+          {showCompetitionFetcher && (
+            <LogoFetcher
+              searchMode="competition"
+              onLogoSelect={setCompetitionLogo}
+              onClose={() => setShowCompetitionFetcher(false)}
+            />
+          )}
+        </div>
+      )}
 
       {/* Caricamento immagine */}
       <h3>Carica sfondo:</h3>

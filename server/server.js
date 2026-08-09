@@ -837,6 +837,200 @@ app.get('/api/search-logos', async (req, res) => {
 });
 
 // =============================================================================
+// ENDPOINT: Ricerca Competizioni/Leghe (per tabellino "general")
+// L'utente cerca un paese (es. "portogallo") e riceve tutte le leghe di
+// quel paese con il relativo logo, da posizionare al centro del tabellino.
+// =============================================================================
+
+// Mappa nomi paese in italiano -> inglese (come richiesto da TheSportsDB).
+// Le chiavi sono in minuscolo. Sono incluse anche varianti inglesi comuni
+// così l'utente può cercare in entrambe le lingue.
+const COUNTRY_IT_TO_EN = {
+  'italia': 'Italy', 'italy': 'Italy',
+  'inghilterra': 'England', 'england': 'England',
+  'regno unito': 'England', 'gran bretagna': 'England',
+  'spagna': 'Spain', 'spain': 'Spain',
+  'germania': 'Germany', 'germany': 'Germany',
+  'francia': 'France', 'france': 'France',
+  'portogallo': 'Portugal', 'portugal': 'Portugal',
+  'olanda': 'Netherlands', 'paesi bassi': 'Netherlands', 'netherlands': 'Netherlands', 'holland': 'Netherlands',
+  'belgio': 'Belgium', 'belgium': 'Belgium',
+  'grecia': 'Greece', 'greece': 'Greece',
+  'turchia': 'Turkey', 'turkey': 'Turkey',
+  'scozia': 'Scotland', 'scotland': 'Scotland',
+  'russia': 'Russia',
+  'ucraina': 'Ukraine', 'ukraine': 'Ukraine',
+  'croazia': 'Croatia', 'croatia': 'Croatia',
+  'serbia': 'Serbia',
+  'svizzera': 'Switzerland', 'switzerland': 'Switzerland',
+  'austria': 'Austria',
+  'polonia': 'Poland', 'poland': 'Poland',
+  'repubblica ceca': 'Czech Republic', 'cechia': 'Czech Republic', 'czech republic': 'Czech Republic',
+  'danimarca': 'Denmark', 'denmark': 'Denmark',
+  'svezia': 'Sweden', 'sweden': 'Sweden',
+  'norvegia': 'Norway', 'norway': 'Norway',
+  'finlandia': 'Finland', 'finland': 'Finland',
+  'irlanda': 'Ireland', 'ireland': 'Ireland',
+  'galles': 'Wales', 'wales': 'Wales',
+  'romania': 'Romania',
+  'bulgaria': 'Bulgaria',
+  'ungheria': 'Hungary', 'hungary': 'Hungary',
+  'brasile': 'Brazil', 'brazil': 'Brazil',
+  'argentina': 'Argentina',
+  'uruguay': 'Uruguay',
+  'cile': 'Chile', 'chile': 'Chile',
+  'colombia': 'Colombia',
+  'messico': 'Mexico', 'mexico': 'Mexico',
+  'stati uniti': 'USA', 'usa': 'USA', 'america': 'USA',
+  'canada': 'Canada',
+  'giappone': 'Japan', 'japan': 'Japan',
+  'corea del sud': 'South Korea', 'south korea': 'South Korea', 'corea': 'South Korea',
+  'cina': 'China', 'china': 'China',
+  'arabia saudita': 'Saudi Arabia', 'saudi arabia': 'Saudi Arabia',
+  'qatar': 'Qatar',
+  'emirati arabi uniti': 'United Arab Emirates', 'emirati': 'United Arab Emirates', 'uae': 'United Arab Emirates',
+  'australia': 'Australia',
+  'egitto': 'Egypt', 'egypt': 'Egypt',
+  'marocco': 'Morocco', 'morocco': 'Morocco',
+  'tunisia': 'Tunisia',
+  'algeria': 'Algeria',
+  'sudafrica': 'South Africa', 'sud africa': 'South Africa', 'south africa': 'South Africa',
+  'nigeria': 'Nigeria'
+};
+
+function resolveCountryName(query) {
+  const q = query.toLowerCase().trim();
+  if (COUNTRY_IT_TO_EN[q]) return COUNTRY_IT_TO_EN[q];
+  // Match parziale: "portog" -> Portogallo
+  for (const [key, value] of Object.entries(COUNTRY_IT_TO_EN)) {
+    if (key.startsWith(q) || q.startsWith(key)) return value;
+  }
+  return null;
+}
+
+// Catalogo curato delle competizioni principali (nome + paese + logo).
+// La API gratuita di TheSportsDB nasconde i campionati di vertice dagli
+// endpoint "lista leghe" (restituisce solo le divisioni minori), perciò i
+// campionati importanti sono elencati qui con il badge ufficiale del CDN.
+// `country` usa la stessa forma inglese prodotta da resolveCountryName().
+// Le competizioni internazionali hanno country: null e vengono trovate per
+// nome/alias (es. "champions", "mondiale", "europei").
+const CDN = 'https://r2.thesportsdb.com/images/media/league/badge';
+const MAJOR_LEAGUES = [
+  // --- Campionati nazionali (ordine: massima serie -> serie inferiori -> coppa) ---
+  { name: 'Premier League', country: 'England', logoUrl: `${CDN}/gasy9d1737743125.png` },
+  { name: 'Championship', country: 'England', logoUrl: `${CDN}/ty5a681688770169.png` },
+  { name: 'League One', country: 'England', logoUrl: `${CDN}/afedb31688770443.png` },
+  { name: 'League Two', country: 'England', logoUrl: `${CDN}/jmb3ms1688770451.png` },
+  { name: 'FA Cup', country: 'England', logoUrl: `${CDN}/vk7isd1598802862.png` },
+  { name: 'Scottish Premiership', country: 'Scotland', logoUrl: `${CDN}/72d3zc1688333496.png` },
+  { name: 'Bundesliga', country: 'Germany', logoUrl: `${CDN}/teqh1b1679952008.png` },
+  { name: '2. Bundesliga', country: 'Germany', logoUrl: `${CDN}/hl40981534764789.png` },
+  { name: 'DFB-Pokal', country: 'Germany', logoUrl: `${CDN}/tlczpm1780941454.png` },
+  { name: 'Serie A', country: 'Italy', logoUrl: `${CDN}/67q3q21679951383.png` },
+  { name: 'Serie B', country: 'Italy', logoUrl: `${CDN}/uf5kph1598011132.png` },
+  { name: 'Ligue 1', country: 'France', logoUrl: `${CDN}/9f7z9d1742983155.png` },
+  { name: 'Ligue 2', country: 'France', logoUrl: `${CDN}/aofb771742983333.png` },
+  { name: 'La Liga', country: 'Spain', logoUrl: `${CDN}/ja4it51687628717.png` },
+  { name: 'La Liga 2', country: 'Spain', logoUrl: `${CDN}/r7u6821688425700.png` },
+  { name: 'Supercopa de España', country: 'Spain', logoUrl: `${CDN}/sp4q7d1641378531.png` },
+  { name: 'Super League 1', country: 'Greece', logoUrl: `${CDN}/sni7f51782459204.png` },
+  { name: 'Eredivisie', country: 'Netherlands', logoUrl: `${CDN}/5cdsu21725984946.png` },
+  { name: 'Pro League', country: 'Belgium', logoUrl: `${CDN}/mjit7n1593634474.png` },
+  { name: 'Süper Lig', country: 'Turkey', logoUrl: 'https://www.thesportsdb.com/images/media/league/badge/dikktz1785779891.png' },
+  { name: 'Superliga', country: 'Denmark', logoUrl: `${CDN}/28uq381687624585.png` },
+  { name: 'Primeira Liga', country: 'Portugal', logoUrl: 'https://www.thesportsdb.com/images/media/league/badge/3tgdke1782689102.png' },
+  { name: 'MLS', country: 'USA', logoUrl: `${CDN}/dqo6r91549878326.png` },
+  { name: 'NWSL', country: 'USA', logoUrl: `${CDN}/ucoihf1770674182.png` },
+  { name: 'Allsvenskan', country: 'Sweden', logoUrl: `${CDN}/denok11707459183.png` },
+  { name: 'Liga MX', country: 'Mexico', logoUrl: `${CDN}/mav5rx1686157960.png` },
+  { name: 'Brasileirão Serie A', country: 'Brazil', logoUrl: `${CDN}/lywv7t1766787179.png` },
+  { name: 'Primera División', country: 'Argentina', logoUrl: `${CDN}/rk9xhx1768238251.png` },
+  { name: 'Premjer-Liha (Ucraina)', country: 'Ukraine', logoUrl: `${CDN}/qprvpy1471773025.png` },
+  { name: 'Premier League (Russia)', country: 'Russia', logoUrl: `${CDN}/d4yp7g1690178551.png` },
+  { name: 'A-League', country: 'Australia', logoUrl: `${CDN}/2u78lm1638459575.png` },
+  { name: 'Eliteserien', country: 'Norway', logoUrl: `${CDN}/owo80l1512822583.png` },
+  { name: '1. Divisjon', country: 'Norway', logoUrl: `${CDN}/cgyfwu1512823098.png` },
+  { name: 'Chinese Super League', country: 'China', logoUrl: `${CDN}/3s59ux1760652414.png` },
+  // --- Competizioni internazionali (ricercabili per nome/alias) ---
+  { name: 'UEFA Champions League', country: null, logoUrl: `${CDN}/facv1u1742998896.png`, aliases: ['champions', 'champions league', 'coppa dei campioni', 'ucl'] },
+  { name: 'UEFA Europa League', country: null, logoUrl: `${CDN}/mlsr7d1718774547.png`, aliases: ['europa', 'europa league', 'uel'] },
+  { name: 'UEFA Conference League', country: null, logoUrl: `${CDN}/ymfo5j1718775759.png`, aliases: ['conference', 'conference league'] },
+  { name: 'UEFA Super Cup', country: null, logoUrl: `${CDN}/1eimvx1551123834.png`, aliases: ['supercoppa', 'super cup', 'supercoppa europea'] },
+  { name: 'Europei UEFA', country: null, logoUrl: `${CDN}/bivzlu1635869135.png`, aliases: ['euro', 'europei', 'european championship', 'campionato europeo'] },
+  { name: 'Coppa del Mondo FIFA', country: null, logoUrl: `${CDN}/e7er5g1696521789.png`, aliases: ['mondiale', 'mondiali', 'world cup', 'coppa del mondo'] },
+  { name: 'Copa América', country: null, logoUrl: `${CDN}/n78hen1718080720.png`, aliases: ['copa america', 'coppa america'] }
+];
+
+app.get('/api/search-competitions', async (req, res) => {
+  const query = req.query.q;
+  if (!query || query.trim().length < 2) {
+    return res.json({ status: true, results: [] });
+  }
+
+  const q = query.toLowerCase().trim();
+  const country = resolveCountryName(query);
+
+  const cacheKey = `competitions_${q}`;
+  const cached = cache.get(cacheKey);
+  if (cached) {
+    console.log(`[CACHE] Restituite competizioni per: "${q}"`);
+    return res.json({ status: true, results: cached });
+  }
+
+  console.log(`[COMPETITIONS] Ricerca "${query}" (paese risolto: ${country || 'nessuno'})`);
+
+  const seen = new Set();
+  const results = [];
+  const push = (item) => {
+    if (!item || !item.logoUrl) return;
+    const key = item.name.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    results.push({ name: item.name, logoUrl: item.logoUrl, logo_url: item.logoUrl });
+  };
+
+  // 1. Campionati curati del paese cercato (in ordine di importanza)
+  if (country) {
+    for (const lg of MAJOR_LEAGUES) {
+      if (lg.country === country) push(lg);
+    }
+  }
+
+  // 2. Match per nome/alias (top league dirette + competizioni internazionali)
+  for (const lg of MAJOR_LEAGUES) {
+    const nameMatch = lg.name.toLowerCase().includes(q);
+    const aliasMatch = (lg.aliases || []).some(a => a.includes(q) || q.includes(a));
+    if (nameMatch || aliasMatch) push(lg);
+  }
+
+  // 3. Divisioni minori dal vivo (best-effort): la API gratuita restituisce
+  //    solo queste per il paese, utili come complemento ai curati.
+  if (country) {
+    const apiUrl = `https://www.thesportsdb.com/api/v1/json/3/search_all_leagues.php?c=${encodeURIComponent(country)}&s=Soccer`;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    try {
+      const response = await axios.get(apiUrl, { signal: controller.signal, timeout: 5000 });
+      clearTimeout(timeoutId);
+      const leagues = (response.data && response.data.countries) ? response.data.countries : [];
+      for (const l of leagues) {
+        push({ name: l.strLeague, logoUrl: l.strBadge || l.strLogo || null });
+      }
+    } catch (error) {
+      clearTimeout(timeoutId);
+      console.warn(`[COMPETITIONS] Divisioni minori non disponibili per "${country}":`, error.message);
+    }
+  }
+
+  const finalResults = results.slice(0, 15);
+  // Cache lunga se abbiamo trovato qualcosa, breve altrimenti
+  cache.set(cacheKey, finalResults, finalResults.length > 0 ? 86400 : 300);
+
+  return res.json({ status: true, results: finalResults });
+});
+
+// =============================================================================
 // SERVER START
 // =============================================================================
 

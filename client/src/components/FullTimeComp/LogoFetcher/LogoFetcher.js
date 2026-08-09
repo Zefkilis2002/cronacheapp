@@ -72,7 +72,8 @@ const REMOTE_DEBOUNCE_MS = 300;
 const SLOW_HINT_AFTER_MS = 2500;   // dopo 2.5s mostra l'avviso cold start
 const REMOTE_TIMEOUT_MS = 60000;   // il cold start di Render può durare ~45s
 
-const LogoFetcher = ({ onLogoSelect, onClose }) => {
+const LogoFetcher = ({ onLogoSelect, onClose, searchMode = 'team' }) => {
+  const isCompetition = searchMode === 'competition';
   const [inputValue, setInputValue] = useState('');
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -114,7 +115,8 @@ const LogoFetcher = ({ onLogoSelect, onClose }) => {
     }
 
     // 1) RISULTATI LOCALI ISTANTANEI (nessuna attesa di rete)
-    const localResults = searchLocalTeams(trimmed);
+    // Le competizioni non hanno un catalogo locale: si affidano solo al remoto.
+    const localResults = isCompetition ? [] : searchLocalTeams(trimmed);
     setResults(localResults);
     setError('');
     setLoading(true);
@@ -131,8 +133,9 @@ const LogoFetcher = ({ onLogoSelect, onClose }) => {
       }, SLOW_HINT_AFTER_MS);
 
       try {
+        const endpoint = isCompetition ? 'api/search-competitions' : 'api/search-logos';
         const res = await fetch(
-          `${API_BASE_URL}/api/search-logos?q=${encodeURIComponent(trimmed)}`,
+          `${API_BASE_URL}/${endpoint}?q=${encodeURIComponent(trimmed)}`,
           { signal: controller.signal }
         );
         clearTimeout(timeoutId);
@@ -182,7 +185,7 @@ const LogoFetcher = ({ onLogoSelect, onClose }) => {
         if (slowHintTimerRef.current) clearTimeout(slowHintTimerRef.current);
       }
     }, REMOTE_DEBOUNCE_MS);
-  }, [API_BASE_URL]);
+  }, [API_BASE_URL, isCompetition]);
 
   // Pulisce timer e richieste in volo all'unmount
   useEffect(() => {
@@ -216,15 +219,17 @@ const LogoFetcher = ({ onLogoSelect, onClose }) => {
   return (
     <div className="logo-fetcher-overlay">
       <div className="logo-fetcher-modal modern-mode">
-        <h3>Trova Logo</h3>
-        <p className="instruction">Ricerca Globale (Club & Nazionali) 🌍</p>
+        <h3>{isCompetition ? 'Trova Competizione' : 'Trova Logo'}</h3>
+        <p className="instruction">
+          {isCompetition ? 'Cerca per paese (es. Portogallo, Italia) 🏆' : 'Ricerca Globale (Club & Nazionali) 🌍'}
+        </p>
 
         <div className="search-container">
           <input
             type="text"
             value={inputValue}
             onChange={handleInputChange}
-            placeholder="Cerca squadra (es. Roma, Grecia)..."
+            placeholder={isCompetition ? 'Cerca paese (es. Portogallo)...' : 'Cerca squadra (es. Roma, Grecia)...'}
             className="modern-input"
             autoFocus
           />

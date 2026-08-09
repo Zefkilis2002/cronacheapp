@@ -11,7 +11,8 @@ const Toolbar = ({
   increaseImageSize,
   decreaseImageSize,
   setScore1Y,
-  setScore2Y
+  setScore2Y,
+  showCompetition
 }) => {
   return (
     <div className="toolbar">
@@ -34,6 +35,18 @@ const Toolbar = ({
         <button onClick={() => resizeLogo(2, 'increase')}>lg2+</button>
         <button onClick={() => resizeLogo(2, 'decrease')}>lg2−</button>
       </div>
+
+      {showCompetition && (
+        <div className="toolbar-row">
+          {/* Pulsanti per il Logo Competizione (tabellino Generale) */}
+          <button onClick={() => moveLogo('comp', 'up')}>lgC↑</button>
+          <button onClick={() => moveLogo('comp', 'down')}>lgC↓</button>
+          <button onClick={() => moveLogo('comp', 'left')}>lgC←</button>
+          <button onClick={() => moveLogo('comp', 'right')}>lgC→</button>
+          <button onClick={() => resizeLogo('comp', 'increase')}>lgC+</button>
+          <button onClick={() => resizeLogo('comp', 'decrease')}>lgC−</button>
+        </div>
+      )}
 
       <div className="toolbar-row">
         {/* Pulsanti per lo sfondo (ingrandire/ridurre) e per spostare i punteggi */}

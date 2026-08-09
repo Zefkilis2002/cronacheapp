@@ -38,6 +38,10 @@ const FullTimeEditor = () => {
         logo2Position={state.logo2Position}
         logo1Scale={state.logo1Scale}
         logo2Scale={state.logo2Scale}
+        competitionLogo={state.competitionLogo}
+        competitionLogoPosition={state.competitionLogoPosition}
+        competitionLogoScale={state.competitionLogoScale}
+        handleCompetitionDragEnd={state.handleCompetitionDragEnd}
         score1={state.score1}
         score2={state.score2}
         score1Y={state.score1Y}
@@ -97,6 +101,8 @@ const FullTimeEditor = () => {
             penaltiesScore2={state.penaltiesScore2}
             setPenaltiesScore2={state.setPenaltiesScore2}
             setUserImage={state.setUserImage}
+            competitionLogo={state.competitionLogo}
+            setCompetitionLogo={state.setCompetitionLogo}
           />
         )}
 
@@ -138,6 +144,7 @@ const FullTimeEditor = () => {
         decreaseImageSize={state.decreaseImageSize}
         setScore1Y={state.setScore1Y}
         setScore2Y={state.setScore2Y}
+        showCompetition={state.selectedTabellino === 'general.png'}
       />
     </div>
   );
