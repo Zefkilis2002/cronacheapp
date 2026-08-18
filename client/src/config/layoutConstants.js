@@ -128,36 +128,30 @@ export const NEWS_LAYOUT = {
   MIN_FONT_SIZE: 20
 };
 
+// Classifica: nuovo stile "Super League" 1080x1350 ricreato nel Canva.
+// La geometria dettagliata (colonne, righe, legenda) vive in
+// components/ClassificaComp/classificaVariants.js (CLASSIFICA_GEO).
 export const CLASSIFICA_LAYOUT = {
   STAGE: {
-    WIDTH: 2000,
-    HEIGHT: 2500,
-    BORDER: {
-      X: 0,
-      Y: 0,
-      WIDTH: 2000,
-      HEIGHT: 2500,
-      STROKE_WIDTH: 5,
-      STROKE: 'white'
-    }
+    WIDTH: 1080,
+    HEIGHT: 1350
   },
-  ROW_Y: [1460, 1605, 1741, 1886, 2026, 2165, 2310],
-  COL_X: {
-    TEAM_NAME: 476,
-    P: 1090,
-    W: 1220,
-    D: 1334,
-    L: 1458,
-    GD: 1595,
-    PTS: 1746
+  // Overlay gradiente scuro sopra la foto (identico ai mockup HTML)
+  OVERLAY_STOPS: [
+    0, 'rgba(8,9,11,0.8)',
+    0.20, 'rgba(8,9,11,0.18)',
+    0.34, 'rgba(8,9,11,0.0)',
+    0.56, 'rgba(8,9,11,0.8)',
+    1, 'rgba(8,9,11,0.95)'
+  ],
+  BG_FILL: '#08090b',
+  HEADER: {
+    PAD_TOP: 52,
+    LEFT_X: 60,      // logo competizione (super league) allineato a sinistra
+    RIGHT_X: 1020,   // logo pagina (CE) allineato a destra
+    LEFT_LOGO_H: 112,
+    RIGHT_LOGO_H: 100
   },
-  FONT_SPECS: {
-    TEAM_NAME: { family: 'Pretendard-ExtraBold', size: 70 },
-    STATS: { family: 'Poppins-Medium', size: 68 },
-    PTS: { family: 'Poppins-ExtraBold', size: 68 }
-  },
-  LOGO: {
-    size: 90,
-    padding: 45
-  }
+  COMP_LOGO: '/loghi/superleague.png',   // logo competizione (sinistra)
+  PAGE_LOGO: '/loghi/Logo CE bianco.png' // logo pagina (destra)
 };

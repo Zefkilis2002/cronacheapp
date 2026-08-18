@@ -556,16 +556,17 @@ app.get('/api/get-match-details', async (req, res) => {
 
 // --- ENDPOINT FLASHSCORE: Classifica ---
 app.get('/api/standings', async (req, res) => {
-  const { country = 'greece', league = 'super-league' } = req.query;
+  const { country = 'greece', league = 'super-league', fast } = req.query;
+  const isFast = fast === '1' || fast === 'true';
   const cacheKey = `standings_${country}_${league}`;
 
-  console.log(`[FLASHSCORE] Standings request: ${country}/${league}`);
+  console.log(`[FLASHSCORE] Standings request: ${country}/${league}${isFast ? ' (fast)' : ''}`);
 
   try {
     const { data, cacheStatus } = await staleWhileRevalidate(
       cacheKey,
       async () => {
-        const standings = await getStandings({ country, league });
+        const standings = await getStandings({ country, league, fast: isFast });
         return { success: true, data: standings };
       },
       { softTTL: 300, hardTTL: 1800 } // 5 min fresh, 30 min stale

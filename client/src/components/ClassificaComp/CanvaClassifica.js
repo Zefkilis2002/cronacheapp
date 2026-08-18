@@ -1,51 +1,109 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Stage, Layer, Rect, Image as KonvaImage } from 'react-konva';
 import useImage from 'use-image';
 import DatiClassifica from './DatiClassifica';
 import { CLASSIFICA_LAYOUT } from '../../config/layoutConstants';
 import './CanvaClassifica.css';
 
+const STAGE_W = CLASSIFICA_LAYOUT.STAGE.WIDTH;
+const STAGE_H = CLASSIFICA_LAYOUT.STAGE.HEIGHT;
+
+// Loghi header: competizione (sinistra) e pagina (destra)
+const HeaderLogos = ({ stageRef }) => {
+  const H = CLASSIFICA_LAYOUT.HEADER;
+  const [compLogo] = useImage(CLASSIFICA_LAYOUT.COMP_LOGO);
+  const [pageLogo] = useImage(CLASSIFICA_LAYOUT.PAGE_LOGO);
+
+  // I loghi header possono caricarsi dopo l'ultimo redraw: forziamo un
+  // batchDraw quando arrivano, altrimenti restano invisibili sul canvas.
+  useEffect(() => {
+    if ((compLogo || pageLogo) && stageRef && stageRef.current) {
+      stageRef.current.batchDraw();
+    }
+  }, [compLogo, pageLogo, stageRef]);
+
+  const compW = compLogo ? compLogo.width * (H.LEFT_LOGO_H / compLogo.height) : 0;
+  const pageW = pageLogo ? pageLogo.width * (H.RIGHT_LOGO_H / pageLogo.height) : 0;
+  const maxH = Math.max(H.LEFT_LOGO_H, H.RIGHT_LOGO_H);
+
+  return (
+    <>
+      {compLogo && (
+        <KonvaImage
+          image={compLogo}
+          x={H.LEFT_X}
+          y={H.PAD_TOP + (maxH - H.LEFT_LOGO_H) / 2}
+          width={compW}
+          height={H.LEFT_LOGO_H}
+          listening={false}
+        />
+      )}
+      {pageLogo && (
+        <KonvaImage
+          image={pageLogo}
+          x={H.RIGHT_X - pageW}
+          y={H.PAD_TOP + (maxH - H.RIGHT_LOGO_H) / 2}
+          width={pageW}
+          height={H.RIGHT_LOGO_H}
+          listening={false}
+        />
+      )}
+    </>
+  );
+};
+
+const BORDER = 3; // bordo bianco esterno attorno al canva
+
 const CanvaClassifica = ({
   stageRef,
-  borderRef,
-  selectedBackground,
+  variant,
+  rows,
   userImage,
   imagePosition,
   setImagePosition,
   imageScale,
   setImageScale,
-  rows,
   onTeamClick,
-  onValueClick
+  onValueClick,
+  onDownload
 }) => {
-  const [background] = useImage(`/sfondoClassifica/${selectedBackground}`);
   const [uploadedImg] = useImage(userImage);
+  const [, setFontTick] = useState(0);
 
-  // 🔧 PINCH ZOOM LOGIC (ADAPTED FROM FullTime)
+  // Ridisegna quando i font (Oswald / IBM Plex Mono) sono pronti
+  useEffect(() => {
+    let cancelled = false;
+    if (typeof document !== 'undefined' && document.fonts) {
+      Promise.all([
+        document.fonts.load('600 40px Oswald'),
+        document.fonts.load('500 29px Oswald'),
+        document.fonts.load('400 19px "IBM Plex Mono"')
+      ]).catch(() => {}).finally(() => {
+        document.fonts.ready.then(() => {
+          if (!cancelled) {
+            setFontTick(t => t + 1);
+            if (stageRef.current) stageRef.current.batchDraw();
+          }
+        });
+      });
+    }
+    return () => { cancelled = true; };
+  }, [stageRef]);
+
+  // 🔧 PINCH ZOOM LOGIC
   const lastDistRef = React.useRef(0);
   const lastCenterRef = React.useRef(null);
   const isPinchingRef = React.useRef(false);
 
-  const getDistance = (p1, p2) => {
-    return Math.sqrt(Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2));
-  };
-
-  const getCenter = (p1, p2) => {
-    return {
-      x: (p1.x + p2.x) / 2,
-      y: (p1.y + p2.y) / 2,
-    };
-  };
+  const getDistance = (p1, p2) => Math.sqrt(Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2));
+  const getCenter = (p1, p2) => ({ x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 });
 
   const handleTouchStart = (e) => {
     const touch1 = e.evt.touches[0];
     const touch2 = e.evt.touches[1];
-
     if (touch1 && touch2) {
       e.evt.preventDefault();
-      if (e.target.isDragging()) {
-        e.target.stopDrag();
-      }
+      if (e.target.isDragging()) e.target.stopDrag();
       isPinchingRef.current = true;
       const p1 = { x: touch1.clientX, y: touch1.clientY };
       const p2 = { x: touch2.clientX, y: touch2.clientY };
@@ -58,12 +116,9 @@ const CanvaClassifica = ({
     const touch1 = e.evt.touches[0];
     const touch2 = e.evt.touches[1];
     const stage = stageRef.current;
-
     if (touch1 && touch2 && stage) {
       e.evt.preventDefault();
-      if (e.target.isDragging()) {
-        e.target.stopDrag();
-      }
+      if (e.target.isDragging()) e.target.stopDrag();
 
       const p1 = { x: touch1.clientX, y: touch1.clientY };
       const p2 = { x: touch2.clientX, y: touch2.clientY };
@@ -77,16 +132,12 @@ const CanvaClassifica = ({
       }
 
       const scaleBy = currentDist / lastDistRef.current;
-      const oldScaleX = imageScale.scaleX;
-      const oldScaleY = imageScale.scaleY;
-      const newScaleX = oldScaleX * scaleBy;
-      const newScaleY = oldScaleY * scaleBy;
-
+      const newScaleX = imageScale.scaleX * scaleBy;
+      const newScaleY = imageScale.scaleY * scaleBy;
       const MIN_SCALE = 0.1;
       const MAX_SCALE = 5;
 
       if (newScaleX >= MIN_SCALE && newScaleX <= MAX_SCALE) {
-        // Calculate zoom centered on pinch
         const stageTransform = stage.getAbsoluteTransform().copy().invert();
         const centerInStage = stageTransform.point(currentCenter);
         const lastCenterInStage = stageTransform.point(lastCenterRef.current);
@@ -94,22 +145,18 @@ const CanvaClassifica = ({
         const dx = centerInStage.x - lastCenterInStage.x;
         const dy = centerInStage.y - lastCenterInStage.y;
 
-        const imgX = imagePosition.x;
-        const imgY = imagePosition.y;
-
         const mousePointToImg = {
-          x: centerInStage.x - imgX,
-          y: centerInStage.y - imgY,
+          x: centerInStage.x - imagePosition.x,
+          y: centerInStage.y - imagePosition.y,
         };
 
         const newPos = {
-          x: imgX + dx - (mousePointToImg.x * (scaleBy - 1)),
-          y: imgY + dy - (mousePointToImg.y * (scaleBy - 1))
+          x: imagePosition.x + dx - (mousePointToImg.x * (scaleBy - 1)),
+          y: imagePosition.y + dy - (mousePointToImg.y * (scaleBy - 1))
         };
 
         setImageScale({ scaleX: newScaleX, scaleY: newScaleY });
         setImagePosition(newPos);
-
         lastDistRef.current = currentDist;
         lastCenterRef.current = currentCenter;
       }
@@ -127,36 +174,26 @@ const CanvaClassifica = ({
       const stage = stageRef.current;
       if (!stage) return;
 
-      const originalWidth = CLASSIFICA_LAYOUT.STAGE.WIDTH;
-      const originalHeight = CLASSIFICA_LAYOUT.STAGE.HEIGHT;
-
-      // Usa la larghezza reale del contenitore (la pagina ha padding propri),
-      // non window.innerWidth, altrimenti il canvas sborda a destra su mobile
-      const wrapper = stage.container()?.parentElement;
+      // Misura il contenitore ESTERNO (non il wrapper col bordo, che si
+      // adatta al canva stesso), sottraendo padding e spessore del bordo.
+      const outer = stage.container()?.closest('.canvas-classifica-container');
       let containerWidth = 0;
-      if (wrapper) {
-        const wrapperStyle = window.getComputedStyle(wrapper);
-        containerWidth = wrapper.clientWidth
-          - parseFloat(wrapperStyle.paddingLeft)
-          - parseFloat(wrapperStyle.paddingRight);
+      if (outer) {
+        const outerStyle = window.getComputedStyle(outer);
+        containerWidth = outer.clientWidth
+          - parseFloat(outerStyle.paddingLeft)
+          - parseFloat(outerStyle.paddingRight);
       }
-      // Al primo mount il contenitore può non essere ancora misurabile
       if (!containerWidth || containerWidth <= 0) {
-        containerWidth = window.innerWidth * 0.9;
+        containerWidth = window.innerWidth * 0.95;
       }
-      const containerHeight = window.innerHeight * 0.9;
+      containerWidth -= 2 * BORDER;
+      const containerHeight = window.innerHeight * 0.95 - 2 * BORDER;
 
-      const scale = Math.min(
-        containerWidth / originalWidth,
-        containerHeight / originalHeight
-      );
+      const scale = Math.min(containerWidth / STAGE_W, containerHeight / STAGE_H);
+      const scaledWidth = STAGE_W * scale;
+      const scaledHeight = STAGE_H * scale;
 
-      const scaledWidth = originalWidth * scale;
-      const scaledHeight = originalHeight * scale;
-
-      // Il canvas deve avere le dimensioni scalate reali, altrimenti resta
-      // largo 2000px e sborda a destra su mobile (margin auto non centra
-      // un elemento più largo del suo contenitore)
       stage.width(scaledWidth);
       stage.height(scaledHeight);
       stage.scale({ x: scale, y: scale });
@@ -171,7 +208,6 @@ const CanvaClassifica = ({
         container.style.userSelect = 'none';
         container.style.webkitUserSelect = 'none';
       }
-
       stage.batchDraw();
     };
 
@@ -186,13 +222,11 @@ const CanvaClassifica = ({
     window.addEventListener('resize', handleResize);
     window.addEventListener('orientationchange', handleResize);
 
-    // Riesegue lo scaling quando il contenitore ottiene/cambia dimensione
-    // (al mount clientWidth può essere ancora 0)
     let resizeObserver;
-    const wrapper = stageRef.current?.container()?.parentElement;
-    if (wrapper && typeof ResizeObserver !== 'undefined') {
+    const outer = stageRef.current?.container()?.closest('.canvas-classifica-container');
+    if (outer && typeof ResizeObserver !== 'undefined') {
       resizeObserver = new ResizeObserver(handleResize);
-      resizeObserver.observe(wrapper);
+      resizeObserver.observe(outer);
     }
 
     return () => {
@@ -203,23 +237,27 @@ const CanvaClassifica = ({
     };
   }, [stageRef]);
 
-  // Initial centering logic if image just loaded and position is 0,0 (simplification)
-  // Ideally handled in parent or once on load.
-
   return (
     <div className="canvas-classifica-container">
-      <Stage ref={stageRef} width={CLASSIFICA_LAYOUT.STAGE.WIDTH} height={CLASSIFICA_LAYOUT.STAGE.HEIGHT}>
-        <Layer clipX={0} clipY={0} clipWidth={CLASSIFICA_LAYOUT.STAGE.WIDTH} clipHeight={CLASSIFICA_LAYOUT.STAGE.HEIGHT}>
-          {/* Rettangolo di sfondo per visibilità */}
-          <Rect
-            x={0}
-            y={0}
-            width={CLASSIFICA_LAYOUT.STAGE.WIDTH}
-            height={CLASSIFICA_LAYOUT.STAGE.HEIGHT}
-            fill="#00061b"
-          />
+      <div className="canvas-classifica-wrapper">
+        <button
+          className="canvas-download-btn"
+          onClick={onDownload}
+          title="Scarica Immagine"
+          type="button"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="7 10 12 15 17 10"></polyline>
+            <line x1="12" y1="15" x2="12" y2="3"></line>
+          </svg>
+        </button>
+        <Stage ref={stageRef} width={STAGE_W} height={STAGE_H}>
+        <Layer clipX={0} clipY={0} clipWidth={STAGE_W} clipHeight={STAGE_H}>
+          {/* Sfondo scuro base */}
+          <Rect x={0} y={0} width={STAGE_W} height={STAGE_H} fill={CLASSIFICA_LAYOUT.BG_FILL} />
 
-          {/* User Image Layer - Behind table */}
+          {/* Foto utente (dietro) */}
           {uploadedImg && (
             <KonvaImage
               image={uploadedImg}
@@ -228,46 +266,38 @@ const CanvaClassifica = ({
               scaleX={imageScale.scaleX}
               scaleY={imageScale.scaleY}
               draggable
-              onDragEnd={(e) => {
-                setImagePosition({ x: e.target.x(), y: e.target.y() });
-              }}
+              onDragEnd={(e) => setImagePosition({ x: e.target.x(), y: e.target.y() })}
               onTouchStart={handleTouchStart}
               onTouchMove={handleTouchMove}
               onTouchEnd={handleTouchEnd}
             />
           )}
 
-          {/* Table Background Grid */}
-          {background && (
-            <KonvaImage
-              image={background}
-              width={CLASSIFICA_LAYOUT.STAGE.WIDTH}
-              height={CLASSIFICA_LAYOUT.STAGE.HEIGHT}
-              listening={false}
-            />
-          )}
+          {/* Overlay gradiente scuro */}
+          <Rect
+            x={0}
+            y={0}
+            width={STAGE_W}
+            height={STAGE_H}
+            fillLinearGradientStartPoint={{ x: 0, y: 0 }}
+            fillLinearGradientEndPoint={{ x: 0, y: STAGE_H }}
+            fillLinearGradientColorStops={CLASSIFICA_LAYOUT.OVERLAY_STOPS}
+            listening={false}
+          />
 
-          {/* Standings Data Layer */}
+          {/* Header loghi */}
+          <HeaderLogos stageRef={stageRef} />
+
+          {/* Tabella classifica */}
           <DatiClassifica
+            variant={variant}
             rows={rows}
             onTeamClick={onTeamClick}
             onValueClick={onValueClick}
           />
-
         </Layer>
-        <Layer>
-          <Rect
-            ref={borderRef}
-            x={CLASSIFICA_LAYOUT.STAGE.BORDER.X}
-            y={CLASSIFICA_LAYOUT.STAGE.BORDER.Y}
-            width={CLASSIFICA_LAYOUT.STAGE.BORDER.WIDTH}
-            height={CLASSIFICA_LAYOUT.STAGE.BORDER.HEIGHT}
-            stroke={CLASSIFICA_LAYOUT.STAGE.BORDER.STROKE}
-            strokeWidth={CLASSIFICA_LAYOUT.STAGE.BORDER.STROKE_WIDTH}
-            listening={false}
-          />
-        </Layer>
-      </Stage>
+        </Stage>
+      </div>
     </div>
   );
 };

@@ -1046,7 +1046,7 @@ async function getStandingsViaHttp(pageUrl) {
  * @param {string} options.league - League slug
  * @returns {Promise<Array>} Array di { rank, team, p, w, d, l, gd, pts }
  */
-async function getStandings({ country, league }) {
+async function getStandings({ country, league, fast = false }) {
     const url = getStandingsUrl(country, league);
 
     if (!url) {
@@ -1054,23 +1054,35 @@ async function getStandings({ country, league }) {
         return [];
     }
 
-    // --- STRADA A: HTTP diretto ---
+    // --- STRADA A: HTTP diretto (~1s) ---
     try {
         let standings = await getStandingsViaHttp(url);
+        if (standings.length > 0) return standings;
 
-        // Offseason: la nuova stagione non ha ancora una classifica → archivio
-        if (standings.length === 0) {
-            for (const archiveUrl of buildArchiveUrls(url)) {
-                try {
-                    standings = await getStandingsViaHttp(archiveUrl);
-                } catch (e) { /* prova la prossima stagione */ }
-                if (standings.length > 0) break;
-            }
+        // Modalità fast: la stagione non è ancora iniziata (0 squadre).
+        // Ritorna subito vuoto senza archivio/Puppeteer: il client riempie a 0
+        // istantaneamente. Evita 10-15s di scraping e dati della vecchia stagione.
+        if (fast) {
+            console.log('[Flashscore Standings] fast mode: 0 squadre (offseason), ritorno immediato');
+            return [];
+        }
+
+        // Offseason (default): la nuova stagione non ha ancora una classifica → archivio
+        for (const archiveUrl of buildArchiveUrls(url)) {
+            try {
+                standings = await getStandingsViaHttp(archiveUrl);
+            } catch (e) { /* prova la prossima stagione */ }
+            if (standings.length > 0) break;
         }
 
         if (standings.length > 0) return standings;
         console.warn('[Flashscore Standings HTTP] 0 teams — falling back to Puppeteer');
     } catch (httpErr) {
+        // In modalità fast non blocchiamo mai su Puppeteer.
+        if (fast) {
+            console.warn(`[Flashscore Standings HTTP] fast mode fallito (${httpErr.message}), ritorno vuoto`);
+            return [];
+        }
         console.warn(`[Flashscore Standings HTTP] Failed: ${httpErr.message} — falling back to Puppeteer`);
     }
 
