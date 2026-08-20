@@ -6,6 +6,7 @@ import NewsEditor from "./NewsEditor/NewsEditor"; // Assicurati che il nome dell
 import BioCreator from "./BioCreator/BioCreator";
 import Classifica from "./Classifica/Classifica";
 import LineUp from "./LineUp/LineUp";
+import StartingXI from "./StartingXI/StartingXI";
 import SquadList from "./SquadList/SquadList";
 import KeyPlayers from "./KeyPlayers/KeyPlayers";
 import PlayerStats from "./PlayerStats/PlayerStats";
@@ -32,6 +33,7 @@ function App() {
           <Route path="/bio-creator" element={<BioCreator />} />
           <Route path="/classifica" element={<Classifica />} />
           <Route path="/lineup" element={<LineUp />} />
+          <Route path="/starting-xi" element={<StartingXI />} />
           <Route path="/squad" element={<SquadList />} />
           <Route path="/keyplayers" element={<KeyPlayers />} />
           <Route path="/player-stats" element={<PlayerStats />} />

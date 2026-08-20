@@ -213,8 +213,11 @@ const COMPETITION_URLS = {
     'greece/coppa': [
         'https://www.flashscore.it/calcio/greece/coppa/risultati/',
     ],
+    // Pagina squadra della nazionale greca: raccoglie le partite di OGNI
+    // torneo (qualificazioni, Nations League, amichevoli) in un unico feed.
+    // L'id partecipante COuk57Ci è quello della nazionale maggiore maschile.
     'greece/national-team': [
-        'https://www.flashscore.it/squadra/grecia/Gbw2oT5D/risultati/',
+        'https://www.flashscore.it/squadra/greece/COuk57Ci/risultati/',
     ],
     // --- Competizioni Europee ---
     'europe/champions-league': [
@@ -1895,6 +1898,307 @@ async function getMatchDetailsViaPuppeteer(matchUrl) {
 }
 
 // =============================================================================
+// SEZIONE 6-BIS: FORMAZIONI UFFICIALI (titolari, panchina, modulo, allenatore)
+// =============================================================================
+
+/**
+ * Il feed `df_li_1_{matchId}` contiene le formazioni complete. Struttura:
+ *   - le sezioni header portano LGT (tipo gruppo) / LGK (1 titolari, 2 panchina)
+ *     e LC (1 = squadra di casa, 2 = ospite); LGT÷4 marca il blocco allenatori
+ *   - ogni sezione giocatore porta LP (id), LI (nome esteso), LN (cognome),
+ *     LJ (numero di maglia), LL (posizione 1..11 in campo, 1 = portiere)
+ *     e LD (modulo della squadra, es. "1-4-2-3-1", col portiere in testa)
+ *
+ * LL è la chiave del rendering: numera i titolari per reparto dal portiere in
+ * avanti, quindi combinato col modulo dà esattamente le righe della grafica.
+ */
+function parseLineupsFromRawData(rawData) {
+    const sections = parseFlashscoreData(rawData);
+
+    const team = (n) => ({ formation: '', starters: [], bench: [], coach: '' });
+    const teams = { 1: team(), 2: team() };
+
+    // Il primo blocco del feed non inizia con '~' e viene scartato dal parser:
+    // sono i titolari della squadra di casa, da cui i default qui sotto.
+    let currentTeam = 1;
+    let currentGroup = 'starting';
+
+    for (const section of sections) {
+        let isCoachBlock = false;
+        let sawGroupKey = false;
+        let player = null;
+
+        for (const { key, value } of section.pairs) {
+            const k = key.startsWith('~') ? key.slice(1) : key;
+
+            switch (k) {
+                case 'LGT':
+                    isCoachBlock = value === '4';
+                    sawGroupKey = true;
+                    break;
+                case 'LGK':
+                    currentGroup = value === '2' ? 'bench' : 'starting';
+                    sawGroupKey = true;
+                    break;
+                case 'LC':
+                    currentTeam = value === '2' ? 2 : 1;
+                    break;
+                case 'LD':
+                    if (value) teams[currentTeam].formation = value;
+                    break;
+                case 'LP':
+                    player = { id: value, name: '', surname: '', number: '', order: null };
+                    break;
+                case 'LI': if (player) player.name = value; break;
+                case 'LN': if (player) player.surname = value; break;
+                case 'LJ': if (player) player.number = value; break;
+                case 'LL': if (player) player.order = parseInt(value, 10); break;
+                default: break;
+            }
+        }
+
+        // Una sezione con LGT÷4 marca il gruppo allenatori per tutte le
+        // sezioni successive, finché un nuovo LGK non riapre giocatori.
+        if (isCoachBlock) currentGroup = 'coach';
+        else if (sawGroupKey && currentGroup === 'coach') currentGroup = 'starting';
+
+        if (!player || !player.surname) continue;
+
+        const entry = {
+            id: player.id,
+            name: player.surname || player.name,
+            fullName: player.name,
+            number: player.number || '',
+            order: Number.isFinite(player.order) ? player.order : null,
+        };
+
+        if (currentGroup === 'coach') teams[currentTeam].coach = entry.name;
+        else if (currentGroup === 'bench') teams[currentTeam].bench.push(entry);
+        else teams[currentTeam].starters.push(entry);
+    }
+
+    // I titolari arrivano in ordine alfabetico: LL li rimette in ordine di campo.
+    for (const t of [teams[1], teams[2]]) {
+        t.starters.sort((a, b) => (a.order || 99) - (b.order || 99));
+    }
+
+    return { home: teams[1], away: teams[2] };
+}
+
+/**
+ * Estrae nomi e loghi delle due squadre dall'HTML della pagina partita
+ * (blob JSON `participantsData`, presente nell'HTML statico).
+ */
+function extractParticipants(html) {
+    const marker = '"participantsData":';
+    const start = html.indexOf(marker);
+    if (start === -1) return null;
+
+    // Bilanciamento delle graffe per isolare l'oggetto JSON (le stringhe del
+    // blob non contengono graffe non escapate, quindi un contatore basta).
+    let i = html.indexOf('{', start + marker.length);
+    if (i === -1) return null;
+    let depth = 0;
+    let end = -1;
+    for (let j = i; j < html.length; j++) {
+        const ch = html[j];
+        if (ch === '{') depth++;
+        else if (ch === '}') {
+            depth--;
+            if (depth === 0) { end = j + 1; break; }
+        }
+    }
+    if (end === -1) return null;
+
+    let parsed;
+    try {
+        parsed = JSON.parse(html.slice(i, end));
+    } catch (err) {
+        return null;
+    }
+
+    const pick = (side) => {
+        const p = (parsed[side] || [])[0];
+        if (!p) return null;
+        return {
+            id: p.id || '',
+            name: p.name || '',
+            shortName: p.short_name || p.name || '',
+            logo: p.image_path || '',
+        };
+    };
+
+    const home = pick('home');
+    const away = pick('away');
+    return (home && away) ? { home, away } : null;
+}
+
+async function fetchMatchParticipants(matchId) {
+    const url = `https://www.flashscore.it/partita/calcio/${matchId}/`;
+    try {
+        const html = await fetchStaticHtml(url);
+        return extractParticipants(html);
+    } catch (err) {
+        console.warn(`[Flashscore Lineups] participants non disponibili per ${matchId}: ${err.message}`);
+        return null;
+    }
+}
+
+async function fetchLineupFeed(matchId) {
+    const API_BASES = [
+        'https://local-it.flashscore.ninja/1/x/feed',
+        'https://local-global.flashscore.ninja/2/x/feed',
+        'https://d.flashscore.com/x/feed',
+    ];
+    const headers = {
+        'x-fsign': _fsign,
+        'User-Agent': HTTP_USER_AGENT,
+        'Referer': 'https://www.flashscore.it/',
+        'Accept': '*/*',
+        'Accept-Language': 'it-IT,it;q=0.9,en;q=0.8',
+    };
+
+    let lastError = null;
+    for (const base of API_BASES) {
+        try {
+            const res = await axios.get(`${base}/df_li_1_${matchId}`, {
+                headers, timeout: 10000, responseType: 'text',
+            });
+            // Le partite senza formazioni pubblicate rispondono "0".
+            if (res.data && res.data.length > 50) return res.data;
+        } catch (err) {
+            lastError = err;
+        }
+    }
+    if (lastError) throw lastError;
+    return null;
+}
+
+/**
+ * Formazioni ufficiali complete di una partita: modulo, titolari con numero,
+ * panchina, allenatore, più nomi e loghi delle due squadre.
+ */
+async function getMatchLineups(matchUrl, matchId) {
+    const resolvedId = matchId || extractMatchId(matchUrl);
+    if (!resolvedId) throw new Error('matchId non ricavabile');
+
+    const [rawData, participants] = await Promise.all([
+        fetchLineupFeed(resolvedId),
+        fetchMatchParticipants(resolvedId),
+    ]);
+
+    if (!rawData) {
+        return {
+            available: false,
+            message: 'Formazioni non ancora pubblicate per questa partita.',
+            teams: participants,
+        };
+    }
+
+    const lineups = parseLineupsFromRawData(rawData);
+    const available = lineups.home.starters.length > 0 || lineups.away.starters.length > 0;
+
+    const merge = (side) => ({
+        ...lineups[side],
+        name: participants ? participants[side].shortName : '',
+        fullName: participants ? participants[side].name : '',
+        logo: participants ? participants[side].logo : '',
+    });
+
+    return {
+        available,
+        matchId: resolvedId,
+        home: merge('home'),
+        away: merge('away'),
+    };
+}
+
+// =============================================================================
+// SEZIONE 6-TER: PARTITE INTORNO A OGGI (risultati recenti + prossimo turno)
+// =============================================================================
+
+/**
+ * Per una grafica di formazioni servono anche le partite non ancora giocate:
+ * le formazioni ufficiali escono ~1h prima del calcio d'inizio. I risultati
+ * stanno nei feed `results`/`summary-results`, il prossimo turno in
+ * `fixtures`/`summary-fixtures`; le pagine squadra li embeddano tutti insieme,
+ * le pagine torneo separano /risultati/ da /calendario/.
+ */
+const AROUND_NOW_FEEDS = ['results', 'summary-results', 'fixtures', 'summary-fixtures'];
+
+async function fetchMatchesAroundNow(pageUrl) {
+    const html = await fetchStaticHtml(pageUrl);
+    const out = [];
+    for (const feedName of AROUND_NOW_FEEDS) {
+        const raw = extractEmbeddedFeed(html, feedName);
+        if (raw) out.push(...parseMatchesIntermediate(raw));
+    }
+    return out;
+}
+
+/** Aggiunge la pagina /calendario/ accanto a ogni pagina /risultati/. */
+function getAroundNowUrls(country, league) {
+    const urls = getCompetitionUrls(country, league);
+    const withFixtures = [];
+    for (const u of urls) {
+        withFixtures.push(u);
+        if (u.includes('/risultati/') && !u.includes('/squadra/')) {
+            withFixtures.push(u.replace('/risultati/', '/calendario/'));
+        }
+    }
+    return withFixtures;
+}
+
+/**
+ * Partite di una competizione in una finestra temporale attorno a oggi,
+ * ordinate dalla più vicina a ora (è quasi sempre quella che interessa).
+ */
+async function getMatchesAroundNow({ country, league, daysBack = 21, daysAhead = 45 }) {
+    const urls = getAroundNowUrls(country, league);
+    const settled = await Promise.allSettled(urls.map(u => fetchMatchesAroundNow(u)));
+
+    const raw = [];
+    settled.forEach((r, i) => {
+        if (r.status === 'fulfilled') raw.push(...r.value);
+        else console.warn(`[Flashscore AroundNow] Failed ${urls[i]}: ${r.reason && r.reason.message}`);
+    });
+
+    const now = Date.now();
+    const from = now - daysBack * 86400000;
+    const to = now + daysAhead * 86400000;
+
+    const seen = new Set();
+    const inWindow = raw
+        .filter(m => {
+            if (!m.matchId || seen.has(m.matchId)) return false;
+            if (!m.parsedDate) return false;
+            const t = m.parsedDate.getTime();
+            if (t < from || t > to) return false;
+            seen.add(m.matchId);
+            return true;
+        })
+        .sort((a, b) => Math.abs(a.parsedDate - now) - Math.abs(b.parsedDate - now))
+        .map(m => ({
+            matchId: m.matchId,
+            date: m.dateStr,
+            timestamp: m.parsedDate.getTime(),
+            homeTeam: m.homeTeam,
+            awayTeam: m.awayTeam,
+            homeScore: m.homeScore,
+            awayScore: m.awayScore,
+            isUpcoming: m.parsedDate.getTime() > now,
+        }));
+
+    // Nelle coppe europee il turno conta centinaia di partite: quelle delle
+    // squadre greche vanno in cima. Il sort è stabile, quindi dentro i due
+    // gruppi resta l'ordine per vicinanza a oggi.
+    const matches = prioritizeGreekMatches(inWindow);
+
+    console.log(`[Flashscore AroundNow] ${country}/${league}: ${matches.length} partite in finestra`);
+    return matches;
+}
+
+// =============================================================================
 // SEZIONE 7: CLI
 // =============================================================================
 
@@ -1935,4 +2239,4 @@ if (require.main === module) {
     }
 }
 
-module.exports = { getRecentMatches, getMatchDetails, getStandings, getStandingsBundle, STANDINGS_BUNDLE_KEYS, prewarmBrowser, acquirePage, isGreekTeam, prioritizeGreekMatches };
+module.exports = { getRecentMatches, getMatchDetails, getStandings, getStandingsBundle, STANDINGS_BUNDLE_KEYS, prewarmBrowser, acquirePage, isGreekTeam, prioritizeGreekMatches, getMatchLineups, getMatchesAroundNow };

@@ -4,7 +4,7 @@ const axios = require('axios');
 const cors = require('cors');
 const OpenAI = require('openai'); // Importa SDK OpenAI
 const NodeCache = require('node-cache'); // Importa node-cache
-const { getRecentMatches, getMatchDetails, getStandings, getStandingsBundle, prewarmBrowser } = require('./execution/scrape_flashscore');
+const { getRecentMatches, getMatchDetails, getStandings, getStandingsBundle, prewarmBrowser, getMatchLineups, getMatchesAroundNow } = require('./execution/scrape_flashscore');
 const { getPostMedia } = require('./execution/instagram');
 
 const app = express();
@@ -410,6 +410,69 @@ app.get('/api/get-match-details', async (req, res) => {
         message: error.message || 'Errore durante il recupero dei dettagli partita'
       });
     }
+  }
+});
+
+// --- ENDPOINT FLASHSCORE: Partite attorno a oggi (risultati + prossimo turno) ---
+// La grafica Starting XI serve soprattutto PRIMA della partita: le formazioni
+// ufficiali escono ~1h prima del calcio d'inizio, quindi qui servono anche le
+// partite non ancora giocate, che /api/get-matches (solo risultati) non copre.
+//   GET /api/get-lineup-matches?country=europa&league=champions-league
+app.get('/api/get-lineup-matches', async (req, res) => {
+  const { country, league } = req.query;
+  if (!country || !league) {
+    return res.status(400).json({ status: false, message: 'Parametri mancanti: country e league' });
+  }
+
+  const cacheKey = `around_now_${country}_${league}`;
+
+  try {
+    const { data, cacheStatus } = await staleWhileRevalidate(
+      cacheKey,
+      async () => {
+        const matches = await getMatchesAroundNow({ country, league });
+        return { status: true, matches, count: matches.length };
+      },
+      { softTTL: 120, hardTTL: 1800 } // 2 min fresh: il calendario cambia di rado
+    );
+
+    res.set('X-Cache-Status', cacheStatus);
+    res.json(data);
+  } catch (error) {
+    console.error('[FLASHSCORE] Lineup matches error:', error.message);
+    res.status(500).json({ status: false, message: error.message || 'Errore nel recupero delle partite' });
+  }
+});
+
+// --- ENDPOINT FLASHSCORE: Formazioni ufficiali di una partita ---
+//   GET /api/get-lineups?matchId=8G3qc5S6
+// Restituisce per entrambe le squadre: nome, logo, modulo, titolari con numero
+// di maglia, panchina e allenatore.
+app.get('/api/get-lineups', async (req, res) => {
+  const { matchId, matchUrl } = req.query;
+  if (!matchId && !matchUrl) {
+    return res.status(400).json({ status: false, message: 'Parametro mancante: matchId' });
+  }
+
+  const cacheKey = `lineups_${matchId || matchUrl}`;
+
+  try {
+    const { data, cacheStatus } = await staleWhileRevalidate(
+      cacheKey,
+      async () => {
+        const lineups = await getMatchLineups(matchUrl, matchId);
+        return { status: true, ...lineups };
+      },
+      // TTL corto: prima del match le formazioni passano da assenti a probabili
+      // a ufficiali, e una risposta stantia mostrerebbe l'undici sbagliato.
+      { softTTL: 60, hardTTL: 600 }
+    );
+
+    res.set('X-Cache-Status', cacheStatus);
+    res.json(data);
+  } catch (error) {
+    console.error('[FLASHSCORE] Lineups error:', error.message);
+    res.status(500).json({ status: false, message: error.message || 'Errore nel recupero delle formazioni' });
   }
 });
 
