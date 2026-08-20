@@ -138,36 +138,34 @@ function TabellinoControls({
     }
   };
 
+  // Normalizza qualsiasi forma di link Instagram in un target per il server.
+  // Supporta /p/, /reel/, /reels/, /tv/, i link /share/ (redirect risolto lato
+  // server) e lo shortcode "nudo".
   const getInstagramUrl = (instaLink) => {
-    if (!instaLink || typeof instaLink !== 'string') {
-      return null;
+    if (!instaLink || typeof instaLink !== 'string') return null;
+
+    const link = instaLink.trim();
+    if (!link) return null;
+
+    // Shortcode nudo (es. C6G2rzmuBoH)
+    if (!link.includes('/') && !link.includes('.')) {
+      return `https://www.instagram.com/p/${link}/`;
     }
 
-    try {
-      const trimmedLink = instaLink.trim();
+    const absolute = link.startsWith('http') ? link : `https://${link}`;
 
-      if (!trimmedLink.includes('/') && !trimmedLink.includes('.')) {
-        return `https://www.instagram.com/p/${trimmedLink}/`;
-      }
+    // Link condivisi dall'app: il redirect lo segue il server
+    if (/instagram\.com\/share\//i.test(absolute)) return absolute;
 
-      if (trimmedLink.includes('/p/')) {
-        const match = trimmedLink.match(/\/p\/([^/]+)/);
-        if (match && match[1]) {
-          return `https://www.instagram.com/p/${match[1]}/`;
-        }
-      }
+    const match = absolute.match(/instagram\.com\/(?:[^/?#]+\/)?(?:p|reel|reels|tv)\/([A-Za-z0-9_-]+)/i);
+    if (match) return `https://www.instagram.com/p/${match[1]}/`;
 
-      const possibleCode = trimmedLink.split('/').pop().split('?')[0];
-      if (possibleCode && possibleCode.length > 5) {
-        return `https://www.instagram.com/p/${possibleCode}/`;
-      }
-
-      return null;
-    } catch (error) {
-      console.error("Errore nell'analisi dell'URL:", error);
-      return null;
-    }
+    return null;
   };
+
+  // Le immagini del CDN Instagram passano sempre dal proxy del server
+  // (hotlink protection + CORS sul canvas).
+  const toProxyUrl = (url) => `${config.API_BASE_URL}/proxy-image?url=${encodeURIComponent(url)}`;
 
   const checkServerConnection = async () => {
     setErrorMessage('');
@@ -177,54 +175,59 @@ function TabellinoControls({
       return true;
     } catch (error) {
       console.error("Errore di connessione:", error);
-      const errorMsg = error.code === 'ECONNREFUSED'
-        ? "Server non attivo. Avvia il server con 'npm run server'."
+      // Nessuna risposta HTTP (Network Error / timeout): il server non risponde
+      // affatto, non è un problema del post Instagram.
+      const errorMsg = !error.response
+        ? `Server non raggiungibile (${config.API_BASE_URL}). Avvialo con 'npm run dev:server' o attendi qualche secondo se è appena stato risvegliato.`
         : `Errore server: ${error.message}`;
       setErrorMessage(errorMsg);
-      alert(errorMsg);
       return false;
     }
   };
 
-  // Funzione migliorata per selezionare immagini dal carosello
-  const selectCarouselImage = async (imageUrl) => {
-    console.log("Selezione immagine dal carosello:", imageUrl.substring(0, 100) + '...');
+  // Carica una singola slide (scelta dall'utente o unica del post)
+  const selectCarouselImage = async (slide) => {
+    const imageUrl = typeof slide === 'string' ? slide : slide?.url;
+    if (!imageUrl) return;
 
     try {
-      // Precarica l'immagine per verificarne le dimensioni
-      const imageInfo = await getImageInfo(imageUrl);
-
+      // Misura l'immagine passando dal proxy (il CDN Instagram blocca l'hotlink)
+      const imageInfo = await getImageInfo(toProxyUrl(imageUrl));
       if (imageInfo.error) {
         throw new Error('Immagine non accessibile');
       }
 
-      // Memorizza l’originale e la sorgente
-      originalInstagramImageRef.current = imageUrl; // Usa il ref corretto per Instagram
-      currentSourceRef.current = 'instagram'; // Imposta la sorgente corretta
+      // Memorizza l'originale e la sorgente
+      originalInstagramImageRef.current = imageUrl;
+      currentSourceRef.current = 'instagram';
       setFilterApplied(false);
       if (filteredUrlRef.current) { try { URL.revokeObjectURL(filteredUrlRef.current); } catch (_) { } filteredUrlRef.current = null; }
-      console.log(`Immagine selezionata: ${imageInfo.width}x${imageInfo.height}`);
 
       setImageQualityInfo({
         width: imageInfo.width,
         height: imageInfo.height,
         source: 'instagram',
         aspectRatio: imageInfo.aspectRatio,
-        url: imageUrl
+        quality: 'original',
+        isCarousel: typeof slide === 'object' && slide.totalSlides > 1,
+        totalImages: typeof slide === 'object' ? slide.totalSlides : undefined,
+        slide: typeof slide === 'object' ? slide.slide : undefined
       });
 
       // Pulisci l'immagine utente precedente per evitare sovrapposizioni
       setUserImage(null);
       setInstagramImage(imageUrl);
-      setShowCarouselSelector(false); // Chiudi il selettore (opzionale, ma pulisce la UI)
+      setShowCarouselSelector(false);
+      setErrorMessage('');
 
     } catch (error) {
       console.error("Errore nel caricamento dell'immagine:", error);
-      alert("Errore nel caricamento dell'immagine. Prova con un'altra.");
+      setErrorMessage("Errore nel caricamento della slide selezionata. Prova con un'altra.");
     }
   };
 
-  // Funzione migliorata per recuperare post Instagram
+  // Recupera il post Instagram: se è un carosello mostra il selettore delle
+  // slide e attende la scelta dell'utente, altrimenti carica subito l'immagine.
   const fetchInstagramPost = async () => {
     setIsLoading(true);
     setErrorMessage('');
@@ -243,11 +246,9 @@ function TabellinoControls({
         throw new Error("Link Instagram non valido");
       }
 
-      console.log("Recupero immagine da:", instagramUrl);
-
       const response = await axios.get(`${config.API_BASE_URL}/api/instagram-image`, {
         params: {
-          url: encodeURIComponent(instagramUrl),
+          url: instagramUrl,
           getCarouselImages: true,
           quality: 'original',
         },
@@ -255,40 +256,38 @@ function TabellinoControls({
       });
 
       if (!response.data || !response.data.status) {
-        throw new Error('Risposta server non valida');
+        throw new Error(response.data?.message || 'Risposta server non valida');
       }
 
-      const { imageUrl, carouselImages: carousel, imageCount, quality } = response.data;
+      const { items, carouselImages: legacyCarousel } = response.data;
 
-      if (carousel && carousel.length > 1) {
-        setCarouselImages(carousel);
+      // `items` è il contratto nuovo; `carouselImages` resta come fallback
+      const slides = (Array.isArray(items) && items.length > 0)
+        ? items
+        : (legacyCarousel || []).map((url, index) => ({
+          index,
+          slide: index + 1,
+          url,
+          thumbnailUrl: url,
+          isVideo: false
+        }));
+
+      if (slides.length === 0) {
+        throw new Error("Nessuna immagine trovata nel post");
+      }
+
+      const withTotal = slides.map(item => ({ ...item, totalSlides: slides.length }));
+
+      if (withTotal.length > 1) {
+        // Carosello: nessun caricamento automatico, decide l'utente
+        setCarouselImages(withTotal);
         setShowCarouselSelector(true);
-
-        // Non caricare automaticamente la prima immagine.
-        // Pulisci l'immagine corrente per forzare la selezione
+        setSelectedCarouselIndex(-1);
         setInstagramImage(null);
         setUserImage(null);
-
-        alert(`Carosello trovato con ${imageCount} immagini. Seleziona l'immagine che vuoi usare.`);
-      } else if (imageUrl) {
-        const imageInfo = await getImageInfo(imageUrl);
-        originalInstagramImageRef.current = imageUrl;
-        currentSourceRef.current = 'instagram';
-        setFilterApplied(false);
-        if (filteredUrlRef.current) { try { URL.revokeObjectURL(filteredUrlRef.current); } catch (_) { } filteredUrlRef.current = null; }
-        setImageQualityInfo({
-          width: imageInfo.width,
-          height: imageInfo.height,
-          source: 'instagram',
-          aspectRatio: imageInfo.aspectRatio,
-          quality: quality,
-          isCarousel: false
-        });
-
-        setInstagramImage(imageUrl);
-        alert(`Immagine caricata in qualità ${quality}. Dimensioni: ${imageInfo.width}x${imageInfo.height}`);
       } else {
-        throw new Error("Nessuna immagine trovata nel post");
+        setSelectedCarouselIndex(0);
+        await selectCarouselImage(withTotal[0]);
       }
 
     } catch (error) {
@@ -296,15 +295,15 @@ function TabellinoControls({
       let errorMsg = `Errore: ${error.message}`;
       if (error.response) {
         switch (error.response.status) {
-          case 404: errorMsg = "Post non trovato."; break;
+          case 400: errorMsg = "Link Instagram non valido."; break;
+          case 404: errorMsg = error.response.data?.message || "Post non trovato."; break;
           case 403: errorMsg = "Post privato o protetto."; break;
-          case 429: errorMsg = "Troppi tentativi."; break;
+          case 429: errorMsg = "Troppi tentativi. Riprova tra qualche minuto."; break;
           case 500: errorMsg = "Errore del server."; break;
           default: errorMsg = `Errore sconosciuto: ${error.response.status}`; break;
         }
       }
       setErrorMessage(errorMsg);
-      alert(errorMsg);
       setInstagramImage(null);
       setImageQualityInfo(null);
     } finally {
@@ -619,20 +618,21 @@ function TabellinoControls({
       {/* Selettore carosello */}
       {showCarouselSelector && carouselImages.length > 0 && (
         <div className="carousel-selector">
-          <h4>Seleziona immagine dal carosello:</h4>
+          <h4>Post a carosello: {carouselImages.length} slide — quale vuoi caricare?</h4>
           <div className="carousel-images">
-            {carouselImages.map((imageUrl, index) => (
+            {carouselImages.map((item, index) => (
               <div
-                key={`carousel-${index}`}
+                key={`carousel-${item.index ?? index}`}
                 onClick={() => {
                   setSelectedCarouselIndex(index);
-                  selectCarouselImage(imageUrl);
+                  selectCarouselImage(item);
                 }}
                 className={`carousel-image-item ${index === selectedCarouselIndex ? 'selected' : ''}`}
+                title={item.isVideo ? `Slide ${item.slide} (video: verrà usata la copertina)` : `Slide ${item.slide}`}
               >
                 <img
-                  src={imageUrl}
-                  alt={`Immagine ${index + 1}`}
+                  src={toProxyUrl(item.thumbnailUrl || item.url)}
+                  alt={`Slide ${item.slide}`}
                   style={{
                     width: '100px',
                     height: '100px',
@@ -641,11 +641,18 @@ function TabellinoControls({
                   }}
                 />
                 <div style={{ textAlign: 'center', marginTop: '5px', fontSize: '12px', color: '#b4ff00' }}>
-                  {index + 1}
+                  {item.slide}{item.isVideo ? ' 🎬' : ''}
                 </div>
               </div>
             ))}
           </div>
+          <button
+            className="customFileUpload"
+            style={{ marginTop: '10px' }}
+            onClick={() => setShowCarouselSelector(false)}
+          >
+            Annulla
+          </button>
         </div>
       )}
 

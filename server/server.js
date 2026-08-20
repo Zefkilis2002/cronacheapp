@@ -1,11 +1,11 @@
 const express = require('express');
 require('dotenv').config(); // Carica le variabili d'ambiente da .env
 const axios = require('axios');
-const cheerio = require('cheerio');
 const cors = require('cors');
 const OpenAI = require('openai'); // Importa SDK OpenAI
 const NodeCache = require('node-cache'); // Importa node-cache
-const { getRecentMatches, getMatchDetails, getStandings, prewarmBrowser } = require('./execution/scrape_flashscore');
+const { getRecentMatches, getMatchDetails, getStandings, getStandingsBundle, prewarmBrowser } = require('./execution/scrape_flashscore');
+const { getPostMedia } = require('./execution/instagram');
 
 const app = express();
 
@@ -78,7 +78,10 @@ async function staleWhileRevalidate(cacheKey, fetchFn, { softTTL = 180, hardTTL 
 // MIDDLEWARE
 // =============================================================================
 
-const ALLOWED_DOMAINS = ['instagram.com', 'cdninstagram.com', 'flashscore.com', 'flashscore.it', 'thesportsdb.com'];
+// NB: le immagini dei post Instagram sono servite anche da *.fbcdn.net
+// (es. instagram.ftrn5-1.fna.fbcdn.net): senza questo dominio /proxy-image
+// risponde 403 e lo sfondo non viene mai disegnato sul canvas.
+const ALLOWED_DOMAINS = ['instagram.com', 'cdninstagram.com', 'fbcdn.net', 'flashscore.com', 'flashscore.it', 'thesportsdb.com'];
 
 function validateRequestUrl(urlString) {
   try {
@@ -111,195 +114,51 @@ app.get('/api/health-check', (req, res) => {
 });
 
 // =============================================================================
-// INSTAGRAM ENDPOINTS (invariati)
+// INSTAGRAM ENDPOINTS
 // =============================================================================
-
-// Funzione per selezionare l'immagine con la qualità più alta
-function selectHighestQualityImage(images) {
-  if (!images || images.length === 0) return null;
-
-  return images.reduce((best, current) => {
-    const currentWidth = current.config_width || current.width || 0;
-    const currentHeight = current.config_height || current.height || 0;
-    const currentPixels = currentWidth * currentHeight;
-
-    const bestWidth = best.config_width || best.width || 0;
-    const bestHeight = best.config_height || best.height || 0;
-    const bestPixels = bestWidth * bestHeight;
-
-    return currentPixels > bestPixels ? current : best;
-  });
-}
-
-function extractOriginalImageUrl(mediaNode) {
-  if (mediaNode.original_image_url) return mediaNode.original_image_url;
-
-  const imageCandidates = [];
-  if (mediaNode.display_resources && mediaNode.display_resources.length > 0) {
-    imageCandidates.push(...mediaNode.display_resources);
-  }
-  if (mediaNode.image_versions2 && mediaNode.image_versions2.candidates) {
-    imageCandidates.push(...mediaNode.image_versions2.candidates);
-  }
-  if (mediaNode.display_url) {
-    imageCandidates.push({ src: mediaNode.display_url, config_width: 1080, config_height: 1080 });
-  }
-
-  const bestImage = selectHighestQualityImage(imageCandidates);
-  return bestImage ? (bestImage.src || bestImage.url) : null;
-}
+// La logica di estrazione vive in ./execution/instagram.js (pagina di embed +
+// fallback Puppeteer): qui resta solo il contratto HTTP.
 
 app.get('/api/instagram-image', async (req, res) => {
   if (!req.query.url) return res.status(400).json({ status: false, message: 'URL mancante' });
-  const url = decodeURIComponent(req.query.url);
-  const getCarouselImages = req.query.getCarouselImages === 'true';
 
-  const validation = validateRequestUrl(url);
-  if (!validation.valid) {
-    return res.status(validation.status).json({ status: false, message: validation.message });
+  // Il client passa l'URL già encodato: decodifica difensiva (no-op se non lo è).
+  let url = req.query.url;
+  try { url = decodeURIComponent(url); } catch (_) { /* già decodificato */ }
+
+  // Consenti anche lo shortcode "nudo": in quel caso salta la validazione dominio.
+  if (/^https?:\/\//i.test(url)) {
+    const validation = validateRequestUrl(url);
+    if (!validation.valid) {
+      return res.status(validation.status).json({ status: false, message: validation.message });
+    }
   }
 
   try {
-    console.log(`Recupero contenuto da: ${url}`);
+    console.log(`[Instagram] Recupero media da: ${url}`);
+    const { shortcode, items, isCarousel, source } = await getPostMedia(url);
 
-    // Genera un User-Agent random per evitare blocchi
-    const userAgents = [
-      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
-      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-      'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:124.0) Gecko/20100101 Firefox/124.0'
-    ];
-    const randomUserAgent = userAgents[Math.floor(Math.random() * userAgents.length)];
+    const images = items.filter(item => !item.isVideo);
+    const primary = images[0] || items[0];
 
-    const response = await axios.get(url, {
-      headers: {
-        'User-Agent': randomUserAgent,
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.5',
-        'Accept-Encoding': 'gzip, deflate, br',
-        'DNT': '1',
-        'Upgrade-Insecure-Requests': '1',
-        'Sec-Fetch-Dest': 'document',
-        'Sec-Fetch-Mode': 'navigate',
-        'Sec-Fetch-Site': 'none',
-        'Sec-Fetch-User': '?1'
-      },
-      timeout: 25000,
-      maxRedirects: 5
+    console.log(`[Instagram] ${shortcode}: ${items.length} slide (${source})`);
+
+    res.json({
+      status: true,
+      shortcode,
+      // Contratto storico (immagine singola / lista piatta)
+      imageUrl: primary ? primary.url : null,
+      carouselImages: items.map(item => item.url),
+      isCarousel,
+      imageCount: items.length,
+      quality: 'original',
+      // Contratto esteso: una voce per slide, con miniatura e flag video
+      items,
     });
-
-    const html = response.data;
-    const $ = cheerio.load(html);
-    let carouselImages = [];
-    let mainImageUrl = null;
-
-    // Strategia 1: Cerca JSON-LD (spesso contiene l'immagine principale ad alta ris)
-    $('script[type="application/ld+json"]').each((i, el) => {
-      try {
-        const json = JSON.parse($(el).html());
-        if (json['@type'] === 'ImageObject' && json.contentUrl) {
-          // Aggiungi solo se non è un thumbnail
-          if (!json.contentUrl.includes('150x150')) {
-            carouselImages.push(json.contentUrl);
-          }
-        }
-        if (Array.isArray(json)) {
-          json.forEach(item => {
-            if (item['@type'] === 'ImageObject' && item.contentUrl) carouselImages.push(item.contentUrl);
-          });
-        }
-      } catch (e) { }
-    });
-
-    // Strategia 2: Regex per _sharedData e additionalData
-    const scriptTags = $('script').map((i, el) => $(el).html()).get();
-
-    for (const scriptContent of scriptTags) {
-      if (!scriptContent) continue;
-
-      // Pattern vari per trovare il JSON
-      const patterns = [
-        /window\._sharedData\s*=\s*({.+?});/,
-        /window\.__additionalDataLoaded\s*\(\s*['"][^'"]+['"],\s*({.+?})\s*\);/,
-        /require\("TimeSliceImpl"\).guard\(\(function\(\){(var .+=({.+?});)/ // Pattern complesso per GraphQL
-      ];
-
-      for (const pattern of patterns) {
-        const match = scriptContent.match(pattern);
-        if (match && match[1]) {
-          try {
-            // Tentativo di pulizia per casi complessi o parse diretto
-            let jsonString = match[1];
-            if (jsonString.startsWith('var')) {
-              const jsonMatch = jsonString.match(/=\s*({.+?});/);
-              if (jsonMatch) jsonString = jsonMatch[1];
-            }
-
-            // Puliamo eventuali trailing functions se presenti in additionalData
-            if (jsonString.endsWith(');')) jsonString = jsonString.slice(0, -2);
-
-            const data = JSON.parse(jsonString);
-
-            // Naviga la struttura dati (molto variabile)
-            const post = data.entry_data?.PostPage?.[0]?.graphql?.shortcode_media ||
-              data.graphql?.shortcode_media ||
-              data.items?.[0] ||
-              data;
-
-            if (post) {
-              // Estrazione Carosello
-              if (getCarouselImages && (post.edge_sidecar_to_children || post.carousel_media)) {
-                const edges = post.edge_sidecar_to_children?.edges || post.carousel_media;
-                if (Array.isArray(edges)) {
-                  edges.forEach(edge => {
-                    const node = edge.node || edge;
-                    if (!node.is_video) {
-                      const img = extractOriginalImageUrl(node);
-                      if (img) carouselImages.push(img);
-                    }
-                  });
-                }
-              }
-
-              // Estrazione Immagine Singola (se non abbiamo trovato carosello o se è post singolo)
-              if (carouselImages.length === 0) {
-                const img = extractOriginalImageUrl(post);
-                if (img) carouselImages.push(img);
-              }
-            }
-          } catch (e) {
-            // console.log('Json parse error', e.message);
-          }
-        }
-      }
-    }
-
-    // Strategia 3: Open Graph tags (Fallback affidabile per immagine singola HD)
-    if (carouselImages.length === 0) {
-      const ogImage = $('meta[property="og:image"]').attr('content');
-      if (ogImage) carouselImages.push(ogImage);
-    }
-
-    // Pulizia duplicati e null
-    carouselImages = [...new Set(carouselImages)].filter(Boolean);
-
-    if (carouselImages.length > 0) {
-      mainImageUrl = carouselImages[0];
-
-      res.json({
-        status: true,
-        imageUrl: mainImageUrl,
-        carouselImages: carouselImages,
-        isCarousel: carouselImages.length > 1,
-        imageCount: carouselImages.length,
-        quality: 'high'
-      });
-    } else {
-      res.status(404).json({ status: false, message: 'Nessuna immagine trovata' });
-    }
-
   } catch (error) {
-    console.error('Server Error:', error.message);
-    res.status(500).json({ status: false, message: 'Errore server', error: error.message });
+    const status = error.statusCode || 500;
+    console.error('[Instagram] Errore:', error.message);
+    res.status(status).json({ status: false, message: error.message });
   }
 });
 
@@ -551,6 +410,38 @@ app.get('/api/get-match-details', async (req, res) => {
         message: error.message || 'Errore durante il recupero dei dettagli partita'
       });
     }
+  }
+});
+
+// --- ENDPOINT FLASHSCORE: Tutte le classifiche in una sola risposta ---
+// Le fasi (regular season, playoff scudetto/Europa, playout, league phase di
+// coppa) sono stage Flashscore distinti: un solo round-trip client -> server le
+// restituisce tutte, così cambiare variante nel canvas non costa altre fetch.
+//   GET /api/standings/all?country=greece[&season=2025-2026]
+//   -> { success, data: { regular, scudetto, europa, retrocessione, coppa }, meta }
+app.get('/api/standings/all', async (req, res) => {
+  const { country = 'greece' } = req.query;
+  // Lo slug stagione finisce dentro un URL Flashscore: accetta solo 'AAAA-AAAA'.
+  const season = /^[0-9]{4}-[0-9]{4}$/.test(req.query.season || '') ? req.query.season : null;
+  const cacheKey = `standings_bundle_${country}_${season || 'current'}`;
+
+  try {
+    const { data, cacheStatus } = await staleWhileRevalidate(
+      cacheKey,
+      async () => {
+        const bundle = await getStandingsBundle({ country, season });
+        return { success: true, ...bundle };
+      },
+      { softTTL: 300, hardTTL: 1800 } // 5 min fresh, 30 min stale
+    );
+
+    const counts = Object.entries(data.data || {}).map(([k, v]) => `${k}:${v.length}`).join(' ');
+    console.log(`[FLASHSCORE] Standings bundle [${cacheStatus}]: ${counts}`);
+    res.set('X-Cache-Status', cacheStatus);
+    res.json(data);
+  } catch (error) {
+    console.error('[FLASHSCORE] Standings bundle error:', error.message);
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 

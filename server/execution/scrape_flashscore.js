@@ -234,7 +234,9 @@ const COMPETITION_URLS = {
 const STANDINGS_URLS = {
     'greece/super-league': 'https://www.flashscore.com/football/greece/super-league/standings/',
     'greece/super-league-2': 'https://www.flashscore.com/football/greece/super-league-2/standings/',
-    'greece/coppa': null, // Le coppe non hanno classifica standard
+    // La Coppa di Grecia HA una classifica: la league phase a 20 squadre.
+    'greece/coppa': 'https://www.flashscore.com/football/greece/greek-cup/standings/',
+    'greece/greek-cup': 'https://www.flashscore.com/football/greece/greek-cup/standings/',
     'europe/champions-league': 'https://www.flashscore.com/football/europe/champions-league/standings/',
     'europe/europa-league': 'https://www.flashscore.com/football/europe/europa-league/standings/',
     'europe/conference-league': 'https://www.flashscore.com/football/europe/conference-league/standings/',
@@ -962,15 +964,34 @@ async function extractMatchesFromDOM(page, url, daysBack) {
 // =============================================================================
 
 /**
- * Parsa il feed classifica proprietario (to_{tournamentId}_{stageId}_1).
- * Ogni riga è una sezione ~TR: valore = rank, poi TN (nome squadra),
- * TM (giocate), TW (vinte), TDR (pareggi), TL (perse), TG (gol "26:15"), TP (punti).
+ * Parsa il feed classifica proprietario (to_{tournamentId}_{stageId}_1) tenendo
+ * separati i gironi.
+ *
+ * Ogni riga è una sezione ~TR: valore = rank, poi TN (nome squadra), TM
+ * (giocate), TW (vinte), TDR (pareggi), TL (perse), TG (gol "26:15"), TP (punti).
+ * Nelle competizioni a gironi (Nations League, fase a gironi europee) le righe
+ * sono precedute da sezioni `~TD÷{groupId}¬TE÷{nome girone}` e il rank riparte
+ * da 1 a ogni girone: senza questa separazione le tabelle si fonderebbero.
+ *
+ * @returns {Array<{id: string|null, name: string|null, rows: Array}>}
  */
-function parseStandingsFromRawData(rawData) {
+function parseStandingsGroups(rawData) {
     const sections = parseFlashscoreData(rawData);
-    const data = [];
+    const groups = [];
+    let current = null;
 
     for (const section of sections) {
+        if (section.id === '~TD') {
+            const namePair = section.pairs.find(p => p.key === 'TE');
+            current = {
+                id: section.pairs[0] ? section.pairs[0].value : null,
+                name: namePair ? namePair.value : null,
+                rows: [],
+            };
+            groups.push(current);
+            continue;
+        }
+
         if (section.id !== '~TR') continue;
         const get = (key) => {
             const pair = section.pairs.find(p => p.key === key);
@@ -989,7 +1010,13 @@ function parseStandingsFromRawData(rawData) {
         }
         const gdStr = gd > 0 ? `+${gd}` : `${gd}`;
 
-        data.push({
+        if (!current) {
+            // Tabella senza intestazioni di girone (campionati normali).
+            current = { id: null, name: null, rows: [] };
+            groups.push(current);
+        }
+
+        current.rows.push({
             rank,
             team,
             p: get('TM'),
@@ -1001,7 +1028,12 @@ function parseStandingsFromRawData(rawData) {
         });
     }
 
-    return data;
+    return groups.filter(g => g.rows.length > 0);
+}
+
+/** Classifica "piatta": tutti i gironi concatenati (comportamento storico). */
+function parseStandingsFromRawData(rawData) {
+    return parseStandingsGroups(rawData).flatMap(g => g.rows);
 }
 
 /**
@@ -1172,6 +1204,312 @@ async function getStandingsViaPuppeteer(url) {
             await page.close().catch(() => {});
         }
     }
+}
+
+// =============================================================================
+// SEZIONE 5-BIS: STANDINGS MULTI-STAGE (bundle: tutte le tabelle, una sola volta)
+// =============================================================================
+
+/**
+ * Le fasi di una competizione (regular season, playoff scudetto, gruppo Europa,
+ * playout, league phase di coppa) sono *stage Flashscore distinti*: hanno
+ * tabella, punti e partite proprie. Non si ottengono filtrando per posizione la
+ * tabella di regular season — quei numeri sarebbero semplicemente sbagliati.
+ *
+ * Gli stage id cambiano a ogni stagione, quindi hardcodarli non regge nel tempo.
+ * L'HTML statico della pagina standings però embedda i feed `summary-results` e
+ * `summary-fixtures`: ogni blocco `~ZA÷` porta il nome della fase, lo stage id
+ * (ZC) e il tournament id (ZE). Una sola GET per competizione mappa TUTTE le
+ * fasi; le tabelle si scaricano poi in parallelo dal feed
+ * `to_{tournamentId}_{stageId}_1`. Zero Puppeteer, due "onde" HTTP.
+ */
+const STANDINGS_BUNDLES = {
+    greece: [
+        {
+            competition: 'super-league',
+            pageUrl: 'https://www.flashscore.com/football/greece/super-league/standings/',
+            stages: [
+                // base = fase senza suffisso " - " nel nome (la regular season)
+                { key: 'regular', base: true },
+                { key: 'scudetto', re: /championship/i },
+                { key: 'europa', re: /conference\s*league|europa/i },
+                { key: 'retrocessione', re: /relegation|play\s*-?\s*out/i },
+            ],
+        },
+        {
+            competition: 'greek-cup',
+            pageUrl: 'https://www.flashscore.com/football/greece/greek-cup/standings/',
+            stages: [
+                // La league phase della Coppa di Grecia è la fase base ("GREECE:
+                // Greek Cup"); "- Qualification" e "- Play Offs" sono altre fasi.
+                { key: 'coppa', base: true },
+            ],
+        },
+        {
+            competition: 'uefa-nations-league',
+            pageUrl: 'https://www.flashscore.com/football/europe/uefa-nations-league/standings/',
+            stages: [
+                // Le quattro leghe (A/B/C/D) sono stage distinti e ognuno contiene
+                // 4 gironi. La Grecia cambia lega di stagione in stagione (promossa
+                // in League A per il 2026/27), quindi si scaricano tutte e si tiene
+                // il girone che contiene la Grecia: nessun id da aggiornare a mano.
+                { key: 'nationsleague', re: /^league\s+[abcd]$/i, all: true, pickGroupWith: 'Greece' },
+            ],
+        },
+    ],
+};
+
+/** Tutte le chiavi tabella esposte dal bundle, nell'ordine delle varianti UI. */
+const STANDINGS_BUNDLE_KEYS = ['regular', 'scudetto', 'europa', 'retrocessione', 'coppa', 'nationsleague'];
+
+/**
+ * Rete di sicurezza: id verificati manualmente (agosto 2026) per la stagione
+ * 2025/2026. Usati solo se la discovery dall'HTML non trova nulla per quella
+ * pagina (es. cambio di formato dell'HTML lato Flashscore).
+ */
+const PINNED_STAGES = {
+    'greece/super-league/2025-2026': {
+        tournamentId: 'nkWI0kH7',
+        stages: { regular: 'YqOkq45l', scudetto: 'SrHbsrz1', europa: 'xdJ8HD0J', retrocessione: '0dF6uM4D' },
+    },
+    'greece/greek-cup/2025-2026': {
+        tournamentId: 'fkWDHJ6U',
+        stages: { coppa: 'jRqYIymI' },
+    },
+};
+
+// Cache di modulo per la discovery degli stage: gli id cambiano solo a inizio
+// stagione, quindi vale la pena tenerli molto più a lungo delle tabelle.
+const STAGE_DISCOVERY_TTL_MS = 30 * 60 * 1000;
+const _stageDiscovery = new Map();          // key -> { at, value }
+const _stageDiscoveryInflight = new Map();  // key -> Promise (dedup concorrenti)
+
+/** Applica lo slug stagione (`2025-2026`) all'URL standings di una competizione. */
+function applySeasonToStandingsUrl(pageUrl, season) {
+    if (!season) return pageUrl;
+    return pageUrl.replace(/\/([^/]+)\/standings\/$/, '/$1-' + season + '/standings/');
+}
+
+/**
+ * Estrae dai feed embedded i descrittori di fase: { name, stageId, tournamentId }.
+ * Ogni blocco inizia con `~ZA÷<nome>¬ ... ZC÷<stageId> ... ZE÷<tournamentId>`.
+ */
+function extractStageDescriptors(html) {
+    const out = [];
+    const seen = new Set();
+    for (const feedName of ['summary-results', 'summary-fixtures']) {
+        const raw = extractEmbeddedFeed(html, feedName);
+        if (!raw) continue;
+        for (const chunk of raw.split('~ZA\xF7').slice(1)) {
+            const head = chunk.split('~')[0];
+            const name = head.split('\xAC')[0].trim();
+            const stageId = (head.match(/ZC\xF7([A-Za-z0-9]+)/) || [])[1];
+            const tournamentId = (head.match(/ZE\xF7([A-Za-z0-9]+)/) || [])[1];
+            if (!name || !stageId || !tournamentId) continue;
+            if (seen.has(stageId)) continue;
+            seen.add(stageId);
+            out.push({ name, stageId, tournamentId });
+        }
+    }
+    return out;
+}
+
+/**
+ * Nome fase → suffisso confrontabile.
+ *   "GREECE: Super League - Championship Group" → "Championship Group"
+ *   "GREECE: Super League"                      → ""  (fase base)
+ */
+function stageSuffix(name) {
+    const label = name.includes(':') ? name.slice(name.indexOf(':') + 1).trim() : name.trim();
+    const i = label.indexOf(' - ');
+    return i === -1 ? '' : label.slice(i + 3).trim();
+}
+
+/**
+ * Associa i descrittori trovati alle chiavi di variante della competizione.
+ * Ogni chiave punta a { refs: [{tournamentId, stageId}, ...], pickGroupWith }:
+ * quasi sempre un solo ref, ma una fase con `all: true` (le quattro leghe della
+ * Nations League) ne raccoglie diversi e li scarica tutti.
+ */
+function matchStages(descriptors, stageDefs) {
+    const stages = {};
+    for (const d of descriptors) {
+        const suffix = stageSuffix(d.name);
+        for (const def of stageDefs) {
+            if (stages[def.key] && !def.all) continue;
+            const hit = def.base ? suffix === '' : (def.re && def.re.test(suffix));
+            if (!hit) continue;
+            if (!stages[def.key]) stages[def.key] = { refs: [], pickGroupWith: def.pickGroupWith || null };
+            stages[def.key].refs.push({ stageId: d.stageId, tournamentId: d.tournamentId });
+        }
+    }
+    return stages;
+}
+
+/**
+ * Discovery degli stage di una competizione: UNA GET dell'HTML standings.
+ * Restituisce { pageUrl, projectId, stages: { key: { tournamentId, stageId } } }.
+ */
+async function discoverStages(comp, season) {
+    const pageUrl = applySeasonToStandingsUrl(comp.pageUrl, season);
+
+    const cached = _stageDiscovery.get(pageUrl);
+    if (cached && Date.now() - cached.at < STAGE_DISCOVERY_TTL_MS) return cached.value;
+    if (_stageDiscoveryInflight.has(pageUrl)) return _stageDiscoveryInflight.get(pageUrl);
+
+    const task = (async () => {
+        const t0 = Date.now();
+        const html = await fetchStaticHtml(pageUrl);
+        const projectId = (html.match(/projectId:\s*(\d+)/) || [])[1] || '2';
+        const descriptors = extractStageDescriptors(html);
+        const stages = matchStages(descriptors, comp.stages);
+
+        // Fallback 1: la pagina non embedda alcun feed (nessun descrittore).
+        // Non si applica quando i descrittori esistono ma nessuno e' la fase
+        // base: li' il tournamentStageId della pagina e' un'altra fase (la
+        // Coppa di Grecia a inizio stagione punta a "Qualification", non alla
+        // league phase) e assegnarlo alla fase base darebbe la tabella sbagliata.
+        if (descriptors.length === 0) {
+            const tournamentId = (html.match(/tournamentId:\s*"([^"]+)"/) || [])[1];
+            const stageId = (html.match(/tournamentStageId:\s*"([^"]+)"/) || [])[1];
+            const baseDef = comp.stages.find(s => s.base);
+            if (tournamentId && stageId && baseDef) {
+                stages[baseDef.key] = { refs: [{ tournamentId, stageId }], pickGroupWith: null };
+            }
+        }
+
+        // Fallback 2: completa le fasi mancanti con gli id verificati a mano.
+        // Serve soprattutto sull'archivio, dove i feed embedded contengono solo
+        // le ultime giornate (quindi le fasi finali) e la regular season resta
+        // fuori dai descrittori.
+        const pin = PINNED_STAGES['greece/' + comp.competition + '/' + (season || '')];
+        if (pin) {
+            for (const [k, sid] of Object.entries(pin.stages)) {
+                if (!stages[k]) stages[k] = { refs: [{ tournamentId: pin.tournamentId, stageId: sid }], pickGroupWith: null };
+            }
+        }
+
+        const value = { pageUrl, projectId, stages };
+        _stageDiscovery.set(pageUrl, { at: Date.now(), value });
+        console.log('[Standings Bundle] discovery ' + comp.competition + (season ? ' ' + season : '') + ': ' +
+            (Object.keys(stages).join(', ') || 'nessuna fase') + ' in ' + (Date.now() - t0) + 'ms');
+        return value;
+    })().finally(() => _stageDiscoveryInflight.delete(pageUrl));
+
+    _stageDiscoveryInflight.set(pageUrl, task);
+    return task;
+}
+
+/** Scarica e parsa i gironi di una singola tabella dal feed proprietario. */
+async function fetchStandingsGroups(projectId, tournamentId, stageId) {
+    const feedUrl = 'https://' + projectId + '.flashscore.ninja/' + projectId +
+        '/x/feed/to_' + tournamentId + '_' + stageId + '_1';
+    const res = await axios.get(feedUrl, {
+        headers: {
+            'x-fsign': _fsign,
+            'User-Agent': HTTP_USER_AGENT,
+            'Referer': 'https://www.flashscore.com/',
+            'Accept': '*/*',
+        },
+        timeout: 8000,
+        responseType: 'text',
+    });
+    return parseStandingsGroups(res.data || '');
+}
+
+/**
+ * Risolve una fase in righe di classifica.
+ *   - senza `pickGroupWith`: tutti i gironi concatenati (campionati normali,
+ *     dove il girone è uno solo).
+ *   - con `pickGroupWith`: cerca fra tutti gli stage il girone che contiene
+ *     quella squadra e restituisce solo quello (Nations League: 4 leghe × 4
+ *     gironi, ne interessa uno).
+ */
+async function resolveStageRows(projectId, stage) {
+    const perRef = await Promise.all(stage.refs.map(async (ref) => {
+        try {
+            return { ref, groups: await fetchStandingsGroups(projectId, ref.tournamentId, ref.stageId) };
+        } catch (e) {
+            console.warn('[Standings Bundle] feed ' + ref.stageId + ' non disponibile: ' + e.message);
+            return { ref, groups: [] };
+        }
+    }));
+
+    if (!stage.pickGroupWith) {
+        const flat = perRef.flatMap(r => r.groups.flatMap(g => g.rows));
+        return { rows: flat, ref: stage.refs[0] || null, group: null };
+    }
+
+    const target = stage.pickGroupWith.toLowerCase();
+    for (const { ref, groups } of perRef) {
+        const hit = groups.find(g => g.rows.some(row => (row.team || '').toLowerCase() === target));
+        if (hit) return { rows: hit.rows, ref, group: hit.name || hit.id || null };
+    }
+    return { rows: [], ref: null, group: null };
+}
+
+/**
+ * Tutte le classifiche di un paese in una sola chiamata.
+ * Percorso HTTP puro: niente Puppeteer, niente fallback su archivio.
+ * Una fase non ancora attiva restituisce [] (rapidamente), non un errore.
+ *
+ * @param {Object} options
+ * @param {string} [options.country='greece']
+ * @param {string} [options.season] - slug archivio, es. '2025-2026' (default: stagione corrente)
+ * @returns {Promise<{ data: Object, meta: Object }>}
+ */
+async function getStandingsBundle({ country = 'greece', season = null } = {}) {
+    const t0 = Date.now();
+    const normalized = normalizeCountry(country);
+    const comps = STANDINGS_BUNDLES[normalized];
+    if (!comps) throw new Error("Nessun bundle classifiche configurato per '" + country + "'");
+
+    const data = {};
+    const stagesMeta = {};
+    for (const k of STANDINGS_BUNDLE_KEYS) data[k] = [];
+
+    await Promise.all(comps.map(async (comp) => {
+        let discovery;
+        try {
+            discovery = await discoverStages(comp, season);
+        } catch (e) {
+            console.warn('[Standings Bundle] discovery fallita per ' + comp.competition + ': ' + e.message);
+            return;
+        }
+
+        await Promise.all(Object.entries(discovery.stages).map(async ([key, stage]) => {
+            try {
+                const { rows, ref, group } = await resolveStageRows(discovery.projectId, stage);
+                data[key] = rows;
+                stagesMeta[key] = {
+                    stageId: ref ? ref.stageId : null,
+                    tournamentId: ref ? ref.tournamentId : null,
+                    group,
+                    rows: rows.length,
+                };
+            } catch (e) {
+                console.warn("[Standings Bundle] tabella '" + key + "' non disponibile: " + e.message);
+                stagesMeta[key] = { stageId: null, tournamentId: null, group: null, rows: 0, error: e.message };
+            }
+        }));
+    }));
+
+    const elapsedMs = Date.now() - t0;
+    const inactive = STANDINGS_BUNDLE_KEYS.filter(k => data[k].length === 0);
+    console.log('[Standings Bundle] ' + normalized + (season ? '/' + season : '') + ' in ' + elapsedMs + 'ms — ' +
+        STANDINGS_BUNDLE_KEYS.map(k => k + ':' + data[k].length).join(' ') +
+        (inactive.length ? ' (fasi vuote: ' + inactive.join(', ') + ')' : ''));
+
+    return {
+        data,
+        meta: {
+            country: normalized,
+            season: season || 'current',
+            elapsedMs,
+            stages: stagesMeta,
+            inactiveStages: inactive,
+        },
+    };
 }
 
 // =============================================================================
@@ -1597,4 +1935,4 @@ if (require.main === module) {
     }
 }
 
-module.exports = { getRecentMatches, getMatchDetails, getStandings, prewarmBrowser, isGreekTeam, prioritizeGreekMatches };
+module.exports = { getRecentMatches, getMatchDetails, getStandings, getStandingsBundle, STANDINGS_BUNDLE_KEYS, prewarmBrowser, acquirePage, isGreekTeam, prioritizeGreekMatches };

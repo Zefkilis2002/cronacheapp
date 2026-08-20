@@ -1,4 +1,4 @@
-import { findTeamLogo } from '../../utils/LogoConstants';
+import { findTeamLogo, TEAM_LOGOS } from '../../utils/LogoConstants';
 
 // Configurazione delle 5 varianti di classifica in stile "Super League".
 // Ogni variante riproduce fedelmente uno dei mockup HTML forniti, ricreato
@@ -98,6 +98,71 @@ export const DISPLAY_MAP = {
   'AEL Larissa': TEAMS[13]
 };
 
+// --- NAZIONALI (Nations League) ---
+// Flashscore restituisce i nomi in inglese; qui la resa italiana usata dalle
+// grafiche. Negli asset esiste solo il logo della Grecia: per le altre
+// nazionali il logo resta null e il Canva disegna la riga senza stemma
+// (stesso comportamento già previsto dal template Coppa di Grecia).
+const nation = (name, logo = null) => ({ name, logo });
+
+export const NATIONS = {
+  'albania': nation('Albania'),
+  'andorra': nation('Andorra'),
+  'armenia': nation('Armenia'),
+  'austria': nation('Austria'),
+  'azerbaijan': nation('Azerbaigian'),
+  'belarus': nation('Bielorussia'),
+  'belgium': nation('Belgio'),
+  'bosnia & herzegovina': nation('Bosnia-Erzegovina'),
+  'bulgaria': nation('Bulgaria'),
+  'croatia': nation('Croazia'),
+  'cyprus': nation('Cipro'),
+  'czech republic': nation('Rep. Ceca'),
+  'denmark': nation('Danimarca'),
+  'england': nation('Inghilterra'),
+  'estonia': nation('Estonia'),
+  'faroe islands': nation('Far Oer'),
+  'finland': nation('Finlandia'),
+  'france': nation('Francia'),
+  'georgia': nation('Georgia'),
+  'germany': nation('Germania'),
+  'gibraltar': nation('Gibilterra'),
+  'greece': nation('Grecia', TEAM_LOGOS.GRECIA),
+  'hungary': nation('Ungheria'),
+  'iceland': nation('Islanda'),
+  'ireland': nation('Irlanda'),
+  'israel': nation('Israele'),
+  'italy': nation('Italia'),
+  'kazakhstan': nation('Kazakistan'),
+  'kosovo': nation('Kosovo'),
+  'latvia': nation('Lettonia'),
+  'liechtenstein': nation('Liechtenstein'),
+  'lithuania': nation('Lituania'),
+  'luxembourg': nation('Lussemburgo'),
+  'malta': nation('Malta'),
+  'moldova': nation('Moldavia'),
+  'montenegro': nation('Montenegro'),
+  'netherlands': nation('Paesi Bassi'),
+  'north macedonia': nation('Macedonia del Nord'),
+  'northern ireland': nation('Irlanda del Nord'),
+  'norway': nation('Norvegia'),
+  'poland': nation('Polonia'),
+  'portugal': nation('Portogallo'),
+  'republic of ireland': nation('Irlanda'),
+  'romania': nation('Romania'),
+  'san marino': nation('San Marino'),
+  'scotland': nation('Scozia'),
+  'serbia': nation('Serbia'),
+  'slovakia': nation('Slovacchia'),
+  'slovenia': nation('Slovenia'),
+  'spain': nation('Spagna'),
+  'sweden': nation('Svezia'),
+  'switzerland': nation('Svizzera'),
+  'turkey': nation('Turchia'),
+  'ukraine': nation('Ucraina'),
+  'wales': nation('Galles')
+};
+
 // Ripulisce un nome grezzo dallo scraping (suffissi/rumore comuni).
 const cleanScrapedName = (raw) =>
   String(raw || '')
@@ -111,6 +176,10 @@ const cleanScrapedName = (raw) =>
 // nome breve ufficiale della lista TEAMS; fallback su mappa interna e nome pulito.
 export const resolveTeam = (scrapedName) => {
   if (!scrapedName) return { name: '', logo: null };
+
+  // 0) Nazionali (Nations League): match esatto, nessuna ambiguità con i club
+  const nazionale = NATIONS[String(scrapedName).trim().toLowerCase()];
+  if (nazionale) return nazionale;
 
   // 1) Logo robusto → nome breve ufficiale
   const logo = findTeamLogo(scrapedName);
@@ -137,6 +206,16 @@ const r = (pos, teamIdx, p, w, d, l, gd, pts) => ({
   gd, pts: String(pts)
 });
 
+// Helper per una riga "nazionale" a zero (girone non ancora iniziato)
+const n = (pos, flashscoreName) => {
+  const t = NATIONS[flashscoreName.toLowerCase()] || { name: flashscoreName, logo: null };
+  return {
+    pos: String(pos), name: t.name, logo: t.logo,
+    srcName: flashscoreName, // nome Flashscore: serve alla ricerca web del logo
+    p: '0', w: '0', d: '0', l: '0', gd: '0', pts: '0'
+  };
+};
+
 // Stili di riga (accento, gradiente, colore posizione, colore punti)
 const style = (accent, gradKey, gradOp, gradStop, posColor, ptColor, badge) => ({
   accent,
@@ -148,12 +227,23 @@ const style = (accent, gradKey, gradOp, gradStop, posColor, ptColor, badge) => (
 
 const NOTE = 'V vinte · N pari · P perse · DR diff. reti';
 
+// --- SORGENTE DATI PER VARIANTE ---
+// `dataKey` indica quale tabella del bundle /api/standings/all alimenta la
+// variante. Scudetto, Europa e retrocessione sono stage Flashscore distinti
+// (punti e partite proprie): NON si ricavano filtrando per posizione la
+// classifica di regular season, per questo hanno `sliceByRank: false` e si
+// prendono tutte le righe dello stage. `sliceByRank: true` serve solo dove una
+// tabella unica va spezzata (1-7 / 8-14 dalla regular season, prime 16 di 20
+// dalla league phase di coppa) e usa `rankRange`.
+
 export const VARIANTS = {
   '1-7': {
     label: 'Classifica 1-7',
     title: null,
     titleColor: null,
     rankRange: [1, 7],
+    dataKey: 'regular',
+    sliceByRank: true,
     legend: [
       { color: GOLD, label: 'Playoff scudetto' },
       { color: BLUE, label: 'Playoff Europa' }
@@ -184,6 +274,8 @@ export const VARIANTS = {
     title: null,
     titleColor: null,
     rankRange: [8, 14],
+    dataKey: 'regular',
+    sliceByRank: true,
     legend: [
       { color: BLUE, label: 'Playoff Europa' },
       { color: RED, label: 'Playout retrocessione' }
@@ -214,6 +306,8 @@ export const VARIANTS = {
     title: 'Gruppo scudetto',
     titleColor: CHAMP_T,
     rankRange: [1, 4],
+    dataKey: 'scudetto',
+    sliceByRank: false,
     legend: [
       { color: CHAMP, label: 'Champions League' },
       { color: ORANGE, label: 'Europa League' }
@@ -237,7 +331,9 @@ export const VARIANTS = {
     label: 'Gruppo Europa',
     title: 'Gruppo Europa',
     titleColor: GREEN_T,
-    rankRange: [5, 9],
+    rankRange: [5, 8],
+    dataKey: 'europa',
+    sliceByRank: false,
     legend: [
       { color: GREEN, label: 'Conference League' }
     ],
@@ -246,15 +342,13 @@ export const VARIANTS = {
       style(GREEN, 'GREEN', 0.2, 0.72, GREEN_T, GREEN_T),
       style(NEUTRAL, null, 0, 0, WHITE9, WHITE),
       style(NEUTRAL, null, 0, 0, WHITE9, WHITE),
-      style(NEUTRAL, null, 0, 0, WHITE9, WHITE),
       style(NEUTRAL, null, 0, 0, WHITE9, WHITE)
     ],
     defaults: [
       r(5, 4, 14, 6, 4, 4, '+5', 22),
       r(6, 5, 14, 5, 4, 5, '-2', 19),
       r(7, 6, 14, 4, 4, 6, '-5', 16),
-      r(8, 7, 14, 4, 3, 7, '-4', 15),
-      r(9, 8, 14, 3, 5, 6, '-6', 14)
+      r(8, 7, 14, 4, 3, 7, '-4', 15)
     ]
   },
 
@@ -262,7 +356,9 @@ export const VARIANTS = {
     label: 'Gruppo retrocessione',
     title: 'Gruppo retrocessione',
     titleColor: RED_T,
-    rankRange: [10, 14],
+    rankRange: [9, 14],
+    dataKey: 'retrocessione',
+    sliceByRank: false,
     legend: [
       { color: RED, label: 'Retrocessione' }
     ],
@@ -271,20 +367,107 @@ export const VARIANTS = {
       style(NEUTRAL, null, 0, 0, WHITE9, WHITE),
       style(NEUTRAL, null, 0, 0, WHITE9, WHITE),
       style(NEUTRAL, null, 0, 0, WHITE9, WHITE),
+      style(NEUTRAL, null, 0, 0, WHITE9, WHITE),
       style(RED, 'RED', 0.16, 0.62, RED_T, WHITE),
       style(RED, 'RED', 0.16, 0.62, RED_T, WHITE)
     ],
     defaults: [
+      r(9, 8, 14, 3, 5, 6, '-6', 14),
       r(10, 9, 14, 3, 4, 7, '-7', 13),
       r(11, 10, 14, 3, 3, 8, '-9', 12),
       r(12, 11, 14, 2, 4, 8, '-11', 10),
       r(13, 12, 14, 2, 3, 9, '-13', 9),
       r(14, 13, 14, 1, 4, 9, '-15', 7)
     ]
+  },
+
+  'nationsleague': {
+    label: 'Nations League',
+    title: 'Nations League',
+    titleColor: CHAMP_T,
+    // Il girone della Grecia è un girone a sé dentro lo stage della sua lega:
+    // il server lo isola cercando la Grecia fra tutti i gironi di League A/B/C/D,
+    // quindi qui si prendono tutte le righe così come arrivano.
+    rankRange: [1, 4],
+    dataKey: 'nationsleague',
+    sliceByRank: false,
+    legend: [
+      { color: CHAMP, label: 'Quarti di finale' },
+      { color: ORANGE, label: 'Spareggio' },
+      { color: RED, label: 'Retrocessione' }
+    ],
+    note: NOTE,
+    styles: [
+      style(CHAMP, 'CHAMP', 0.24, 0.72, CHAMP_T, CHAMP_T),
+      style(CHAMP, 'CHAMP', 0.16, 0.62, CHAMP_T, WHITE),
+      style(ORANGE, 'ORANGE', 0.18, 0.62, ORANGE_T, WHITE),
+      style(RED, 'RED', 0.16, 0.62, RED_T, WHITE)
+    ],
+    // Il girone 2026/27 (League A, gruppo 2) non è ancora iniziato: si gioca da
+    // settembre 2026, quindi i default sono le quattro nazionali a zero.
+    defaults: [
+      n(1, 'Germany'),
+      n(2, 'Netherlands'),
+      n(3, 'Greece'),
+      n(4, 'Serbia')
+    ]
+  },
+
+  'coppa': {
+    label: 'Coppa di Grecia',
+    layout: 'coppa', // template a pannello laterale, diverso dalle altre 5 varianti
+    title: 'Coppa di Grecia',
+    titleColor: CHAMP_T,
+    rankRange: [1, 16],
+    dataKey: 'coppa',
+    sliceByRank: true,
+    legend: [
+      { color: CHAMP, label: 'Quarti di finale' },
+      { color: GOLD, label: 'Play-off' }
+    ],
+    note: NOTE,
+    styles: [
+      style(CHAMP, 'CHAMP', 0.22, 0.70, CHAMP_T, CHAMP_T),
+      style(CHAMP, 'CHAMP', 0.16, 0.62, CHAMP_T, WHITE),
+      style(CHAMP, 'CHAMP', 0.16, 0.62, CHAMP_T, WHITE),
+      style(CHAMP, 'CHAMP', 0.16, 0.62, CHAMP_T, WHITE),
+      style(GOLD, 'GOLD', 0.18, 0.62, GOLD, GOLD),
+      style(GOLD, 'GOLD', 0.18, 0.62, GOLD, WHITE),
+      style(GOLD, 'GOLD', 0.18, 0.62, GOLD, WHITE),
+      style(GOLD, 'GOLD', 0.18, 0.62, GOLD, WHITE),
+      style(GOLD, 'GOLD', 0.18, 0.62, GOLD, WHITE),
+      style(GOLD, 'GOLD', 0.18, 0.62, GOLD, WHITE),
+      style(GOLD, 'GOLD', 0.18, 0.62, GOLD, WHITE),
+      style(GOLD, 'GOLD', 0.18, 0.62, GOLD, WHITE),
+      style(NEUTRAL, null, 0, 0, WHITE9, WHITE),
+      style(NEUTRAL, null, 0, 0, WHITE9, WHITE),
+      style(NEUTRAL, null, 0, 0, WHITE9, WHITE),
+      style(NEUTRAL, null, 0, 0, WHITE9, WHITE)
+    ],
+    defaults: [
+      r(1, 0, 6, 5, 1, 0, '+12', 16),
+      r(2, 1, 6, 5, 0, 1, '+9', 15),
+      r(3, 2, 6, 4, 2, 0, '+8', 14),
+      r(4, 3, 6, 4, 1, 1, '+7', 13),
+      r(5, 4, 6, 3, 2, 1, '+4', 11),
+      r(6, 5, 6, 3, 1, 2, '+2', 10),
+      r(7, 6, 6, 3, 1, 2, '+1', 10),
+      r(8, 7, 6, 2, 3, 1, '0', 9),
+      r(9, 8, 6, 2, 2, 2, '-1', 8),
+      r(10, 9, 6, 2, 2, 2, '-2', 8),
+      r(11, 10, 6, 2, 1, 3, '-3', 7),
+      r(12, 11, 6, 2, 1, 3, '-4', 7),
+      r(13, 12, 6, 1, 3, 2, '-5', 6),
+      r(14, 13, 6, 1, 2, 3, '-7', 5),
+      // Squadre fuori Super League: logo dagli asset locali, con srcName come
+      // rete di sicurezza per la ricerca web automatica
+      { pos: '15', name: 'Kalamata', logo: findTeamLogo('Kalamata'), srcName: 'Kalamata', p: '6', w: '1', d: '1', l: '4', gd: '-9', pts: '4' },
+      { pos: '16', name: 'Athens Kallithea', logo: findTeamLogo('Athens Kallithea'), srcName: 'Athens Kallithea', p: '6', w: '0', d: '2', l: '4', gd: '-12', pts: '2' }
+    ]
   }
 };
 
-export const VARIANT_ORDER = ['1-7', '8-14', 'scudetto', 'europa', 'retrocessione'];
+export const VARIANT_ORDER = ['1-7', '8-14', 'scudetto', 'europa', 'retrocessione', 'nationsleague', 'coppa'];
 
 // Geometria (coordinate a 1080x1350) condivisa dal Canva.
 export const CLASSIFICA_GEO = {
@@ -314,4 +497,52 @@ export const CLASSIFICA_GEO = {
   LEGEND_GAP: 22,
   LEGEND_H: 18,
   LOGO_SIZE: 40
+};
+
+// Geometria del template "Coppa di Grecia": pannello laterale (760px),
+// contenuto ancorato in ALTO (non in basso come le altre 5 varianti),
+// righe piatte (nessuna riga "più grande" per il #1), 16 posizioni.
+export const COPPA_GEO = {
+  W: 1080,
+  H: 1350,
+  CONTENT_LEFT: 60,
+  CONTENT_TOP: 52,
+  // Pannello più stretto di 60px (era 700): la colonna SQUADRA aveva ~160px
+  // inutilizzati anche col nome più lungo, le colonne statistiche restano
+  // identiche e i distanziamenti fra colonne (8px) sono invariati.
+  CONTENT_WIDTH: 640,
+  ROW_INDENT: 14, // border-left 4 + padding-left 10
+  // colonne relative all'inizio contenuto riga (CONTENT_LEFT + ROW_INDENT = 74)
+  COLS: {
+    POS: { x: 0, w: 38, align: 'left' },
+    LOGO: { x: 46, w: 32 },
+    NAME: { x: 86, w: 266, align: 'left' },
+    P: { x: 360, w: 32, align: 'center' },
+    W: { x: 400, w: 32, align: 'center' },
+    N: { x: 440, w: 32, align: 'center' },
+    L: { x: 480, w: 32, align: 'center' },
+    GD: { x: 520, w: 46, align: 'center' },
+    PTS: { x: 574, w: 52, align: 'right' }
+  },
+  ROW_H: 58, // altezza flat per tutte le righe
+  LOGO_SIZE: 28,
+  HEADER_LOGO_H: 88,
+  TITLE_MARGIN_TOP: 34,
+  TITLE_H: 34,
+  HEADER_LABEL_H: 24,
+  SEPARATOR_H: 2,
+  LEGEND_PAD_TOP: 18,
+  LEGEND_ROW_GAP: 8,
+  DIM_FROM_INDEX: 8, // righe da pos.9 in poi con statistiche più tenui (0.6/0.75)
+  // pannello scuro orizzontale sopra la foto (sinistra → trasparente a destra)
+  OVERLAY_WIDTH: 700,
+  OVERLAY_STOPS: [0, 'rgba(8,9,11,0.94)', 0.62, 'rgba(8,9,11,0.9)', 1, 'rgba(8,9,11,0.0)'],
+  // loghi header: entrambi allineati in alto a y=52 (nessun centraggio reciproco)
+  HEADER: {
+    LEFT_X: 60,
+    RIGHT_X: 1020,
+    Y: 52,
+    LEFT_H: 88,
+    RIGHT_H: 92
+  }
 };

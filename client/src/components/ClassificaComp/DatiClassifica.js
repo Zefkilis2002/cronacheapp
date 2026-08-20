@@ -21,7 +21,9 @@ const OSWALD = 'Oswald, sans-serif';
 
 // Riga singola della tabella
 const ClassificaRow = ({ row, style, top, height, isFirst, onTeamClick, onValueClick }) => {
-  const [logoImage] = useImage(row.logo || undefined);
+  // crossOrigin: i loghi cercati sul web arrivano dal proxy (altra origine);
+  // senza 'anonymous' il canvas si "sporca" e il download fallisce.
+  const [logoImage] = useImage(row.logo || undefined, 'anonymous');
   const center = top + height / 2;
   const bottomBorder = isFirst ? 'rgba(255,255,255,0.14)' : 'rgba(255,255,255,0.12)';
   const statColor = isFirst ? 'rgba(255,255,255,0.75)' : 'rgba(255,255,255,0.7)';

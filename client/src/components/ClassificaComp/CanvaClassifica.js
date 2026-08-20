@@ -2,15 +2,21 @@ import React, { useEffect, useState } from 'react';
 import { Stage, Layer, Rect, Image as KonvaImage } from 'react-konva';
 import useImage from 'use-image';
 import DatiClassifica from './DatiClassifica';
+import DatiClassificaCoppa from './DatiClassificaCoppa';
+import { COPPA_GEO } from './classificaVariants';
 import { CLASSIFICA_LAYOUT } from '../../config/layoutConstants';
 import './CanvaClassifica.css';
 
 const STAGE_W = CLASSIFICA_LAYOUT.STAGE.WIDTH;
 const STAGE_H = CLASSIFICA_LAYOUT.STAGE.HEIGHT;
 
-// Loghi header: competizione (sinistra) e pagina (destra)
-const HeaderLogos = ({ stageRef }) => {
+// Loghi header: competizione (sinistra) e pagina (destra).
+// Il template "coppa" ha una geometria diversa (entrambi allineati in alto
+// a y=52, nessun centraggio reciproco) rispetto alle altre 5 varianti.
+const HeaderLogos = ({ stageRef, variant }) => {
+  const isCoppa = variant?.layout === 'coppa';
   const H = CLASSIFICA_LAYOUT.HEADER;
+  const CH = COPPA_GEO.HEADER;
   const [compLogo] = useImage(CLASSIFICA_LAYOUT.COMP_LOGO);
   const [pageLogo] = useImage(CLASSIFICA_LAYOUT.PAGE_LOGO);
 
@@ -21,6 +27,21 @@ const HeaderLogos = ({ stageRef }) => {
       stageRef.current.batchDraw();
     }
   }, [compLogo, pageLogo, stageRef]);
+
+  if (isCoppa) {
+    const compW = compLogo ? compLogo.width * (CH.LEFT_H / compLogo.height) : 0;
+    const pageW = pageLogo ? pageLogo.width * (CH.RIGHT_H / pageLogo.height) : 0;
+    return (
+      <>
+        {compLogo && (
+          <KonvaImage image={compLogo} x={CH.LEFT_X} y={CH.Y} width={compW} height={CH.LEFT_H} listening={false} />
+        )}
+        {pageLogo && (
+          <KonvaImage image={pageLogo} x={CH.RIGHT_X - pageW} y={CH.Y} width={pageW} height={CH.RIGHT_H} listening={false} />
+        )}
+      </>
+    );
+  }
 
   const compW = compLogo ? compLogo.width * (H.LEFT_LOGO_H / compLogo.height) : 0;
   const pageW = pageLogo ? pageLogo.width * (H.RIGHT_LOGO_H / pageLogo.height) : 0;
@@ -273,28 +294,51 @@ const CanvaClassifica = ({
             />
           )}
 
-          {/* Overlay gradiente scuro */}
-          <Rect
-            x={0}
-            y={0}
-            width={STAGE_W}
-            height={STAGE_H}
-            fillLinearGradientStartPoint={{ x: 0, y: 0 }}
-            fillLinearGradientEndPoint={{ x: 0, y: STAGE_H }}
-            fillLinearGradientColorStops={CLASSIFICA_LAYOUT.OVERLAY_STOPS}
-            listening={false}
-          />
+          {/* Overlay gradiente scuro: verticale (default) oppure pannello
+              laterale orizzontale per il template "coppa" */}
+          {variant?.layout === 'coppa' ? (
+            <Rect
+              x={0}
+              y={0}
+              width={COPPA_GEO.OVERLAY_WIDTH}
+              height={STAGE_H}
+              fillLinearGradientStartPoint={{ x: 0, y: 0 }}
+              fillLinearGradientEndPoint={{ x: COPPA_GEO.OVERLAY_WIDTH, y: 0 }}
+              fillLinearGradientColorStops={COPPA_GEO.OVERLAY_STOPS}
+              listening={false}
+            />
+          ) : (
+            <Rect
+              x={0}
+              y={0}
+              width={STAGE_W}
+              height={STAGE_H}
+              fillLinearGradientStartPoint={{ x: 0, y: 0 }}
+              fillLinearGradientEndPoint={{ x: 0, y: STAGE_H }}
+              fillLinearGradientColorStops={CLASSIFICA_LAYOUT.OVERLAY_STOPS}
+              listening={false}
+            />
+          )}
 
           {/* Header loghi */}
-          <HeaderLogos stageRef={stageRef} />
+          <HeaderLogos stageRef={stageRef} variant={variant} />
 
           {/* Tabella classifica */}
-          <DatiClassifica
-            variant={variant}
-            rows={rows}
-            onTeamClick={onTeamClick}
-            onValueClick={onValueClick}
-          />
+          {variant?.layout === 'coppa' ? (
+            <DatiClassificaCoppa
+              variant={variant}
+              rows={rows}
+              onTeamClick={onTeamClick}
+              onValueClick={onValueClick}
+            />
+          ) : (
+            <DatiClassifica
+              variant={variant}
+              rows={rows}
+              onTeamClick={onTeamClick}
+              onValueClick={onValueClick}
+            />
+          )}
         </Layer>
         </Stage>
       </div>

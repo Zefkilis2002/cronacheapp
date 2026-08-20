@@ -3,6 +3,8 @@ import CanvaClassifica from './CanvaClassifica';
 import ImageControl from './ImageControl';
 import ClassificaToolBar from './ClassificaToolBar';
 import { VARIANTS, VARIANT_ORDER, TEAMS, resolveTeam } from './classificaVariants';
+import { fetchStandingsBundle, getCachedStandings, prefetchStandingsBundle } from './standingsApi';
+import { resolveWebLogos } from './logoSearch';
 import { saveImage } from '../../utils/saveImage';
 import { CLASSIFICA_LAYOUT } from '../../config/layoutConstants';
 import './ClassificaComp.css';
@@ -12,11 +14,31 @@ const buildDefaultRows = (variantId) =>
   VARIANTS[variantId].defaults.map((d, i) => ({ id: i, ...d }));
 
 // Righe con le squadre della variante ma tutte le statistiche a 0
-// (stagione non ancora iniziata). Riempimento istantaneo, zero rete.
+// (fase non ancora attiva). Riempimento istantaneo, zero rete.
 const buildZeroedRows = (variantId) =>
   VARIANTS[variantId].defaults.map((d, i) => ({
     ...d, id: i, p: '0', w: '0', d: '0', l: '0', gd: '0', pts: '0'
   }));
+
+// Estrae dal bundle le righe che alimentano una variante.
+// Scudetto / Europa / retrocessione sono stage a sé: si prendono tutte le
+// righe dello stage (sliceByRank false). 1-7 / 8-14 e coppa spezzano invece
+// un'unica tabella per posizione.
+const selectRowsForVariant = (tables, variantId) => {
+  const v = VARIANTS[variantId];
+  const source = (tables && tables[v.dataKey]) || [];
+  if (source.length === 0) return [];
+
+  const [minR, maxR] = v.rankRange;
+  const picked = v.sliceByRank
+    ? source.filter(item => {
+      const rk = parseInt(item.rank, 10);
+      return rk >= minR && rk <= maxR;
+    })
+    : source.slice();
+
+  return picked.sort((a, b) => parseInt(a.rank, 10) - parseInt(b.rank, 10));
+};
 
 const ClassificaComp = () => {
   const [variantId, setVariantId] = useState('1-7');
@@ -29,7 +51,12 @@ const ClassificaComp = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('vision');
 
-  const [originalData, setOriginalData] = useState([]);
+  // Tutte le tabelle del bundle: { regular, scudetto, europa, retrocessione, coppa }.
+  // Tenerle tutte in memoria significa 0 fetch al cambio di variante.
+  const [standings, setStandings] = useState(() => {
+    const cached = getCachedStandings();
+    return cached ? cached.data : null;
+  });
   const [isFetching, setIsFetching] = useState(false);
 
   const stageRef = useRef(null);
@@ -41,32 +68,26 @@ const ClassificaComp = () => {
   const handleDecreaseImageSize = () =>
     setImageScale(prev => ({ scaleX: Math.max(0.1, prev.scaleX - 0.1), scaleY: Math.max(0.1, prev.scaleY - 0.1) }));
 
-  // Applica i dati (fetch) alla variante corrente in base all'intervallo posizioni
-  const applyDataToVariant = useCallback((data, vId) => {
-    const v = VARIANTS[vId];
-    const [minR, maxR] = v.rankRange;
-    const defaults = buildDefaultRows(vId);
+  // Applica al canvas la tabella della variante corrente. Puramente locale.
+  const applyDataToVariant = useCallback((tables, vId) => {
+    const selected = selectRowsForVariant(tables, vId);
 
-    if (!data || data.length === 0) {
-      setRows(defaults);
+    // Fase non ancora attiva (playoff non iniziati, coppa non partita):
+    // squadre del template con statistiche a 0, nessun dato inventato.
+    if (selected.length === 0) {
+      setRows(buildZeroedRows(vId));
       return;
     }
 
-    // Ordina per posizione e filtra le squadre nell'intervallo della variante
-    const filtered = data
-      .filter(item => {
-        const rk = parseInt(item.rank, 10);
-        return rk >= minR && rk <= maxR;
-      })
-      .sort((a, b) => parseInt(a.rank, 10) - parseInt(b.rank, 10));
-
-    const newRows = defaults.map((def, i) => {
-      const item = filtered[i];
-      if (!item) return def; // fallback su default se manca il dato
+    // Il numero di righe segue lo stage reale, non il mockup: un gruppo può
+    // avere meno squadre (Europa a 4) o più (retrocessione a 6) del template.
+    // Il layout del canvas è calcolato su rows.length, quindi si adatta.
+    setRows(selected.map((item, i) => {
       const team = resolveTeam(item.team); // {name, logo} corretti e robusti
       return {
         id: i,
         pos: String(item.rank),
+        srcName: item.team, // nome Flashscore: serve alla ricerca web del logo
         name: team.name,
         logo: team.logo,
         p: String(item.p),
@@ -76,66 +97,73 @@ const ClassificaComp = () => {
         gd: item.gd,
         pts: String(item.pts)
       };
-    });
-
-    setRows(newRows);
+    }));
   }, []);
 
-  // Cambio variante: se ho già dei dati li riapplico, altrimenti default
+  // Cambio variante: se ho già le tabelle le riapplico (nessuna rete),
+  // altrimenti torno ai default del mockup.
   useEffect(() => {
-    if (originalData.length > 0) {
-      applyDataToVariant(originalData, variantId);
+    if (standings) {
+      applyDataToVariant(standings, variantId);
     } else {
       setRows(buildDefaultRows(variantId));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [variantId]);
+  }, [variantId, standings]);
+
+  // Loghi mancanti (nazionali, squadre fuori dalle leghe greche): li cerca
+  // sul web con lo stesso endpoint di "Cerca Web" di News/FullTime e li
+  // innesta nelle righe. La cache di logoSearch è di modulo, quindi ogni
+  // nome costa una sola richiesta per sessione.
+  useEffect(() => {
+    const mancanti = rows.filter(r => !r.logo && r.srcName).map(r => r.srcName);
+    if (mancanti.length === 0) return undefined;
+
+    let annullato = false;
+    resolveWebLogos(mancanti).then(trovati => {
+      if (annullato || Object.keys(trovati).length === 0) return;
+      setRows(prev => prev.map(r =>
+        (r.logo || !r.srcName || !trovati[r.srcName]) ? r : { ...r, logo: trovati[r.srcName] }
+      ));
+    });
+    return () => { annullato = true; };
+  }, [rows]);
+
+  // Prefetch: al mount e all'apertura di GESTIONE DATI. Quando l'utente
+  // preme SET ⚡ il bundle è quasi sempre già in memoria.
+  useEffect(() => {
+    prefetchStandingsBundle();
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === 'data') prefetchStandingsBundle();
+  }, [activeTab]);
 
   const fetchStandings = async () => {
-    // 1) RIEMPIMENTO ISTANTANEO: squadre della variante con statistiche a 0.
-    //    La stagione non è ancora iniziata → nessuna attesa, nessuna rete.
-    setRows(buildZeroedRows(variantId));
+    const t0 = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+    const cached = getCachedStandings();
 
-    // 2) Aggiornamento live in background (se la stagione è già iniziata):
-    //    non blocca l'operazione, con timeout breve. Se arrivano numeri reali
-    //    sovrascrive; altrimenti restano gli 0.
+    // Percorso caldo: tabelle già in memoria → ripopolamento immediato, zero rete.
+    if (cached) {
+      setStandings(cached.data);
+      applyDataToVariant(cached.data, variantId);
+      const t1 = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+      console.log(`[Standings] SET ${variantId} (cache calda) in ${Math.round(t1 - t0)}ms`);
+      return;
+    }
+
+    // Percorso freddo: riempimento ottimistico a 0 (istantaneo) e un solo
+    // round-trip verso il server, che restituisce tutte le tabelle insieme.
+    setRows(buildZeroedRows(variantId));
     setIsFetching(true);
     try {
-      const hostname = window.location.hostname;
-      const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1';
-      const API_BASE_URL = isLocalhost ? 'http://localhost:5000' : 'https://cronacheapp.onrender.com';
-
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 3500);
-
-      const res = await fetch(
-        `${API_BASE_URL}/api/standings?country=greece&league=super-league&fast=1&_t=${Date.now()}`,
-        { signal: controller.signal }
-      );
-      clearTimeout(timer);
-
-      if (res.ok) {
-        const contentType = res.headers.get('content-type') || '';
-        if (contentType.includes('application/json')) {
-          const json = await res.json();
-          if (json.success && Array.isArray(json.data) && json.data.length > 0) {
-            // Applica i dati live SOLO se la stagione è davvero iniziata
-            // (almeno una squadra ha partite giocate o punti). In preseason
-            // il feed restituisce tabelle a 0 con squadre non mappate: in quel
-            // caso teniamo il riempimento pulito a 0 con le squadre corrette.
-            const seasonStarted = json.data.some(t =>
-              (parseInt(t.p, 10) > 0) || (parseInt(t.pts, 10) > 0)
-            );
-            if (seasonStarted) {
-              setOriginalData(json.data);
-              applyDataToVariant(json.data, variantId);
-            }
-          }
-        }
+      const bundle = await fetchStandingsBundle();
+      if (bundle) {
+        setStandings(bundle.data);
+        applyDataToVariant(bundle.data, variantId);
       }
-    } catch (e) {
-      // Offseason / timeout / offline: manteniamo il riempimento a 0 senza errori.
-      console.warn('[Standings] live sync non disponibile:', e.message);
+      const t1 = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+      console.log(`[Standings] SET ${variantId} (rete) in ${Math.round(t1 - t0)}ms`);
     } finally {
       setIsFetching(false);
     }
