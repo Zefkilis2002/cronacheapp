@@ -38,11 +38,11 @@ const LAYOUTS = {
         bgSize: '1200px 900px at 50% -60px',
         title: { top: 40, size: 190, letterSpacing: -6, glow: 70 },
         card: { top: 255, width: 480, height: 150, radius: 24, pad: 20, badge: 80, badgeFont: 34, badgePad: 14, teamFont: 13, teamLs: 1, vsFont: 34, gap: 8 },
-        pitch: { top: 430, left: 60, width: 1320, height: 980, radius: 16, padding: '40px 60px' },
+        pitch: { top: 430, left: 20, width: 1400, height: 980, radius: 16, padding: '40px 40px' },
         halfPitch: { halfway: 230, circle: 230, boxW: 520, boxH: 210, smallW: 240, smallH: 80, arcW: 160, arcH: 80 },
-        rowGap: 140,
-        player: { width: 170, jerseyW: 158, jerseyH: 172, numSize: 62, nameSize: 30, gap: 10, bodyRadius: '18px 18px 12px 12px', sleeveRadius: 16, collarH: 11, collarMt: 10 },
-        bench: { top: 1450, left: 60, width: 1320, size: 24, lineHeight: 1.9, pad: 0 },
+        rowGap: 120,
+        player: { width: 190, jerseyW: 168, jerseyH: 180, numSize: 66, nameSize: 48, gap: 8, bodyRadius: '18px 18px 12px 12px', sleeveRadius: 16, collarH: 11, collarMt: 10 },
+        bench: { top: 1450, left: 20, width: 1400, size: 28, lineHeight: 1.9, pad: 0 },
         brand: { bottom: 55, size: 150 },
     },
     '1080x1920:double': {
@@ -61,11 +61,11 @@ const LAYOUTS = {
         bgSize: '900px 700px at 50% -40px',
         title: { top: 180, size: 140, letterSpacing: -4, glow: 50 },
         card: { top: 350, width: 360, height: 115, radius: 18, pad: 16, badge: 60, badgeFont: 24, badgePad: 10, teamFont: 11, teamLs: 0.6, vsFont: 26, gap: 6 },
-        pitch: { top: 525, left: 40, width: 1000, height: 865, radius: 14, padding: '44px 40px' },
+        pitch: { top: 490, left: 15, width: 1050, height: 900, radius: 14, padding: '36px 20px' },
         halfPitch: { halfway: 200, circle: 190, boxW: 420, boxH: 170, smallW: 190, smallH: 64, arcW: 130, arcH: 64 },
-        rowGap: 70,
-        player: { width: 150, jerseyW: 140, jerseyH: 154, numSize: 54, nameSize: 22, gap: 9, bodyRadius: '17px 17px 11px 11px', sleeveRadius: 15, collarH: 10, collarMt: 9 },
-        bench: { top: 1450, left: 40, width: 1000, size: 19, lineHeight: 1.7, pad: 0 },
+        rowGap: 50,
+        player: { width: 170, jerseyW: 150, jerseyH: 164, numSize: 58, nameSize: 44, gap: 6, bodyRadius: '17px 17px 11px 11px', sleeveRadius: 15, collarH: 10, collarMt: 9 },
+        bench: { top: 1440, left: 15, width: 1050, size: 24, lineHeight: 1.7, pad: 0 },
         brand: { top: 1610, size: 130 },
     },
 };
@@ -217,7 +217,14 @@ const sleeveBackground = (kit) =>
 // Sotto-componenti
 // =============================================================================
 
-const Jersey = ({ kit, number, m }) => (
+const Jersey = ({ kit, number, m }) => {
+    // Calcola un colore di contorno contrastante per i numeri su maglie a pattern
+    const numColor = kit.number || '#ffffff';
+    const { l: numL } = hexToHsl(numColor);
+    const strokeColor = numL > 0.5 ? 'rgba(0,0,0,0.9)' : 'rgba(255,255,255,0.9)';
+    const strokeWidth = Math.max(2, Math.round(m.numSize / 14));
+
+    return (
     <div style={{ position: 'relative', width: m.jerseyW, height: m.jerseyH }}>
         {/* Maniche: due rettangoli ruotati che spuntano dalle spalle */}
         <div style={{
@@ -245,11 +252,15 @@ const Jersey = ({ kit, number, m }) => (
             }} />
             <span style={{
                 margin: 'auto 0', fontWeight: 800, fontSize: m.numSize, color: kit.number,
-                lineHeight: 1, textShadow: '0 1px 2px rgba(0,0,0,0.25)',
+                lineHeight: 1,
+                WebkitTextStroke: `${strokeWidth}px ${strokeColor}`,
+                textShadow: `0 0 6px rgba(0,0,0,0.7), 0 2px 4px rgba(0,0,0,0.6), 0 0 14px rgba(0,0,0,0.4)`,
+                paintOrder: 'stroke fill',
             }}>{number}</span>
         </div>
     </div>
-);
+    );
+};
 
 /**
  * I cognomi lunghi non vengono tagliati ma rimpiccioliti: in una grafica di
@@ -291,37 +302,66 @@ const horizontalPadding = (padding) => {
  * minima basta, l'intera cella viene rimpicciolita quel tanto che serve.
  */
 const MIN_ROW_GAP = 6;
+const MIN_ROW_SPACING = 6;
 
-function fitRow(count, available, layout) {
-    const m = layout.player;
-    if (count <= 1) return { m, gap: 0 };
+/** Riscala proporzionalmente tutte le misure di una cella giocatore. */
+const scaleMetrics = (m, s) => (s === 1 ? m : {
+    ...m,
+    width: m.width * s,
+    jerseyW: m.jerseyW * s,
+    jerseyH: m.jerseyH * s,
+    numSize: m.numSize * s,
+    nameSize: m.nameSize * s,
+    gap: m.gap * s,
+    sleeveRadius: m.sleeveRadius * s,
+    collarH: m.collarH * s,
+    collarMt: m.collarMt * s,
+});
 
-    const needed = count * m.width + (count - 1) * MIN_ROW_GAP;
-    const scale = needed > available ? available / needed : 1;
+/**
+ * Altezza occupata da una cella: maglia + spazio + targhetta col nome
+ * (corpo del testo per l'interlinea normale, più il padding verticale).
+ */
+const cellHeight = (m) => m.jerseyH + m.gap + (m.nameSize * 1.25 + m.gap);
 
-    const scaled = scale === 1 ? m : {
-        ...m,
-        width: m.width * scale,
-        jerseyW: m.jerseyW * scale,
-        jerseyH: m.jerseyH * scale,
-        numSize: m.numSize * scale,
-        nameSize: m.nameSize * scale,
-        gap: m.gap * scale,
-        sleeveRadius: m.sleeveRadius * scale,
-        collarH: m.collarH * scale,
-        collarMt: m.collarMt * scale,
-    };
-
-    const slack = (available - count * scaled.width) / (count - 1);
-    return { m: scaled, gap: Math.max(MIN_ROW_GAP, Math.min(layout.rowGap, slack)) };
+/**
+ * Il campo ha altezza fissa ma il numero di righe dipende dal modulo: un
+ * 3-4-2-1 ne produce quattro più il portiere, contro le tre più portiere di un
+ * 4-3-3. Senza questo adattamento le righe in eccesso sbordano dal campo e
+ * finiscono sopra l'elenco dei panchinari.
+ */
+function verticalScale(rowCount, availableHeight, layout) {
+    const needed = rowCount * cellHeight(layout.player) + (rowCount - 1) * MIN_ROW_SPACING;
+    return needed > availableHeight ? availableHeight / needed : 1;
 }
+
+/** Spaziatura orizzontale di una riga, con eventuale riduzione delle celle. */
+function fitRow(count, available, base, maxGap) {
+    if (count <= 1) return { m: base, gap: 0 };
+
+    const needed = count * base.width + (count - 1) * MIN_ROW_GAP;
+    const m = scaleMetrics(base, needed > available ? available / needed : 1);
+
+    const slack = (available - count * m.width) / (count - 1);
+    return { m, gap: Math.max(MIN_ROW_GAP, Math.min(maxGap, slack)) };
+}
+
+/** Padding verticale del campo, letto dalla shorthand CSS del layout. */
+const verticalPadding = (padding) => parseFloat(String(padding).split(/\s+/)[0]) || 0;
 
 /** Metà campo (o campo intero) con le righe del modulo e il portiere in fondo. */
 const TeamField = ({ team, layout, width, style }) => {
     const outfield = team.players.slice(1);
     const rows = buildRows(team.formation, outfield);
     const gk = team.players[0];
-    const available = width - 2 * horizontalPadding(layout.pitch.padding);
+
+    const availableW = width - 2 * horizontalPadding(layout.pitch.padding);
+    const availableH = layout.pitch.height - 2 * verticalPadding(layout.pitch.padding);
+
+    // Il portiere è una riga a sé: va contato nell'altezza.
+    const vScale = verticalScale(rows.length + 1, availableH, layout);
+    const base = scaleMetrics(layout.player, vScale);
+    const maxGap = layout.rowGap * vScale;
 
     return (
         <div style={{
@@ -331,7 +371,7 @@ const TeamField = ({ team, layout, width, style }) => {
             ...style,
         }}>
             {rows.map((row, i) => {
-                const { m, gap } = fitRow(row.length, available, layout);
+                const { m, gap } = fitRow(row.length, availableW, base, maxGap);
                 return (
                     <div key={i} style={{ display: 'flex', gap, justifyContent: 'center', alignItems: 'flex-start' }}>
                         {row.map((p, j) => <PlayerCell key={j} player={p} kit={team.kit} m={m} />)}
@@ -339,7 +379,7 @@ const TeamField = ({ team, layout, width, style }) => {
                 );
             })}
             <div style={{ display: 'flex', justifyContent: 'center' }}>
-                <PlayerCell player={gk} kit={team.gkKit} m={layout.player} />
+                <PlayerCell player={gk} kit={team.gkKit} m={base} />
             </div>
         </div>
     );
