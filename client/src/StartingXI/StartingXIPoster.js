@@ -13,7 +13,6 @@ import { hexToHsl, hslToHex as hslToHexLocal, atLightness } from './kitPresets';
 
 export const FORMATS = [
     { id: '1440x1800', label: '1440 × 1800 (4:5)', width: 1440, height: 1800 },
-    { id: '1080x1920', label: '1080 × 1920 (9:16)', width: 1080, height: 1920 },
 ];
 
 export const MODES = [

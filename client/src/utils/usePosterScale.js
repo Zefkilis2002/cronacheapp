@@ -9,12 +9,17 @@ import { useLayoutEffect, useRef, useState } from 'react';
  * immagine, solo di dimensioni diverse.
  *
  * @param {number} designWidth larghezza di design del poster in px
- * @returns [ref da applicare al contenitore dell'anteprima, scala (0 < s <= 1)]
+ * @param {{ maxScale?: number }} [options] maxScale limita la scala massima
+ *        dell'anteprima (default 1). Con un valore < 1 il poster viene mostrato
+ *        più piccolo nella pagina pur restando identico in proporzioni: è solo
+ *        un fattore di zoom uniforme applicato sopra al fit sulla larghezza.
+ * @returns [ref da applicare al contenitore dell'anteprima, scala (0 < s <= maxScale)]
  */
-export const usePosterScale = (designWidth) => {
+export const usePosterScale = (designWidth, options = {}) => {
+    const maxScale = clampMax(options.maxScale);
     const containerRef = useRef(null);
 
-    const [scale, setScale] = useState(() => estimateScale(designWidth));
+    const [scale, setScale] = useState(() => estimateScale(designWidth, maxScale));
 
     // useLayoutEffect: misura e corregge la scala PRIMA che il browser disegni,
     // così su mobile non appare mai il poster a dimensione piena
@@ -33,7 +38,7 @@ export const usePosterScale = (designWidth) => {
             // una non valida: una scala <= 0 renderebbe il poster invisibile
             if (!Number.isFinite(availWidth) || availWidth <= 0) return;
 
-            setScale(clampScale(availWidth / designWidth));
+            setScale(clampScale(availWidth / designWidth, maxScale));
         };
 
         compute();
@@ -46,23 +51,30 @@ export const usePosterScale = (designWidth) => {
             window.removeEventListener('resize', compute);
             window.removeEventListener('orientationchange', compute);
         };
-    }, [designWidth]);
+    }, [designWidth, maxScale]);
 
     return [containerRef, scale];
 };
 
 // Stima iniziale dalla larghezza della finestra, così nemmeno il primo paint
 // mostra il poster a dimensione piena su mobile
-const estimateScale = (designWidth) => {
+const estimateScale = (designWidth, maxScale) => {
     // window.innerWidth può valere 0 al primo render (tab non ancora
     // dimensionata): in quel caso si parte da 1 e ci pensa la misura reale
     const viewportWidth = window.innerWidth || designWidth;
-    return clampScale((viewportWidth - 16) / designWidth);
+    return clampScale((viewportWidth - 16) / designWidth, maxScale);
 };
 
-// La scala deve restare positiva e non superare 1: valori <= 0 (o NaN)
-// azzererebbero il poster, valori > 1 lo farebbero sbordare
-const clampScale = (value) => {
-    if (!Number.isFinite(value)) return 1;
-    return Math.min(1, Math.max(0.05, value));
+// maxScale valido: numero in (0, 1]. Qualunque valore fuori range o non
+// numerico torna a 1 (nessun rimpicciolimento aggiuntivo)
+const clampMax = (value) => {
+    if (!Number.isFinite(value) || value <= 0 || value > 1) return 1;
+    return value;
+};
+
+// La scala deve restare positiva e non superare maxScale: valori <= 0 (o NaN)
+// azzererebbero il poster, valori > maxScale lo farebbero più grande del voluto
+const clampScale = (value, maxScale = 1) => {
+    if (!Number.isFinite(value)) return maxScale;
+    return Math.min(maxScale, Math.max(0.05, value));
 };

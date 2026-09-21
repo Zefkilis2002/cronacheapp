@@ -7,8 +7,7 @@ import './SquadList.css';
 
 // Dimensioni fisse di design del poster: il rendering è sempre a questa
 // risoluzione e viene solo riscalato via transform, così mobile e desktop
-// mostrano esattamente la stessa immagine
-const POSTER_WIDTH = 1080;
+const POSTER_WIDTH = 1152;
 const POSTER_HEIGHT = 1440;
 
 // Logo di default in alto a destra (logo del sito, bianco)
@@ -138,7 +137,9 @@ const SquadList = () => {
 
     // Scala del poster: riempie la larghezza disponibile senza mai superare
     // la dimensione di design (1 = desktop)
-    const [previewAreaRef, posterScale] = usePosterScale(POSTER_WIDTH);
+    // maxScale < 1: l'anteprima resta identica in proporzioni ma viene
+    // mostrata più piccola nella pagina
+    const [previewAreaRef, posterScale] = usePosterScale(POSTER_WIDTH, { maxScale: 0.6 });
 
     // --- Import / Export JSON ---
     const applySquadJson = (data) => {

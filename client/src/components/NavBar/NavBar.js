@@ -53,6 +53,7 @@ const NavBar = () => {
           </button>
           <ul className="dropdown-menu">
             <li><Link to="/lineup" onClick={closeAll}>LineUp</Link></li>
+            <li><Link to="/lineup-v2" onClick={closeAll}>Lineup v2</Link></li>
             <li><Link to="/starting-xi" onClick={closeAll}>Starting XI</Link></li>
             <li><Link to="/squad" onClick={closeAll}>Squad</Link></li>
             <li><Link to="/keyplayers" onClick={closeAll}>Key Players</Link></li>

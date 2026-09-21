@@ -6,7 +6,7 @@
 .poster {
     /* Dimensioni di design fisse: l'anteprima viene riscalata via transform
        dal wrapper in LineUp.js, così mobile e desktop sono identici */
-    width: 600px;
+    width: 640px;
     height: 800px;
     position: relative;
     overflow: hidden;
@@ -74,8 +74,8 @@
 .poster-pitch-container {
     position: absolute;
     bottom: 3%;
-    left: 15%;
-    width: 70%;
+    left: calc(50% - 210px);
+    width: 420px;
     height: 94%;
     pointer-events: none;
     z-index: 3;

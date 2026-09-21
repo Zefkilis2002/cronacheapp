@@ -82,7 +82,9 @@ const StartingXI = () => {
     const [openPanel, setOpenPanel] = useState('auto');
 
     const layout = getLayout(format, mode);
-    const [previewAreaRef, posterScale] = usePosterScale(layout.width);
+    // maxScale < 1: l'anteprima resta identica in proporzioni ma viene
+    // mostrata più piccola nella pagina
+    const [previewAreaRef, posterScale] = usePosterScale(layout.width, { maxScale: 0.6 });
 
     const focusedTeam = focus === 'home' ? home : away;
     // Con due squadre in campo non esiste "il colore della squadra": resta

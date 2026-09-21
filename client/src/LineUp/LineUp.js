@@ -153,7 +153,7 @@ const formationsData = {
 // Dimensioni fisse di design del poster: il rendering è sempre a questa
 // risoluzione e viene solo riscalato via transform, così mobile e desktop
 // mostrano esattamente la stessa immagine
-const POSTER_WIDTH = 600;
+const POSTER_WIDTH = 640;
 const POSTER_HEIGHT = 800;
 
 const LineUp = () => {

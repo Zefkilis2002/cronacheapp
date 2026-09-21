@@ -150,7 +150,9 @@ const KeyPlayers = () => {
 
     // Scala del poster: riempie la larghezza disponibile senza mai superare
     // la dimensione di design (1 = desktop)
-    const [previewAreaRef, posterScale] = usePosterScale(POSTER_WIDTH);
+    // maxScale < 1: l'anteprima resta identica in proporzioni ma viene
+    // mostrata più piccola nella pagina
+    const [previewAreaRef, posterScale] = usePosterScale(POSTER_WIDTH, { maxScale: 0.6 });
 
     const updateSection = (index, patch) => {
         setSections(prev => prev.map((s, i) => (i === index ? { ...s, ...patch } : s)));

@@ -1,0 +1,358 @@
+/* Lineup v2 — editor della grafica formazione con foto giocatori */
+
+.lu2-wrapper {
+    position: fixed;
+    top: 75px;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 10;
+    display: flex;
+    background: #0f1420;
+    color: #e5e7eb;
+    font-family: 'Poppins', sans-serif;
+    overflow: hidden;
+}
+
+/* --- Barra azioni --- */
+.lu2-topbar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 420px;
+    height: 60px;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 16px;
+    background: #070b14;
+    border-bottom: 1px solid #1f2937;
+    border-right: 1px solid #1f2937;
+    z-index: 5;
+}
+
+.lu2-topbar h1 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: #34d399;
+}
+
+.lu2-download {
+    background: #059669;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 14px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.lu2-download:hover:not(:disabled) { background: #10b981; }
+.lu2-download:disabled { opacity: 0.6; cursor: default; }
+
+/* --- Sidebar --- */
+.lu2-sidebar {
+    width: 420px;
+    flex-shrink: 0;
+    padding: 72px 14px 60px;
+    box-sizing: border-box;
+    overflow-y: auto;
+    background: #111827;
+    border-right: 1px solid #1f2937;
+}
+
+.lu2-panel {
+    margin-bottom: 10px;
+    border: 1px solid #1f2937;
+    border-radius: 10px;
+    overflow: hidden;
+    background: #0d1424;
+}
+
+.lu2-panel-head {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 14px;
+    background: #151d2e;
+    color: #e5e7eb;
+    border: none;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    cursor: pointer;
+    text-align: left;
+}
+
+.lu2-panel-head.open { color: #6ee7b7; }
+.lu2-caret { font-size: 16px; line-height: 1; }
+.lu2-panel-body { padding: 14px; }
+
+/* --- Controlli --- */
+.lu2-label {
+    display: block;
+    margin: 12px 0 5px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    color: #9ca3af;
+    text-transform: uppercase;
+}
+
+.lu2-panel-body > .lu2-label:first-child { margin-top: 0; }
+
+.lu2-input {
+    flex: 1 1 140px;
+    min-width: 0;
+    width: 100%;
+    box-sizing: border-box;
+    background: #060a12;
+    border: 1px solid #334155;
+    border-radius: 6px;
+    padding: 8px 10px;
+    color: #f3f4f6;
+    font-size: 13px;
+    font-family: inherit;
+}
+
+.lu2-input:focus { outline: none; border-color: #10b981; }
+
+.lu2-color {
+    width: 100%;
+    height: 36px;
+    padding: 2px;
+    background: #060a12;
+    border: 1px solid #334155;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.lu2-range {
+    width: 100%;
+    accent-color: #10b981;
+    cursor: pointer;
+}
+
+.lu2-grid2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+.lu2-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.lu2-file { font-size: 11px; color: #9ca3af; flex: 1 1 140px; min-width: 0; }
+
+.lu2-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.lu2-chip {
+    background: #1f2937;
+    border: 1px solid #374151;
+    color: #d1d5db;
+    border-radius: 999px;
+    padding: 6px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.lu2-chip.active { background: #059669; border-color: #059669; color: #fff; }
+
+.lu2-check {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #fbbf24;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.lu2-check input { width: 15px; height: 15px; accent-color: #f59e0b; cursor: pointer; }
+
+.lu2-mini {
+    background: #1f2937;
+    border: 1px solid #374151;
+    color: #e5e7eb;
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.lu2-mini:hover:not(:disabled) { background: #374151; }
+.lu2-mini.wide { width: 100%; margin-top: 10px; }
+
+.lu2-hint {
+    margin: 10px 0 0;
+    font-size: 11.5px;
+    line-height: 1.5;
+    color: #9ca3af;
+}
+
+/* --- Ritaglio foto giocatore (stile "Foto" di Windows) --- */
+.lu2-cropper { margin: 8px 0 4px; }
+
+.lu2-crop-area {
+    position: relative;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid #334155;
+    background: repeating-conic-gradient(#0b1220 0% 25%, #131c2b 0% 50%) 50% / 20px 20px;
+    touch-action: none;
+    user-select: none;
+}
+
+.lu2-crop-img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    pointer-events: none; /* la foto non si trascina: si muove solo il riquadro */
+}
+
+.lu2-crop-box {
+    position: absolute;
+    box-sizing: border-box;
+    border: 2px solid #10b981;
+    /* mascheratura scura di tutto ciò che sta fuori dal ritaglio */
+    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.55);
+    cursor: move;
+    /* griglia dei terzi */
+    background-image:
+        linear-gradient(rgba(255, 255, 255, 0.35) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.35) 1px, transparent 1px);
+    background-size: 100% 33.34%, 33.34% 100%;
+}
+
+.lu2-crop-h {
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    background: #10b981;
+    border: 2px solid #04120c;
+    border-radius: 3px;
+    touch-action: none;
+}
+
+.lu2-crop-h.nw { left: -7px; top: -7px; cursor: nwse-resize; }
+.lu2-crop-h.ne { right: -7px; top: -7px; cursor: nesw-resize; }
+.lu2-crop-h.sw { left: -7px; bottom: -7px; cursor: nesw-resize; }
+.lu2-crop-h.se { right: -7px; bottom: -7px; cursor: nwse-resize; }
+.lu2-crop-h.n { top: -7px; left: 50%; margin-left: -7px; cursor: ns-resize; }
+.lu2-crop-h.s { bottom: -7px; left: 50%; margin-left: -7px; cursor: ns-resize; }
+.lu2-crop-h.w { left: -7px; top: 50%; margin-top: -7px; cursor: ew-resize; }
+.lu2-crop-h.e { right: -7px; top: 50%; margin-top: -7px; cursor: ew-resize; }
+
+.lu2-alert {
+    margin-bottom: 10px;
+    padding: 9px 11px;
+    border-radius: 6px;
+    font-size: 12px;
+    line-height: 1.45;
+    background: rgba(16, 185, 129, 0.12);
+    border: 1px solid #065f46;
+    color: #6ee7b7;
+}
+
+/* --- Giocatori --- */
+.lu2-player {
+    margin-top: 8px;
+    border: 1px solid #263248;
+    border-radius: 8px;
+    overflow: hidden;
+    background: #0a1120;
+}
+
+.lu2-player.open { border-color: #065f46; }
+
+.lu2-player-head {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 110px 1fr 16px;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 10px;
+    background: none;
+    border: none;
+    color: #e5e7eb;
+    cursor: pointer;
+    text-align: left;
+}
+
+.lu2-role {
+    font-size: 9.5px;
+    font-weight: 600;
+    letter-spacing: 0.4px;
+    color: #6b7280;
+    text-transform: uppercase;
+}
+
+.lu2-player-name {
+    font-size: 12.5px;
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.lu2-player-body {
+    padding: 4px 10px 12px;
+    border-top: 1px solid #1b2438;
+}
+
+/* --- Anteprima --- */
+.lu2-preview {
+    flex: 1;
+    min-width: 0;
+    overflow: auto;
+    padding: 24px;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    background: radial-gradient(600px 400px at 50% 0%, #1b2436 0%, #0f1420 70%);
+}
+
+.lu2-stage {
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+}
+
+/* --- Mobile --- */
+@media (max-width: 900px) {
+    .lu2-wrapper { flex-direction: column; overflow-y: auto; }
+
+    .lu2-topbar {
+        position: sticky;
+        top: 0;
+        width: 100%;
+        border-right: none;
+        order: 1;
+    }
+
+    .lu2-preview { order: 2; padding: 12px; flex: none; }
+
+    .lu2-sidebar {
+        order: 3;
+        width: 100%;
+        padding: 14px 12px 80px;
+        border-right: none;
+        overflow: visible;
+    }
+}
