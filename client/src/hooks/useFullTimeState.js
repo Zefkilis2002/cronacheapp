@@ -84,8 +84,8 @@ export function useFullTimeState() {
   }, []);
 
   const handleFlashscoreMatch = useCallback((matchData) => {
-    setScore1(matchData.homeScore);
-    setScore2(matchData.awayScore);
+    if (matchData.homeScore !== undefined) setScore1(matchData.homeScore);
+    if (matchData.awayScore !== undefined) setScore2(matchData.awayScore);
 
     if (matchData.tabellino) {
       setSelectedTabellino(matchData.tabellino);
@@ -95,7 +95,11 @@ export function useFullTimeState() {
     // quelli locali (path /loghi/...) in selectedLogo: il canvas li tratta
     // diversamente (uploadedLogo || origin + selectedLogo).
     const applyLogo = (logo, setSelected, setUploaded) => {
-      if (!logo) return;
+      if (!logo) {
+        setSelected('');
+        setUploaded(null);
+        return;
+      }
       if (/^(https?:|data:)/.test(logo)) {
         setUploaded(logo);
       } else {
@@ -104,14 +108,16 @@ export function useFullTimeState() {
       }
     };
 
-    applyLogo(matchData.homeLogo, setSelectedLogo1, setUploadedLogo1);
-    applyLogo(matchData.awayLogo, setSelectedLogo2, setUploadedLogo2);
+    if ('homeLogo' in matchData) applyLogo(matchData.homeLogo, setSelectedLogo1, setUploadedLogo1);
+    if ('awayLogo' in matchData) applyLogo(matchData.awayLogo, setSelectedLogo2, setUploadedLogo2);
 
-    const homePadded = [...(matchData.homeScorers || []), ...Array(7).fill('')].slice(0, 7);
-    setScorersTeam1(homePadded);
+    if ('homeScorers' in matchData) {
+      setScorersTeam1([...(matchData.homeScorers || []), ...Array(7).fill('')].slice(0, 7));
+    }
 
-    const awayPadded = [...(matchData.awayScorers || []), ...Array(7).fill('')].slice(0, 7);
-    setScorersTeam2(awayPadded);
+    if ('awayScorers' in matchData) {
+      setScorersTeam2([...(matchData.awayScorers || []), ...Array(7).fill('')].slice(0, 7));
+    }
 
     if (matchData.isPenaltyMatch !== undefined) {
       setIsPenaltyMatch(matchData.isPenaltyMatch);

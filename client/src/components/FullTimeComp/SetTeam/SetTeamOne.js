@@ -41,7 +41,7 @@ const SetTeamOne = ({
         <select
           className="logo-select"
           value={selectedLogo1}
-          onChange={(e) => setSelectedLogo1(e.target.value)}
+          onChange={(e) => { setSelectedLogo1(e.target.value); setUploadedLogo1(null); }}
         >
           {logos.map((logo, index) => (
             <option key={index} value={logo}>

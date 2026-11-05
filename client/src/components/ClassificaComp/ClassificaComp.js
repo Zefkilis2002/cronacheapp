@@ -1,3 +1,4 @@
+import { exportStage } from '../../utils/exportStage';
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import CanvaClassifica from './CanvaClassifica';
 import ImageControl from './ImageControl';
@@ -154,13 +155,11 @@ const ClassificaComp = () => {
 
     // Percorso freddo: riempimento ottimistico a 0 (istantaneo) e un solo
     // round-trip verso il server, che restituisce tutte le tabelle insieme.
-    setRows(buildZeroedRows(variantId));
     setIsFetching(true);
     try {
       const bundle = await fetchStandingsBundle();
       if (bundle) {
         setStandings(bundle.data);
-        applyDataToVariant(bundle.data, variantId);
       }
       const t1 = (typeof performance !== 'undefined' ? performance.now() : Date.now());
       console.log(`[Standings] SET ${variantId} (rete) in ${Math.round(t1 - t0)}ms`);
@@ -188,24 +187,12 @@ const ClassificaComp = () => {
     }
   };
 
-  const handleDownload = () => {
+  const handleDownload = async () => {
     const stage = stageRef.current;
     if (!stage) return;
     try {
-      const currentScale = stage.scale();
-      const currentSize = { width: stage.width(), height: stage.height() };
-
-      stage.scale({ x: 1, y: 1 });
-      stage.size({ width: CLASSIFICA_LAYOUT.STAGE.WIDTH, height: CLASSIFICA_LAYOUT.STAGE.HEIGHT });
-      stage.batchDraw();
-
-      const uri = stage.toDataURL({ pixelRatio: 2, mimeType: 'image/jpeg', quality: 0.95 });
-
-      stage.scale(currentScale);
-      stage.size(currentSize);
-      stage.batchDraw();
-
-      saveImage(uri, `classifica_${Date.now()}.jpg`);
+      const uri = exportStage(stage, { width: CLASSIFICA_LAYOUT.STAGE.WIDTH, height: CLASSIFICA_LAYOUT.STAGE.HEIGHT });
+      await saveImage(uri, `classifica_${Date.now()}.jpg`);
     } catch (e) {
       console.error('Download error:', e);
       alert('Errore durante il download');

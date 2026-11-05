@@ -48,7 +48,7 @@ function NewsCreator({
     if (textContainerRef.current && textContainerRef.current.innerHTML !== html) {
       textContainerRef.current.innerHTML = html;
     }
-  }, []); // Run on mount
+  }, [html, textContainerRef]);
 
   return (
     <div className="news-controls">
@@ -131,7 +131,7 @@ function NewsCreator({
             <p style={{ fontSize: '0.82rem', color: '#ccc', margin: '0 0 1rem 0' }}>
               Configura i 2 loghi posizionati ai lati del triangolino:
             </p>
-            
+
             {/* Logo 1: Squadra di partenza */}
             <div style={{ background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(180, 255, 0, 0.2)', padding: '0.8rem', borderRadius: '8px', marginBottom: '0.8rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>

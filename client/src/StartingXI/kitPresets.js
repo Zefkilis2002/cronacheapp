@@ -197,8 +197,15 @@ export function extractLogoColors(logoSrc) {
         const img = new Image();
         img.crossOrigin = 'anonymous';
 
-        img.onerror = () => resolve(null);
+        const timer = setTimeout(() => {
+            img.onload = null;
+            img.onerror = null;
+            resolve(null);
+        }, 8000);
+
+        img.onerror = () => { clearTimeout(timer); resolve(null); };
         img.onload = () => {
+            clearTimeout(timer);
             try {
                 const size = 64;
                 const canvas = document.createElement('canvas');

@@ -1,10 +1,9 @@
-import React, { useState, useRef } from 'react';
-import config from '../../../config';
+import React, { useState, useRef, useEffect } from 'react';
 import './FlashscoreImport.css';
 import { findTeamLogo } from '../../../utils/LogoConstants';
+import { resolveTeamLogo } from '../../../utils/logoSearch';
+import { requestJson, toCanvasUrl } from '../../../utils/apiClient';
 
-// Preset competizioni disponibili (flashscore.it)
-// tabellino: nome file in /public/tabellini/
 const COMPETITIONS = [
     { label: 'Grecia - Super League', country: 'grecia', league: 'super-league', tabellino: 'superleague.png' },
     { label: 'Grecia - Super League 2', country: 'grecia', league: 'super-league-2', tabellino: 'superleague2.png' },
@@ -14,193 +13,99 @@ const COMPETITIONS = [
     { label: 'Conference League', country: 'europa', league: 'conference-league', tabellino: 'conferenceleague.png' },
 ];
 
-/**
- * Cerca il logo locale per una squadra usando la utility centralizzata.
- */
-function findLocalLogo(teamName) {
-    return findTeamLogo(teamName);
-}
-
-/**
- * Ripulisce il nome squadra dal suffisso nazione delle coppe europee
- * (es. "Paks (Hun)" → "Paks") per migliorare la ricerca web del logo.
- */
-function cleanTeamName(teamName) {
-    return (teamName || '').replace(/\s*\([A-Za-z]{2,3}\)\s*$/, '').trim();
-}
-
-/**
- * Risolve il logo di una squadra non presente nella lista locale cercandolo
- * sul web (stesso endpoint di "Cerca Web"). Ritorna un URL già pronto per
- * il canvas (loghi esterni passano dal proxy-image) oppure null.
- */
-async function resolveWebLogo(teamName, signal) {
-    const query = cleanTeamName(teamName);
-    if (query.length < 2) return null;
-    try {
-        const res = await fetch(
-            `${config.API_BASE_URL}/api/search-logos?q=${encodeURIComponent(query)}`,
-            { signal }
-        );
-        if (!res.ok) return null;
-        const data = await res.json();
-        const first = data && data.results && data.results[0];
-        const url = first && (first.logoUrl || first.logo_url);
-        if (!url) return null;
-        // I loghi esterni (TheSportsDB) vanno serviti tramite proxy per CORS
-        const isExternal = /^https?:\/\//.test(url);
-        return isExternal
-            ? `${config.API_BASE_URL}/proxy-image?url=${encodeURIComponent(url)}`
-            : url;
-    } catch (err) {
-        return null; // abort o errore: nessun logo web
-    }
-}
 
 const FlashscoreImport = ({ onMatchSelect, flashscoreData, setFlashscoreData }) => {
-    // Destructuring state from props
     const { matches, selectedComp, selectedMatchId } = flashscoreData;
-
-    // Proxy setters to update parent state
-    const setMatches = (newMatches) => setFlashscoreData(prev => ({ ...prev, matches: newMatches }));
-    const setSelectedComp = (newComp) => setFlashscoreData(prev => ({ ...prev, selectedComp: newComp }));
-    const setSelectedMatchId = (newId) => setFlashscoreData(prev => ({ ...prev, selectedMatchId: newId }));
-
     const [loading, setLoading] = useState(false);
     const [loadingDetails, setLoadingDetails] = useState(false);
     const [error, setError] = useState('');
+    const detailsRequestRef = useRef(null);
+    const searchRequestRef = useRef(null);
 
-    // Traccia la richiesta marcatori in corso: se l'utente clicca un'altra
-    // partita, la richiesta precedente viene annullata e la sua risposta
-    // scartata (altrimenti i marcatori della partita vecchia sovrascrivono
-    // il tabellino di quella nuova).
-    const detailsRequestRef = useRef({ controller: null });
+    useEffect(() => () => {
+        detailsRequestRef.current?.abort();
+        searchRequestRef.current?.abort();
+    }, []);
+
+    const changeCompetition = (index) => {
+        detailsRequestRef.current?.abort();
+        setLoadingDetails(false);
+        setError('');
+        setFlashscoreData(prev => ({ ...prev, selectedComp: index, matches: [], selectedMatchId: null }));
+    };
 
     const searchMatches = async () => {
+        detailsRequestRef.current?.abort();
+        searchRequestRef.current?.abort();
+        const controller = new AbortController();
+        searchRequestRef.current = controller;
         const comp = COMPETITIONS[selectedComp];
         setLoading(true);
+        setLoadingDetails(false);
         setError('');
-        setMatches([]);
-        setSelectedMatchId(null);
-
+        setFlashscoreData(prev => ({ ...prev, matches: [], selectedMatchId: null }));
         try {
-            const response = await fetch(
-                `${config.API_BASE_URL}/api/get-matches?country=${comp.country}&league=${comp.league}&daysBack=365`
-            );
-            const data = await response.json();
-
-            if (data.status && data.matches && data.matches.length > 0) {
-                setMatches(data.matches);
-            } else {
-                setError(data.message || "Nessuna partita trovata nell'ultimo anno.");
-            }
+            const params = new URLSearchParams({ country: comp.country, league: comp.league, daysBack: '365' });
+            const data = await requestJson('/api/get-matches?' + params, { signal: controller.signal, ttl: 60000, timeout: 95000 });
+            if (!data.matches?.length) throw new Error(data.message || "Nessuna partita trovata nell'ultimo anno.");
+            setFlashscoreData(prev => ({ ...prev, matches: data.matches }));
         } catch (err) {
-            console.error('Flashscore fetch error:', err);
-            setError('Impossibile recuperare i dati. Verifica la connessione e riprova.');
+            if (!controller.signal.aborted) setError(err.message || 'Impossibile recuperare le partite. Riprova.');
         } finally {
-            setLoading(false);
+            if (!controller.signal.aborted) setLoading(false);
         }
     };
 
     const handleMatchClick = async (match) => {
-        setSelectedMatchId(match.matchId);
+        detailsRequestRef.current?.abort();
+        const controller = new AbortController();
+        detailsRequestRef.current = controller;
+        const isCurrent = () => detailsRequestRef.current === controller && !controller.signal.aborted;
+        const comp = COMPETITIONS[selectedComp];
+        setFlashscoreData(prev => ({ ...prev, selectedMatchId: match.matchId }));
         setLoadingDetails(true);
         setError('');
 
-        const comp = COMPETITIONS[selectedComp];
+        // The feed already carries both badges. No extra logo search is needed.
+        const homeLogo = findTeamLogo(match.homeTeam) || toCanvasUrl(match.homeLogo);
+        const awayLogo = findTeamLogo(match.awayTeam) || toCanvasUrl(match.awayLogo);
+        onMatchSelect({
+            homeScore: Number(match.homeScore) || 0,
+            awayScore: Number(match.awayScore) || 0,
+            isPenaltyMatch: !!match.isPenaltyMatch,
+            penaltiesScore1: Number(match.penaltiesScore1) || 0,
+            penaltiesScore2: Number(match.penaltiesScore2) || 0,
+            tabellino: comp.tabellino, homeLogo, awayLogo,
+            homeScorers: [], awayScorers: [],
+        });
 
-        // Annulla l'eventuale richiesta precedente ancora in volo
-        if (detailsRequestRef.current.controller) {
-            detailsRequestRef.current.controller.abort();
-        }
-        const controller = new AbortController();
-        detailsRequestRef.current = { controller };
-        const isCurrent = () => detailsRequestRef.current.controller === controller;
-
-        // Loghi locali (istantanei); quelli mancanti verranno cercati sul web
-        const localHome = findLocalLogo(match.homeTeam);
-        const localAway = findLocalLogo(match.awayTeam);
-
-        // Stato consolidato: ogni aggiornamento invia SEMPRE l'ultima versione
-        // nota di loghi e marcatori, così i due flussi asincroni (loghi web /
-        // marcatori) non si sovrascrivono a vicenda.
-        let curHomeLogo = localHome;
-        let curAwayLogo = localAway;
-        let curHomeScorers = [];
-        let curAwayScorers = [];
-
-        const pushUpdate = () => {
-            if (!isCurrent() || !onMatchSelect) return;
-            onMatchSelect({
-                homeTeam: match.homeTeam,
-                awayTeam: match.awayTeam,
-                homeScore: parseInt(match.homeScore) || 0,
-                awayScore: parseInt(match.awayScore) || 0,
-                // Partita finita ai rigori: spunta la casella e imposta il
-                // punteggio dello shootout. Passiamo SEMPRE il flag (anche false)
-                // così cambiando partita la casella si ripristina correttamente.
-                isPenaltyMatch: !!match.isPenaltyMatch,
-                ...(match.isPenaltyMatch ? {
-                    penaltiesScore1: parseInt(match.penaltiesScore1) || 0,
-                    penaltiesScore2: parseInt(match.penaltiesScore2) || 0,
-                } : {}),
-                tabellino: comp.tabellino,
-                homeLogo: curHomeLogo,
-                awayLogo: curAwayLogo,
-                homeScorers: curHomeScorers,
-                awayScorers: curAwayScorers,
-            });
-        };
-
-        // Notifica subito con i dati base (risultato, tabellino, loghi locali)
-        pushUpdate();
-
-        // Cerca sul web i loghi non presenti nella lista locale, in parallelo
-        const logosPromise = Promise.all([
-            localHome ? Promise.resolve(localHome) : resolveWebLogo(match.homeTeam, controller.signal),
-            localAway ? Promise.resolve(localAway) : resolveWebLogo(match.awayTeam, controller.signal),
+        const logoTask = Promise.all([
+            homeLogo || resolveTeamLogo(match.homeTeam, { signal: controller.signal }),
+            awayLogo || resolveTeamLogo(match.awayTeam, { signal: controller.signal }),
         ]).then(([home, away]) => {
             if (!isCurrent()) return;
-            if (home) curHomeLogo = home;
-            if (away) curAwayLogo = away;
-            pushUpdate();
-        }).catch(() => { /* loghi web non disponibili: si resta con i locali */ });
+            const patch = {};
+            if (!homeLogo && home) patch.homeLogo = home;
+            if (!awayLogo && away) patch.awayLogo = away;
+            if (Object.keys(patch).length) onMatchSelect(patch);
+        });
 
-        // Marcatori (con timeout), in parallelo ai loghi
-        const detailsPromise = (async () => {
-            if (!match.matchUrl && !match.matchId) return;
-            const timeoutId = setTimeout(() => controller.abort(), 35000);
+        const detailsTask = (async () => {
+            if (!match.matchId && !match.matchUrl) return;
             try {
                 const params = new URLSearchParams();
-                if (match.matchUrl) params.set('matchUrl', match.matchUrl);
                 if (match.matchId) params.set('matchId', match.matchId);
-
-                const detailsResponse = await fetch(
-                    `${config.API_BASE_URL}/api/get-match-details?${params.toString()}`,
-                    { signal: controller.signal }
-                );
-                clearTimeout(timeoutId);
-                const detailsData = await detailsResponse.json();
-
-                if (detailsData.status && isCurrent()) {
-                    curHomeScorers = detailsData.homeGoals || [];
-                    curAwayScorers = detailsData.awayGoals || [];
-                    pushUpdate();
-                }
+                else params.set('matchUrl', match.matchUrl);
+                const data = await requestJson('/api/get-match-details?' + params, { signal: controller.signal, ttl: 300000 });
+                if (isCurrent()) onMatchSelect({ homeScorers: data.homeGoals || [], awayScorers: data.awayGoals || [] });
             } catch (err) {
-                clearTimeout(timeoutId);
-                if (!isCurrent()) return; // superata da un click più recente
-                console.error('Error fetching match details:', err);
-                setError('⚠️ Marcatori non disponibili. Inseriscili manualmente.');
+                if (isCurrent()) setError('Marcatori non disponibili. Puoi inserirli manualmente.');
             }
         })();
-
         try {
-            await Promise.all([logosPromise, detailsPromise]);
+            await Promise.all([logoTask, detailsTask]);
         } finally {
-            if (isCurrent()) {
-                setLoadingDetails(false);
-            }
+            if (isCurrent()) setLoadingDetails(false);
         }
     };
 
@@ -214,8 +119,8 @@ const FlashscoreImport = ({ onMatchSelect, flashscoreData, setFlashscoreData }) 
                 <select
                     className="flashscore-select"
                     value={selectedComp}
-                    onChange={(e) => setSelectedComp(parseInt(e.target.value))}
-                    disabled={loading || loadingDetails}
+                    onChange={(e) => changeCompetition(Number(e.target.value))}
+                    disabled={loading}
                 >
                     {COMPETITIONS.map((comp, i) => (
                         <option key={i} value={i}>{comp.label}</option>
@@ -225,7 +130,7 @@ const FlashscoreImport = ({ onMatchSelect, flashscoreData, setFlashscoreData }) 
                 <button
                     className="flashscore-search-btn"
                     onClick={searchMatches}
-                    disabled={loading || loadingDetails}
+                    disabled={loading}
                 >
                     {loading ? (
                         <span className="flashscore-spinner"></span>

@@ -1,5 +1,7 @@
 # Deploy Backend su Render.com
 
+> Aggiornamento 5 novembre 2026: il servizio esistente è `https://cronacheapp.onrender.com`, usa Node 22 nel Dockerfile e `server/package.json`. Il server include `server/lib/` ed `execution/`; le variabili facoltative sono documentate in `server/.env.example`. La procedura attuale di verifica è in `deploy_production.md`. Le istruzioni di creazione seguenti sono storiche: non creare un secondo servizio per aggiornare quello esistente.
+
 ## Panoramica
 Il backend (Express + Puppeteer) va deployato su Render.com (piano gratuito) per rendere gli endpoint API accessibili dal frontend su Firebase Hosting.
 
@@ -35,8 +37,8 @@ https://cronacheapp-backend.onrender.com
 ### 5. Aggiorna config.js
 Sostituisci l'URL di produzione in `src/config.js`:
 ```javascript
-API_BASE_URL: window.location.hostname === 'localhost' 
-  ? 'http://localhost:5000' 
+API_BASE_URL: window.location.hostname === 'localhost'
+  ? 'http://localhost:5000'
   : 'https://cronacheapp-backend.onrender.com'  // ← il TUO URL Render
 ```
 

@@ -2,8 +2,10 @@ const express = require('express');
 require('dotenv').config(); // Carica le variabili d'ambiente da .env
 const axios = require('axios');
 const cors = require('cors');
-const OpenAI = require('openai'); // Importa SDK OpenAI
-const NodeCache = require('node-cache'); // Importa node-cache
+const NodeCache = require('node-cache');
+const { createAsyncCache } = require('./lib/asyncCache');
+const { createLogoSearch } = require('./lib/logoSearch');
+const { validateRemoteUrl: validateRequestUrl, validateRedirect } = require('./lib/remoteUrl');
 const { getRecentMatches, getMatchDetails, getStandings, getStandingsBundle, prewarmBrowser, getMatchLineups, getMatchesAroundNow } = require('./execution/scrape_flashscore');
 const { getPostMedia } = require('./execution/instagram');
 
@@ -16,88 +18,7 @@ const app = express();
 // I metadati di freschezza (softTTL) sono salvati nel valore stesso.
 const cache = new NodeCache({ stdTTL: 1800, maxKeys: 10000, useClones: false });
 
-// Set di chiavi che stanno attualmente eseguendo un refresh in background
-const _refreshing = new Set();
-
-/**
- * Pattern Stale-While-Revalidate.
- * 
- * Logica:
- *   1. Se la cache è FRESCA (< softTTL) → restituisci subito (HIT)
- *   2. Se la cache è STALE (> softTTL ma < hardTTL) → restituisci subito + refresh in background (STALE)
- *   3. Se la cache è VUOTA (miss) → esegui fetch sincrono, salva, restituisci (MISS)
- * 
- * @param {string} cacheKey - Chiave della cache
- * @param {Function} fetchFn - Funzione async che esegue il fetch reale
- * @param {Object} options
- * @param {number} options.softTTL - Secondi di "freschezza" (default 180 = 3 min)
- * @param {number} options.hardTTL - Secondi massimi in cache (default 1800 = 30 min)
- * @returns {Promise<{data: any, cacheStatus: string}>}
- */
-async function staleWhileRevalidate(cacheKey, fetchFn, { softTTL = 180, hardTTL = 1800 } = {}) {
-    const cached = cache.get(cacheKey);
-
-    if (cached) {
-        const ageSeconds = (Date.now() - cached._cachedAt) / 1000;
-
-        if (ageSeconds < softTTL) {
-            // FRESH HIT — dati ancora freschi
-            return { data: cached, cacheStatus: 'HIT' };
-        }
-
-        // STALE — restituisci subito, ma aggiorna in background
-        if (!_refreshing.has(cacheKey)) {
-            _refreshing.add(cacheKey);
-            console.log(`[SWR] Background revalidation started for: ${cacheKey}`);
-            fetchFn()
-                .then(freshData => {
-                    const wrapped = { ...freshData, _cachedAt: Date.now() };
-                    cache.set(cacheKey, wrapped, hardTTL);
-                    console.log(`[SWR] Background revalidation SUCCESS for: ${cacheKey}`);
-                })
-                .catch(err => {
-                    console.error(`[SWR] Background revalidation FAILED for ${cacheKey}:`, err.message);
-                })
-                .finally(() => {
-                    _refreshing.delete(cacheKey);
-                });
-        }
-
-        return { data: cached, cacheStatus: 'STALE' };
-    }
-
-    // MISS — nessuna cache, fetch sincrono obbligatorio
-    console.log(`[SWR] Cache MISS for: ${cacheKey} — fetching synchronously...`);
-    const freshData = await fetchFn();
-    const wrapped = { ...freshData, _cachedAt: Date.now() };
-    cache.set(cacheKey, wrapped, hardTTL);
-    return { data: wrapped, cacheStatus: 'MISS' };
-}
-
-// =============================================================================
-// MIDDLEWARE
-// =============================================================================
-
-// NB: le immagini dei post Instagram sono servite anche da *.fbcdn.net
-// (es. instagram.ftrn5-1.fna.fbcdn.net): senza questo dominio /proxy-image
-// risponde 403 e lo sfondo non viene mai disegnato sul canvas.
-const ALLOWED_DOMAINS = ['instagram.com', 'cdninstagram.com', 'fbcdn.net', 'flashscore.com', 'flashscore.it', 'thesportsdb.com'];
-
-function validateRequestUrl(urlString) {
-  try {
-    const parsedUrl = new URL(urlString);
-    const hostname = parsedUrl.hostname;
-    const isAllowed = ALLOWED_DOMAINS.some(domain => 
-      hostname === domain || hostname.endsWith(`.${domain}`)
-    );
-    if (!isAllowed) {
-      return { valid: false, status: 403, message: 'Dominio non autorizzato' };
-    }
-    return { valid: true };
-  } catch (error) {
-    return { valid: false, status: 400, message: 'URL malformato' };
-  }
-}
+const { get: staleWhileRevalidate } = createAsyncCache();
 
 app.use(cors({
   origin: '*',
@@ -107,10 +28,28 @@ app.use(cors({
 
 
 
-app.use(express.json());
+app.disable('x-powered-by');
+app.set('query parser', 'simple');
+app.use(express.json({ limit: '64kb' }));
+app.use('/api', (req, res, next) => {
+  res.set('Cache-Control', 'no-store');
+  for (const value of Object.values(req.query)) {
+    if (typeof value !== 'string' || value.length > 2048) return res.status(400).json({ status: false, message: 'Parametri non validi' });
+  }
+  for (const field of ['country', 'league']) {
+    if (req.query[field] && !/^[a-z][a-z0-9-]{0,63}$/i.test(req.query[field])) return res.status(400).json({ status: false, message: 'Competizione non valida' });
+  }
+  if (req.query.matchId && !/^[a-z0-9]{8}$/i.test(req.query.matchId)) return res.status(400).json({ status: false, message: 'ID partita non valido' });
+  if (req.query.matchUrl) {
+    const validation = validateRequestUrl(req.query.matchUrl, ['flashscore.it', 'flashscore.com']);
+    if (!validation.valid) return res.status(validation.status).json({ status: false, message: validation.message });
+  }
+  if (req.query.season && !/^\d{4}-\d{4}$/.test(req.query.season)) return res.status(400).json({ status: false, message: 'Stagione non valida' });
+  next();
+});
 
 app.get('/api/health-check', (req, res) => {
-  res.status(200).json({ status: true, message: 'Server is running' });
+  res.status(200).json({ status: true, message: 'Server is running', version: '2026-11-05', revision: process.env.RENDER_GIT_COMMIT || process.env.APP_REVISION || 'local' });
 });
 
 // =============================================================================
@@ -174,6 +113,9 @@ app.get('/proxy-image', async (req, res) => {
 
     const response = await axios.get(imageUrl, {
       responseType: 'stream',
+      timeout: 15000,
+      maxRedirects: 3,
+      beforeRedirect: options => validateRedirect(options),
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/123.0.0.0 Safari/537.36',
         'Accept': 'image/avif,image/webp,image/*,*/*',
@@ -181,9 +123,17 @@ app.get('/proxy-image', async (req, res) => {
       }
     });
 
-    res.set('Content-Type', response.headers['content-type']);
+    const contentType = response.headers['content-type'] || '';
+    if (!contentType.toLowerCase().startsWith('image/')) {
+      response.data.destroy();
+      return res.status(502).send('La risorsa non è un’immagine');
+    }
+    res.set('X-Content-Type-Options', 'nosniff');
+    res.set('Content-Type', contentType);
     res.set('Access-Control-Allow-Origin', '*');
     res.set('Cache-Control', 'public, max-age=31536000, immutable'); // Salva immagine nel browser per 1 anno
+    response.data.on('error', () => res.destroy());
+    res.on('close', () => response.data.destroy());
     response.data.pipe(res);
   } catch (error) {
     res.status(500).send('Proxy Error');
@@ -253,6 +203,7 @@ app.get('/api/find-team-info', async (req, res) => {
 
   // Token recuperato dalle variabili d'ambiente
   const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
+  if (!GITHUB_TOKEN) return res.status(503).json({ status: false, message: 'Ricerca AI non configurata sul server' });
 
   try {
     const response = await axios.post(
@@ -276,7 +227,8 @@ app.get('/api/find-team-info', async (req, res) => {
         headers: {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${GITHUB_TOKEN}`
-        }
+        },
+        timeout: 30000
       }
     );
 
@@ -318,7 +270,7 @@ app.get('/api/get-matches', async (req, res) => {
     });
   }
 
-  const days = parseInt(daysBack) || 365;
+  const days = Math.min(365, Math.max(1, parseInt(daysBack, 10) || 365));
   const cacheKey = `matches_${country}_${league}_${days}`;
 
   console.log(`[FLASHSCORE] Request: ${country}/${league} (last ${days} days)`);
@@ -383,7 +335,7 @@ app.get('/api/get-match-details', async (req, res) => {
         message: 'Timeout: il recupero dei dettagli ha impiegato troppo tempo.'
       });
     }
-  }, 30000);
+  }, 65000);
 
   try {
     const { data, cacheStatus } = await staleWhileRevalidate(
@@ -701,93 +653,21 @@ const LOCAL_TEAMS = [
   { name: "Grecia", logoUrl: "/loghi/grecia.png" }
 ];
 
-// --- ENDPOINT: Ricerca Loghi Ibrida (Locale + TheSportsDB con Cache e Timeout) ---
+const logoSearch = createLogoSearch({ localTeams: LOCAL_TEAMS });
 app.get('/api/search-logos', async (req, res) => {
-  const query = req.query.q;
-  if (!query || query.length < 2) {
-    return res.json({ status: true, results: [] });
-  }
-
-  const cacheKey = `logos_${query.toLowerCase()}`;
-  const cachedData = cache.get(cacheKey);
-
-  if (cachedData) {
-    console.log(`[CACHE] Restituiti loghi per: ${query}`);
-    return res.json({ status: true, results: cachedData });
-  }
-
-  console.log(`[LOGOS] Ricerca in corso per: ${query}`);
-
-  // 1. Ricerca locale greca/nazionale (istantanea)
-  const qLower = query.toLowerCase().trim();
-  const localResults = LOCAL_TEAMS.filter(t => t.name.toLowerCase().includes(qLower));
-
-  // 2. Chiamata esterna a TheSportsDB con hard timeout di 4000ms e AbortController
-  const apiUrl = `https://www.thesportsdb.com/api/v1/json/3/searchteams.php?t=${encodeURIComponent(query)}`;
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 4000);
-
-  const sportsDbPromise = axios.get(apiUrl, {
-    signal: controller.signal,
-    timeout: 4000
-  })
-  .then(response => {
-    clearTimeout(timeoutId);
-    if (response.data && response.data.teams) {
-      return response.data.teams
-        .filter(team => team.strSport === "Soccer" && team.strBadge)
-        .map(team => ({
-          name: team.strTeam,
-          logoUrl: team.strBadge
-        }));
-    }
-    return [];
-  })
-  .catch(error => {
-    clearTimeout(timeoutId);
-    console.warn(`[LOGOS] Chiamata TheSportsDB fallita o timeout per "${query}":`, error.message);
-    return []; // Restituisce array vuoto in caso di errore/timeout
-  });
-
+  const query = (req.query.q || '').trim();
+  if (query.length < 2) return res.json({ status: true, results: [] });
+  if (query.length > 100) return res.status(400).json({ status: false, message: 'Ricerca troppo lunga' });
   try {
-    // Risolvi in parallelo per non rallentare l'utente mobile
-    const results = await Promise.allSettled([
-      Promise.resolve(localResults),
-      sportsDbPromise
-    ]);
-
-    const finalLocal = results[0].status === 'fulfilled' ? results[0].value : [];
-    const finalExternal = results[1].status === 'fulfilled' ? results[1].value : [];
-
-    // Unione dei risultati con precedenza ai locali
-    const combined = [...finalLocal];
-    for (const team of finalExternal) {
-      const teamNameLower = team.name.toLowerCase();
-      if (!combined.some(c => c.name.toLowerCase() === teamNameLower)) {
-        combined.push(team);
-      }
-    }
-
-    // Normalizza il payload per garantire retrocompatibilità (sia camelCase che snake_case)
-    const slicedResults = combined.slice(0, 5).map(t => {
-      const url = t.logoUrl || t.logo_url;
-      return {
-        name: t.name,
-        logoUrl: url,
-        logo_url: url
-      };
-    });
-
-    // Salva in cache
-    const cacheTtl = slicedResults.length > 0 ? 86400 : 300;
-    cache.set(cacheKey, slicedResults, cacheTtl);
-
-    return res.json({ status: true, results: slicedResults });
-
+    const { data, cacheStatus } = await logoSearch.search(query);
+    res.set('X-Cache-Status', cacheStatus);
+    res.json(data);
   } catch (error) {
-    console.error("[LOGOS] Errore parallelo:", error.message);
-    // Fallback: restituisci almeno quelli locali senza mandare in crash l'app
-    return res.json({ status: true, results: localResults.slice(0, 5) });
+    console.warn('[LOGOS] Provider non disponibile:', error.message);
+    res.status(error.localResults?.length ? 200 : 503).json({
+      status: true, degraded: true, results: error.localResults || [],
+      message: 'Ricerca web temporaneamente non disponibile. Riprova tra poco.',
+    });
   }
 });
 
@@ -922,6 +802,7 @@ app.get('/api/search-competitions', async (req, res) => {
   if (!query || query.trim().length < 2) {
     return res.json({ status: true, results: [] });
   }
+  if (query.length > 100) return res.status(400).json({ status: false, message: 'Ricerca troppo lunga' });
 
   const q = query.toLowerCase().trim();
   const country = resolveCountryName(query);
@@ -961,8 +842,9 @@ app.get('/api/search-competitions', async (req, res) => {
 
   // 3. Divisioni minori dal vivo (best-effort): la API gratuita restituisce
   //    solo queste per il paese, utili come complemento ai curati.
-  if (country) {
-    const apiUrl = `https://www.thesportsdb.com/api/v1/json/3/search_all_leagues.php?c=${encodeURIComponent(country)}&s=Soccer`;
+  if (country && results.length === 0) {
+    const key = encodeURIComponent(process.env.THESPORTSDB_API_KEY || '123');
+    const apiUrl = `https://www.thesportsdb.com/api/v1/json/${key}/search_all_leagues.php?c=${encodeURIComponent(country)}&s=Soccer`;
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 5000);
     try {
@@ -990,11 +872,13 @@ app.get('/api/search-competitions', async (req, res) => {
 // =============================================================================
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
+if (require.main === module) app.listen(PORT, () => {
   console.log(`Server aggiornato running on port ${PORT}`);
   // Pre-riscalda Chromium per i percorsi che ancora lo richiedono
   // (classifiche, fallback scraping). Disattivabile con FLASHSCORE_NO_PREWARM=1.
-  if (!process.env.FLASHSCORE_NO_PREWARM) {
+  if (process.env.FLASHSCORE_PREWARM === '1') {
     prewarmBrowser();
   }
 });
+
+module.exports = app;

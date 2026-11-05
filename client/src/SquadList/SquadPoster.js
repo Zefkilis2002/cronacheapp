@@ -123,10 +123,6 @@ const SquadPoster = ({
 
     // Font del titolo adattivo: i titoli lunghi si stringono per non far
     // sbordare l'header quando ci sono anche loghi e brand
-    const titleFont = Math.max(
-        20,
-        Math.min(34, Math.round(580 / Math.max(1, (title || 'SQUAD').length)))
-    );
 
     const renderSection = (section, slot) => {
         if (section.players.length === 0) return null;

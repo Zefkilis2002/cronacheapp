@@ -1,3 +1,4 @@
+import { exportStage } from '../../../utils/exportStage';
 // TabellinoControls.js - Versione migliorata per immagini complete
 
 import React, { useState, useRef } from 'react';
@@ -79,7 +80,7 @@ function TabellinoControls({
   };
 
   // Funzione migliorata per il download che preserva l'aspect ratio
-  const downloadImage = () => {
+  const downloadImage = async () => {
     const stage = stageRef.current;
     if (!stage) {
       alert('Stage non disponibile.');
@@ -87,50 +88,8 @@ function TabellinoControls({
     }
 
     try {
-      // Nascondi il bordo
-      if (borderRef?.current) {
-        borderRef.current.visible(false);
-      }
-
-      // Salva lo stato corrente
-      const currentScale = stage.scale();
-      const currentSize = {
-        width: stage.width(),
-        height: stage.height()
-      };
-
-      // Imposta dimensioni per export ad alta qualità
-      const exportWidth = 1440;
-      const exportHeight = 1800;
-
-      stage.scale({ x: 1, y: 1 });
-      stage.size({
-        width: exportWidth,
-        height: exportHeight
-      });
-      stage.batchDraw();
-
-      // Genera immagine ad alta qualità
-      const uri = stage.toDataURL({
-        x: 0,
-        y: 0,
-        width: exportWidth,
-        height: exportHeight,
-        pixelRatio: 2, // Aumentato per migliore qualità
-        mimeType: 'image/jpeg',
-        quality: 0.95 // Qualità massima
-      });
-
-      // Ripristina lo stato
-      stage.scale(currentScale);
-      stage.size(currentSize);
-      if (borderRef?.current) {
-        borderRef.current.visible(true);
-      }
-      stage.batchDraw();
-
-      // Download (gestisce anche iOS Safari/Chrome via Web Share API)
-      saveImage(uri, `tabellino_${Date.now()}.jpg`);
+      const uri = exportStage(stage, { width: 1440, height: 1800, hiddenNodes: [borderRef?.current] });
+      await saveImage(uri, `tabellino_${Date.now()}.jpg`);
 
     } catch (error) {
       console.error('Errore durante il download:', error);

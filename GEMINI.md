@@ -1,5 +1,7 @@
 # Istruzioni Agente - Progetto CronacheApp
 
+> Stato verificato il 5 novembre 2026: lo stack attivo è React/CRA in `client/`, Express in `server/`, Firebase Hosting per il frontend e Render per il backend. Non è Next.js/FastAPI e non richiede PocketBase. Consultare `README.md` e `directives/deploy_production.md`; le sezioni di stack e struttura sottostanti rappresentano la proposta iniziale e non devono indurre a creare un'architettura parallela.
+
 Benvenuto nel repository di **CronacheApp**. Operi all'interno di un'architettura a 3 livelli progettata per garantire affidabilità e coerenza nello sviluppo e mantenimento di questa applicazione.
 
 ## Architettura a 3 Livelli

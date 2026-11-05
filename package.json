@@ -4,8 +4,9 @@
   "private": true,
   "scripts": {
     "postinstall": "npm run install:client && npm run install:server",
-    "install:client": "cd client && npm install",
-    "install:server": "cd server && npm install",
+    "install:client": "npm ci --prefix client",
+    "install:server": "npm ci --prefix server",
+    "test": "npm test --prefix server && npm test --prefix client -- --watchAll=false --runInBand",
     "build": "cd client && npm run build",
     "dev:client": "cd client && npm start",
     "dev:server": "cd server && npm run dev",

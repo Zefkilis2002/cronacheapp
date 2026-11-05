@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import './LogoFetcher.css';
-import config from '../../../config';
+import { toCanvasUrl } from '../../../utils/apiClient';
+import { searchLogos, getCachedLogoSearch } from '../../../utils/logoSearch';
 import { TEAM_LOGOS, TEAM_NAME_MAP } from '../../../utils/LogoConstants';
 import { pingServer } from '../../../utils/serverWarmup';
 
@@ -16,6 +17,7 @@ const DropdownLogo = ({ src, alt }) => {
         alt={alt}
         loading="lazy"
         onLoad={() => setLoaded(true)}
+        onError={() => setLoaded(true)}
         className={`result-logo ${loaded ? 'loaded' : ''}`}
       />
     </div>
@@ -68,7 +70,7 @@ function searchLocalTeams(query) {
   return results.slice(0, 6);
 }
 
-const REMOTE_DEBOUNCE_MS = 300;
+const REMOTE_DEBOUNCE_MS = 220;
 const SLOW_HINT_AFTER_MS = 2500;   // dopo 2.5s mostra l'avviso cold start
 const REMOTE_TIMEOUT_MS = 60000;   // il cold start di Render può durare ~45s
 
@@ -80,7 +82,6 @@ const LogoFetcher = ({ onLogoSelect, onClose, searchMode = 'team' }) => {
   const [slowHint, setSlowHint] = useState(false);
   const [error, setError] = useState('');
 
-  const API_BASE_URL = config.API_BASE_URL;
 
   const debounceRef = useRef(null);
   const slowHintTimerRef = useRef(null);
@@ -92,6 +93,12 @@ const LogoFetcher = ({ onLogoSelect, onClose, searchMode = 'team' }) => {
   useEffect(() => {
     pingServer();
   }, []);
+
+  useEffect(() => {
+    const onKey = event => { if (event.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [onClose]);
 
   const performSearch = useCallback((query) => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -117,7 +124,9 @@ const LogoFetcher = ({ onLogoSelect, onClose, searchMode = 'team' }) => {
     // 1) RISULTATI LOCALI ISTANTANEI (nessuna attesa di rete)
     // Le competizioni non hanno un catalogo locale: si affidano solo al remoto.
     const localResults = isCompetition ? [] : searchLocalTeams(trimmed);
-    setResults(localResults);
+    const cached = getCachedLogoSearch(trimmed, searchMode);
+    setResults(cached ? cached.results || localResults : localResults);
+    if (cached) { setLoading(false); setError(''); return; }
     setError('');
     setLoading(true);
 
@@ -133,21 +142,11 @@ const LogoFetcher = ({ onLogoSelect, onClose, searchMode = 'team' }) => {
       }, SLOW_HINT_AFTER_MS);
 
       try {
-        const endpoint = isCompetition ? 'api/search-competitions' : 'api/search-logos';
-        const res = await fetch(
-          `${API_BASE_URL}/${endpoint}?q=${encodeURIComponent(trimmed)}`,
-          { signal: controller.signal }
-        );
+        const data = await searchLogos(trimmed, { mode: searchMode, signal: controller.signal });
         clearTimeout(timeoutId);
 
-        if (!res.ok) {
-          throw new Error(`Errore HTTP! Status: ${res.status}`);
-        }
-
-        const data = await res.json();
-
         // Evita race conditions: scarta i risultati se l'utente ha già digitato altro
-        if (currentQueryRef.current !== trimmed) return;
+        if (controller.signal.aborted || abortRef.current !== controller) return;
 
         const remote = (data.status && data.results) ? data.results : [];
 
@@ -170,26 +169,30 @@ const LogoFetcher = ({ onLogoSelect, onClose, searchMode = 'team' }) => {
         }
       } catch (err) {
         clearTimeout(timeoutId);
-        if (currentQueryRef.current !== trimmed) return; // richiesta superata
+        if (abortRef.current !== controller) return;
         console.error('Errore Fetch:', err);
         // Se abbiamo almeno i risultati locali, non disturbare l'utente
         if (localResults.length === 0) {
-          setError('Errore di connessione al server.');
+          setError(err.name === 'AbortError' ? 'La ricerca ha impiegato troppo tempo. Riprova.' : 'Ricerca web temporaneamente non disponibile. Riprova.');
           setResults([]);
         }
       } finally {
-        if (currentQueryRef.current === trimmed) {
+        if (abortRef.current === controller) {
           setLoading(false);
           setSlowHint(false);
         }
-        if (slowHintTimerRef.current) clearTimeout(slowHintTimerRef.current);
+        if (abortRef.current === controller && slowHintTimerRef.current) clearTimeout(slowHintTimerRef.current);
       }
     }, REMOTE_DEBOUNCE_MS);
-  }, [API_BASE_URL, isCompetition]);
+  }, [isCompetition, searchMode]);
 
   // Pulisce timer e richieste in volo all'unmount
   useEffect(() => {
     return () => {
+      currentQueryRef.current = '';
+      const previous = abortRef.current;
+      abortRef.current = null;
+      if (previous) previous.abort();
       if (debounceRef.current) clearTimeout(debounceRef.current);
       if (slowHintTimerRef.current) clearTimeout(slowHintTimerRef.current);
       if (abortRef.current) abortRef.current.abort();
@@ -207,18 +210,13 @@ const LogoFetcher = ({ onLogoSelect, onClose, searchMode = 'team' }) => {
       console.warn('[LogoFetcher] Tentativo di selezionare un logo con URL indefinito.');
       return;
     }
-    // Evita il proxy per le risorse interne /loghi/ per massimizzare la velocità
-    const isExternal = logoUrl.startsWith('http://') || logoUrl.startsWith('https://');
-    const finalUrl = isExternal
-      ? `${API_BASE_URL}/proxy-image?url=${encodeURIComponent(logoUrl)}`
-      : logoUrl;
-    onLogoSelect(finalUrl);
+    onLogoSelect(toCanvasUrl(logoUrl));
     onClose();
   };
 
   return (
     <div className="logo-fetcher-overlay">
-      <div className="logo-fetcher-modal modern-mode">
+      <div className="logo-fetcher-modal modern-mode" role="dialog" aria-modal="true" aria-label={isCompetition ? 'Trova Competizione' : 'Trova Logo'}>
         <h3>{isCompetition ? 'Trova Competizione' : 'Trova Logo'}</h3>
         <p className="instruction">
           {isCompetition ? 'Cerca per paese (es. Portogallo, Italia) 🏆' : 'Ricerca Globale (Club & Nazionali) 🌍'}
@@ -231,6 +229,7 @@ const LogoFetcher = ({ onLogoSelect, onClose, searchMode = 'team' }) => {
             onChange={handleInputChange}
             placeholder={isCompetition ? 'Cerca paese (es. Portogallo)...' : 'Cerca squadra (es. Roma, Grecia)...'}
             className="modern-input"
+            aria-label={isCompetition ? 'Cerca competizione' : 'Cerca squadra'}
             autoFocus
           />
           {loading && <div className="spinner-small">⏳</div>}
@@ -249,8 +248,8 @@ const LogoFetcher = ({ onLogoSelect, onClose, searchMode = 'team' }) => {
             {results.map((team, index) => {
               const url = team.logoUrl || team.logo_url;
               return (
-                <li key={url || index} className="result-item" onClick={() => handleSelect(url)}>
-                  <DropdownLogo src={url} alt={team.name} />
+                <li key={url || index} className="result-item" role="button" tabIndex={0} onClick={() => handleSelect(url)} onKeyDown={event => { if (['Enter', ' '].includes(event.key)) { event.preventDefault(); handleSelect(url); } }}>
+                  <DropdownLogo src={toCanvasUrl(url)} alt={team.name} />
                   <div className="result-info">
                     <span className="result-name">{team.name}</span>
                   </div>

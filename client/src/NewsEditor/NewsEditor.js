@@ -1,3 +1,4 @@
+import { exportStage } from '../utils/exportStage';
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { useCanvasElements } from '../hooks/useCanvasElements';
 import { useTextEditor } from '../hooks/useTextEditor';
@@ -283,31 +284,16 @@ function NewsEditor() {
     setShowSelection(false);
     await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
 
-    const originalWidth = stage.width();
-    const originalHeight = stage.height();
-    const originalScale = stage.scale();
-
-    stage.scale({ x: 1, y: 1 });
-    stage.width(1440);
-    stage.height(1800);
-    stage.batchDraw();
-
-    const uri = stage.toDataURL({
-      pixelRatio: 3,
-      mimeType: 'image/jpeg',
-      quality: 0.92,
-      width: 1440,
-      height: 1800
-    });
-
-    stage.scale(originalScale);
-    stage.width(originalWidth);
-    stage.height(originalHeight);
-    stage.batchDraw();
-
-    await saveImage(uri, 'final_image.jpg');
-
-    setShowSelection(true);
+    if (!stage) { setShowSelection(true); return; }
+    try {
+      const uri = exportStage(stage, { width: 1440, height: 1800, pixelRatio: 3, quality: 0.92 });
+      await saveImage(uri, 'final_image.jpg');
+    } catch (error) {
+      console.error('Export notizie non riuscito:', error);
+      alert('Impossibile esportare: verifica che tutte le immagini siano caricate.');
+    } finally {
+      setShowSelection(true);
+    }
   }, []);
 
   const downloadImage = useCallback(() => {

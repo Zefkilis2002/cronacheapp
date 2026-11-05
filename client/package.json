@@ -2,6 +2,11 @@
   "name": "cronacheapp-client",
   "version": "0.1.0",
   "private": true,
+  "jest": {
+    "moduleNameMapper": {
+      "^react-router/dom$": "<rootDir>/node_modules/react-router/dist/development/dom-export.js"
+    }
+  },
   "dependencies": {
     "@mediapipe/tasks-vision": "^1.0.1",
     "@testing-library/dom": "^10.4.0",
@@ -9,11 +14,8 @@
     "@testing-library/react": "^16.2.0",
     "@testing-library/user-event": "^13.5.0",
     "axios": "^1.8.3",
-    "fabric": "^6.7.0",
-    "firebase": "^12.9.0",
     "html-to-image": "^1.11.13",
     "lucide-react": "^0.543.0",
-    "pocketbase": "^0.26.8",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-konva": "^19.0.2",
@@ -24,7 +26,9 @@
     "web-vitals": "^2.1.4"
   },
   "scripts": {
+    "prestart": "node scripts/copy-vision-runtime.cjs",
     "start": "react-scripts start",
+    "prebuild": "node scripts/copy-vision-runtime.cjs",
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject"

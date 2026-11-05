@@ -1,11 +1,11 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import * as htmlToImage from 'html-to-image';
 import StartingXIPoster, { FORMATS, MODES, getLayout, parseFormationLines, normalizeOutfieldOrder } from './StartingXIPoster';
 import { KIT_PATTERNS, DEFAULT_KIT, DEFAULT_GK_KIT, resolveKit, pickGkKit, accentFromKit } from './kitPresets';
 import { saveImage } from '../utils/saveImage';
 import { usePosterScale } from '../utils/usePosterScale';
 import { findTeamLogo } from '../utils/LogoConstants';
-import config from '../config';
+import { requestJson, toCanvasUrl } from '../utils/apiClient';
 import './StartingXI.css';
 
 // Competizioni da cui la modalità automatica può pescare una partita.
@@ -48,7 +48,7 @@ const resolveLogo = (teamName, flashscoreLogo) => {
     const local = findTeamLogo(cleanTeamName(teamName).toLowerCase());
     if (local) return local;
     if (flashscoreLogo) {
-        return `${config.API_BASE_URL}/proxy-image?url=${encodeURIComponent(flashscoreLogo)}`;
+        return toCanvasUrl(flashscoreLogo);
     }
     return null;
 };
@@ -94,6 +94,11 @@ const StartingXI = () => {
         : accent;
 
     const importRequestRef = useRef({ controller: null });
+    const searchRequestRef = useRef(null);
+    useEffect(() => () => {
+        importRequestRef.current.controller?.abort();
+        searchRequestRef.current?.abort();
+    }, []);
 
     const setTeam = (side) => (side === 'home' ? setHome : setAway);
 
@@ -102,6 +107,10 @@ const StartingXI = () => {
     // -------------------------------------------------------------------------
 
     const searchMatches = async () => {
+        searchRequestRef.current?.abort();
+        importRequestRef.current.controller?.abort();
+        const controller = new AbortController();
+        searchRequestRef.current = controller;
         const comp = COMPETITIONS[selectedComp];
         setLoadingMatches(true);
         setAutoError('');
@@ -110,19 +119,16 @@ const StartingXI = () => {
         setSelectedMatchId(null);
 
         try {
-            const res = await fetch(
-                `${config.API_BASE_URL}/api/get-lineup-matches?country=${comp.country}&league=${comp.league}`
-            );
-            const data = await res.json();
+            const data = await requestJson(`/api/get-lineup-matches?country=${comp.country}&league=${comp.league}`, { signal: controller.signal, ttl: 60000 });
             if (data.status && data.matches && data.matches.length) {
                 setMatches(data.matches);
             } else {
                 setAutoError(data.message || 'Nessuna partita trovata in questo periodo.');
             }
         } catch (err) {
-            setAutoError('Impossibile contattare il server. Riprova tra qualche secondo.');
+            if (!controller.signal.aborted) setAutoError('Impossibile contattare il server. Riprova tra qualche secondo.');
         } finally {
-            setLoadingMatches(false);
+            if (!controller.signal.aborted) setLoadingMatches(false);
         }
     };
 
@@ -130,7 +136,7 @@ const StartingXI = () => {
      * Riempie una squadra della grafica con i dati ufficiali di Flashscore:
      * nome, logo, modulo, titolari con numero, panchina e colori maglia.
      */
-    const applyLineup = useCallback(async (side, data) => {
+    const applyLineup = useCallback(async (side, data, isCurrent) => {
         const src = data[side];
         const formation = (src.formation || '').replace(/^1-/, '') || '4-3-3';
 
@@ -144,6 +150,7 @@ const StartingXI = () => {
 
         const logo = resolveLogo(src.name, src.logo);
         const kit = await resolveKit(src.name, logo);
+        if (!isCurrent()) return;
         const gkKit = pickGkKit(kit);
 
         setTeam(side)({
@@ -171,14 +178,10 @@ const StartingXI = () => {
         if (importRequestRef.current.controller) importRequestRef.current.controller.abort();
         const controller = new AbortController();
         importRequestRef.current = { controller };
-        const isCurrent = () => importRequestRef.current.controller === controller;
+        const isCurrent = () => importRequestRef.current.controller === controller && !controller.signal.aborted;
 
         try {
-            const res = await fetch(
-                `${config.API_BASE_URL}/api/get-lineups?matchId=${encodeURIComponent(match.matchId)}`,
-                { signal: controller.signal }
-            );
-            const data = await res.json();
+            const data = await requestJson(`/api/get-lineups?matchId=${encodeURIComponent(match.matchId)}`, { signal: controller.signal, ttl: 30000 });
             if (!isCurrent()) return;
 
             if (!data.status) {
@@ -194,7 +197,8 @@ const StartingXI = () => {
             }
 
             if (sideToImport) {
-                await applyLineup(sideToImport, data);
+                await applyLineup(sideToImport, data, isCurrent);
+                if (!isCurrent()) return;
                 // La grafica a una squadra mostra comunque entrambi gli stemmi
                 // nella card in alto: l'altra squadra serve solo per nome e logo.
                 const other = sideToImport === 'home' ? 'away' : 'home';
@@ -206,9 +210,10 @@ const StartingXI = () => {
                 }));
                 setFocus(sideToImport);
             } else {
-                await applyLineup('home', data);
-                await applyLineup('away', data);
+                await Promise.all([applyLineup('home', data, isCurrent), applyLineup('away', data, isCurrent)]);
             }
+
+            if (!isCurrent()) return;
 
             const missing = ['home', 'away'].filter(s => data[s].starters.length < 11);
             setAutoNote(
@@ -217,7 +222,7 @@ const StartingXI = () => {
                     : 'Formazioni ufficiali importate. Colori e stile maglia sono modificabili qui sotto.'
             );
         } catch (err) {
-            if (err.name !== 'AbortError') setAutoError('Errore di rete durante l\'importazione.');
+            if (isCurrent() && err.name !== 'AbortError') setAutoError('Errore di rete durante l\'importazione.');
         } finally {
             if (isCurrent()) setImporting(false);
         }

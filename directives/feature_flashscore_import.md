@@ -1,5 +1,7 @@
 # Direttiva: Importazione Dati da Flashscore
 
+> Implementazione attuale, 5 novembre 2026: lo scraper è `server/execution/scrape_flashscore.js` (Node.js), il client è `client/src/components/FullTimeComp/FlashscoreImport/FlashscoreImport.js`. Conservare `OA`/`OB` del feed come `homeLogo`/`awayLogo`; applicare subito locale esatto o logo originale via proxy. Usare `client/src/utils/logoSearch.js` come fallback, senza duplicare richieste. Marcatori e loghi devono aggiornare soltanto i propri campi e rispettare la selezione corrente. La suite in `server/test` e i test client coprono queste regressioni. Le indicazioni Python/Next.js seguenti descrivono il piano iniziale, non lo stack attivo.
+
 **Obiettivo:** Permettere all'utente di selezionare una partita recente (ultimi 7 giorni) da Flashscore e compilare automaticamente i campi di `FullTimeEditor.js`.
 
 ## 1. Analisi e Setup Strumenti (Livello Execution)

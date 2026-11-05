@@ -113,6 +113,7 @@ export const TEAM_NAME_MAP = {
     'hellas syrou': TEAM_LOGOS.HELLAS_SYROU,
     'ilioupoli': TEAM_LOGOS.ILIOUPOLI,
     'iraklis': TEAM_LOGOS.IRAKLIS,
+    'iraklis 1908': TEAM_LOGOS.IRAKLIS,
     'kalamata': TEAM_LOGOS.KALAMATA,
     'kallithea': TEAM_LOGOS.KALLITHEA,
     'athens kallithea': TEAM_LOGOS.KALLITHEA,
@@ -152,33 +153,18 @@ export const TEAM_NAME_MAP = {
  * @param {string} teamName - The name of the team to search for.
  * @returns {string|null} - The path to the logo, or null if not found.
  */
+export const normalizeTeamName = (name) => String(name || '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s*\([A-Za-z]{2,3}\)\s*$/, '')
+    .toLowerCase().replace(/[._'-]/g, ' ').replace(/\s+/g, ' ').trim()
+    .replace(/^(?:fc|ac|as|cf)\s+|\s+(?:fc|afc|cf)$/g, '').trim();
+
+const LOGO_INDEX = new Map(Object.entries(TEAM_NAME_MAP).map(([name, logo]) => [normalizeTeamName(name), logo]));
+
 export const findTeamLogo = (teamName) => {
-    if (!teamName) return null;
-    const lower = teamName.toLowerCase().trim();
-
-    // 1. Exact match (fast)
-    if (TEAM_NAME_MAP[lower]) {
-        return TEAM_NAME_MAP[lower];
-    }
-
-    // 2. Partial match (slower, but helpful for variations)
-    // We search the map keys to see if the key is contained in the input name
-    // or if the input name is contained in the key.
-    // We prioritize longer keys to avoid false positives (e.g. "aek" inside "paek")
-
-    // Sort keys by length descending to match specific names first
-    const keys = Object.keys(TEAM_NAME_MAP).sort((a, b) => b.length - a.length);
-
-    for (const key of keys) {
-        if (lower === key || lower.includes(key) || key.includes(lower)) {
-            // Additional safety: if key is very short (<4 chars), require exact match or word boundary
-            if (key.length < 4) {
-                if (lower === key) return TEAM_NAME_MAP[key];
-                continue;
-            }
-            return TEAM_NAME_MAP[key];
-        }
-    }
-
-    return null;
+    // Country suffixes disambiguate clubs such as Aris (Cyp) and AEK (Cyp).
+    const country = String(teamName || '').match(/\(([A-Za-z]{2,3})\)\s*$/);
+    if (country && !/^gre$/i.test(country[1])) return null;
+    const name = normalizeTeamName(teamName);
+    return name ? LOGO_INDEX.get(name) || null : null;
 };

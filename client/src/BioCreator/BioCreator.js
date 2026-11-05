@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import Tesseract from 'tesseract.js';
+import config from '../config';
 import './BioCreator.css';
 
 const BioCreator = () => {
@@ -83,7 +84,7 @@ const BioCreator = () => {
     setError('');
 
     try {
-      const response = await fetch('http://localhost:5000/api/generate-bio', {
+      const response = await fetch(`${config.API_BASE_URL}/api/generate-bio`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

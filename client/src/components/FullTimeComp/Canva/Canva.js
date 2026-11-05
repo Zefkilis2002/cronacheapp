@@ -1,6 +1,7 @@
+import { exportStage } from '../../../utils/exportStage';
 import React, { useEffect, memo } from 'react';
 import config from '../../../config';
-import { Stage, Layer, Image as KonvaImage, Text, Rect } from 'react-konva';
+import { Stage, Layer, Image as KonvaImage, Text } from 'react-konva';
 import useImage from 'use-image';
 import { FULLTIME_LAYOUT } from '../../../config/layoutConstants';
 import { saveImage } from '../../../utils/saveImage';
@@ -42,8 +43,8 @@ const Canva = ({
 }) => {
   const [background] = useImage(`/tabellini/${selectedTabellino}`);
   const [uploadedImg] = useImage(userImage);
-  const [logo1] = useImage(uploadedLogo1 || `${window.location.origin}${selectedLogo1}`, 'anonymous');
-  const [logo2] = useImage(uploadedLogo2 || `${window.location.origin}${selectedLogo2}`, 'anonymous');
+  const [logo1] = useImage(uploadedLogo1 || selectedLogo1 || undefined, 'anonymous');
+  const [logo2] = useImage(uploadedLogo2 || selectedLogo2 || undefined, 'anonymous');
   const [compLogo] = useImage(competitionLogo || undefined, 'anonymous');
 
   const showCompetitionLogo = selectedTabellino === 'general.png' && compLogo;
@@ -258,9 +259,7 @@ const Canva = ({
     };
 
     window.addEventListener('resize', handleResize);
-    window.addEventListener('orientationchange', () => {
-      setTimeout(scaleCanvas, 100);
-    });
+    window.addEventListener('orientationchange', handleResize);
 
     return () => {
       window.removeEventListener('resize', handleResize);
@@ -293,49 +292,13 @@ const Canva = ({
   const centeredX = (FULLTIME_LAYOUT.STAGE.WIDTH - imageDimensions.width) / 2;
   const centeredY = (FULLTIME_LAYOUT.STAGE.HEIGHT - imageDimensions.height) / 2;
 
-  const handleDownload = () => {
+  const handleDownload = async () => {
     const stage = stageRef.current;
     if (!stage) return;
 
     try {
-      if (borderRef?.current) {
-        borderRef.current.visible(false);
-      }
-
-      const currentScale = stage.scale();
-      const currentSize = {
-        width: stage.width(),
-        height: stage.height()
-      };
-
-      const exportWidth = FULLTIME_LAYOUT.STAGE.WIDTH;
-      const exportHeight = FULLTIME_LAYOUT.STAGE.HEIGHT;
-
-      stage.scale({ x: 1, y: 1 });
-      stage.size({
-        width: exportWidth,
-        height: exportHeight
-      });
-      stage.batchDraw();
-
-      const uri = stage.toDataURL({
-        x: 0,
-        y: 0,
-        width: exportWidth,
-        height: exportHeight,
-        pixelRatio: 2,
-        mimeType: 'image/jpeg',
-        quality: 0.95
-      });
-
-      stage.scale(currentScale);
-      stage.size(currentSize);
-      if (borderRef?.current) {
-        borderRef.current.visible(true);
-      }
-      stage.batchDraw();
-
-      saveImage(uri, `tabellino_${Date.now()}.jpg`);
+      const uri = exportStage(stage, { width: FULLTIME_LAYOUT.STAGE.WIDTH, height: FULLTIME_LAYOUT.STAGE.HEIGHT, hiddenNodes: [borderRef?.current] });
+      await saveImage(uri, `tabellino_${Date.now()}.jpg`);
     } catch (error) {
       console.error('Errore durante il download:', error);
       alert("Errore durante il download dell'immagine.");

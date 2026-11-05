@@ -28,3 +28,11 @@ serviceAccountKey.json
 pb_data/
 pocketbase
 pocketbase.exe
+
+# Local scratch data and hosting caches
+.tmp/
+.firebase/
+.claude/settings.local.json
+**/.env.*
+!**/.env.example
+client/public/vendor/mediapipe/

@@ -12,12 +12,11 @@
 // successive l'elaborazione è quasi istantanea.
 // --------------------------------------------------------------------------
 
-import { ImageSegmenter, FilesetResolver } from '@mediapipe/tasks-vision';
-
 const INP_MAX = 256;  // scala di lavoro per l'inpainting dello sfondo
 const OUT_MAX = 1600; // lato lungo massimo dei livelli prodotti (il canvas notizie è ~1080px)
 
-const WASM_PATH = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.0.1/wasm';
+const RUNTIME_PATH = `${process.env.PUBLIC_URL || ''}/vendor/mediapipe`;
+const WASM_PATH = `${RUNTIME_PATH}/wasm`;
 // Modello leggero (~250KB) persona/sfondo: download rapido e inferenza veloce.
 const MODEL_URL = 'https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_segmenter/float16/latest/selfie_segmenter.tflite';
 
@@ -29,6 +28,9 @@ let warmed = false;
 async function getSegmenter() {
   if (!segmenterPromise) {
     segmenterPromise = (async () => {
+      // Native ESM avoids bundling MediaPipe's optional Node loader into CRA.
+      // The exact installed runtime is copied locally by prebuild/prestart.
+      const { ImageSegmenter, FilesetResolver } = await import(/* webpackIgnore: true */ `${RUNTIME_PATH}/vision_bundle.mjs`);
       const vision = await FilesetResolver.forVisionTasks(WASM_PATH);
       const makeWith = (delegate) => ImageSegmenter.createFromOptions(vision, {
         baseOptions: { modelAssetPath: MODEL_URL, delegate },
@@ -42,7 +44,10 @@ async function getSegmenter() {
         console.warn('MediaPipe GPU non disponibile, uso CPU:', e);
         return makeWith('CPU');
       }
-    })();
+    })().catch(error => {
+      segmenterPromise = null;
+      throw error;
+    });
   }
   return segmenterPromise;
 }

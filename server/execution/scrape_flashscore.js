@@ -35,6 +35,7 @@ const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 // HTTP client per API diretta (match details)
 const axios = require('axios');
+const { createSemaphore } = require('../lib/semaphore');
 
 // =============================================================================
 // SEZIONE 1: BROWSER SINGLETON CON AUTO-HEALING
@@ -42,7 +43,7 @@ const axios = require('axios');
 
 let _browser = null;
 let _browserLaunching = null; // Promise mutex: impedisce launch concorrenti
-const BROWSER_MAX_PAGES = 5;  // Max pagine simultanee (protezione memoria)
+const acquireBrowserSlot = createSemaphore(2);
 
 /**
  * Flag di avvio ottimizzati per Chromium su cloud a bassa RAM.
@@ -132,20 +133,12 @@ async function getBrowser() {
  * @returns {Promise<Page>}
  */
 async function acquirePage() {
+    const release = await acquireBrowserSlot();
+    let page;
+    try {
     const browser = await getBrowser();
-
-    // Concurrency guard: attendi se troppe pagine aperte
-    let attempts = 0;
-    while (attempts < 30) {
-        const pages = await browser.pages();
-        // pages[0] è sempre "about:blank" (pagina iniziale del browser)
-        if (pages.length - 1 < BROWSER_MAX_PAGES) break;
-        console.warn(`[Flashscore] Too many pages open (${pages.length - 1}/${BROWSER_MAX_PAGES}), waiting...`);
-        await sleep(1000);
-        attempts++;
-    }
-
-    const page = await browser.newPage();
+    page = await browser.newPage();
+    page.once('close', release);
     await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36');
     await page.setViewport({ width: 1280, height: 720 });
 
@@ -177,6 +170,11 @@ async function acquirePage() {
     });
 
     return page;
+    } catch (error) {
+        if (page) await page.close().catch(() => {});
+        release();
+        throw error;
+    }
 }
 
 /**
@@ -369,6 +367,13 @@ function parseFlashscoreData(rawData) {
  * seguita da coppie: AD (timestamp), CX (team home), AF (team away),
  * AG (score home), AH (score away), AE (status).
  */
+function flashscoreImageUrl(value) {
+    if (!value || typeof value !== 'string') return null;
+    if (/^https?:\/\//i.test(value)) return value;
+    if (value.startsWith('//')) return `https:${value}`;
+    return `https://static.flashscore.com/res/image/data/${value.replace(/^\/?res\/image\/data\//, '')}`;
+}
+
 function parseMatchesIntermediate(rawData) {
     const matches = [];
     const sections = parseFlashscoreData(rawData);
@@ -390,6 +395,8 @@ function parseMatchesIntermediate(rawData) {
                     parsedDate: null,
                     homeTeam: '',
                     awayTeam: '',
+                    homeLogo: null,
+                    awayLogo: null,
                     homeScore: '',
                     awayScore: '',
                     // Punteggio a fine tempi (regolamentari + supplementari), PRIMA
@@ -427,6 +434,8 @@ function parseMatchesIntermediate(rawData) {
                 }
                 case 'CX': currentMatch.homeTeam = value; break;
                 case 'AF': currentMatch.awayTeam = value; break;
+                case 'OA': currentMatch.homeLogo = flashscoreImageUrl(value); break;
+                case 'OB': currentMatch.awayLogo = flashscoreImageUrl(value); break;
                 case 'AG': currentMatch.homeScore = value; break;
                 case 'AH': currentMatch.awayScore = value; break;
                 case 'AT': currentMatch.homeScoreReg = value; break;
@@ -486,6 +495,8 @@ function finalizeMatches(matches, daysBack = 365) {
                 date: m.dateStr,
                 homeTeam: m.homeTeam,
                 awayTeam: m.awayTeam,
+                homeLogo: m.homeLogo || null,
+                awayLogo: m.awayLogo || null,
                 matchUrl: '',
                 matchId: m.matchId,
                 isPenaltyMatch,
@@ -1745,10 +1756,10 @@ async function getMatchDetails(matchUrl, matchId) {
 
     // --- METODO 2: Fallback Puppeteer (lento, ~15-30s) ---
     try {
-        return await getMatchDetailsViaPuppeteer(matchUrl);
+        return await getMatchDetailsViaPuppeteer(matchUrl || `https://www.flashscore.it/partita/calcio/${resolvedId}/`);
     } catch (puppeteerError) {
         console.error('[Flashscore] Anche Puppeteer fallito:', puppeteerError.message);
-        return { homeGoals: [], awayGoals: [] };
+        throw new Error('Marcatori temporaneamente non disponibili su Flashscore');
     }
 }
 
@@ -2024,7 +2035,7 @@ function extractParticipants(html) {
             id: p.id || '',
             name: p.name || '',
             shortName: p.short_name || p.name || '',
-            logo: p.image_path || '',
+            logo: flashscoreImageUrl(p.image_path) || '',
         };
     };
 
@@ -2184,6 +2195,8 @@ async function getMatchesAroundNow({ country, league, daysBack = 21, daysAhead =
             timestamp: m.parsedDate.getTime(),
             homeTeam: m.homeTeam,
             awayTeam: m.awayTeam,
+            homeLogo: m.homeLogo || null,
+            awayLogo: m.awayLogo || null,
             homeScore: m.homeScore,
             awayScore: m.awayScore,
             isUpcoming: m.parsedDate.getTime() > now,
@@ -2239,4 +2252,4 @@ if (require.main === module) {
     }
 }
 
-module.exports = { getRecentMatches, getMatchDetails, getStandings, getStandingsBundle, STANDINGS_BUNDLE_KEYS, prewarmBrowser, acquirePage, isGreekTeam, prioritizeGreekMatches, getMatchLineups, getMatchesAroundNow };
+module.exports = { getRecentMatches, getMatchDetails, getStandings, getStandingsBundle, STANDINGS_BUNDLE_KEYS, prewarmBrowser, acquirePage, isGreekTeam, prioritizeGreekMatches, getMatchLineups, getMatchesAroundNow, parseMatchesFromRawData, extractParticipants, flashscoreImageUrl };
