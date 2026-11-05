@@ -16,3 +16,13 @@ test('participants normalize relative badge paths', () => {
   const html = '<script>"participantsData":' + JSON.stringify({ home: [{ name: 'Roma', image_path: 'roma.png' }], away: [{ name: 'PAOK', image_path: 'paok.png' }] }) + '</script>';
   assert.equal(extractParticipants(html).home.logo, 'https://static.flashscore.com/res/image/data/roma.png');
 });
+for (const [iso, expected] of [
+  ['2026-11-02T17:30:00Z', '02.11.2026 18:30'],
+  ['2026-07-01T17:30:00Z', '01.07.2026 19:30'],
+]) {
+  test(`dates use Italian time independently of the hosting timezone: ${iso}`, () => {
+    const timestamp = Math.floor(Date.parse(iso) / 1000);
+    const raw = feed.replace(/AD÷\d+/, `AD÷${timestamp}`);
+    assert.equal(parseMatchesFromRawData(raw)[0].date, expected);
+  });
+}

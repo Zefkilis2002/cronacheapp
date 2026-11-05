@@ -374,6 +374,16 @@ function flashscoreImageUrl(value) {
     return `https://static.flashscore.com/res/image/data/${value.replace(/^\/?res\/image\/data\//, '')}`;
 }
 
+const matchDateFormatter = new Intl.DateTimeFormat('it-IT', {
+    timeZone: 'Europe/Rome', day: '2-digit', month: '2-digit', year: 'numeric',
+    hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+});
+
+function formatMatchDate(date) {
+    const parts = Object.fromEntries(matchDateFormatter.formatToParts(date).map(part => [part.type, part.value]));
+    return `${parts.day}.${parts.month}.${parts.year} ${parts.hour}:${parts.minute}`;
+}
+
 function parseMatchesIntermediate(rawData) {
     const matches = [];
     const sections = parseFlashscoreData(rawData);
@@ -423,12 +433,7 @@ function parseMatchesIntermediate(rawData) {
                     if (!isNaN(ts)) {
                         const d = new Date(ts * 1000);
                         currentMatch.parsedDate = d;
-                        const dd = String(d.getDate()).padStart(2, '0');
-                        const mm = String(d.getMonth() + 1).padStart(2, '0');
-                        const yyyy = d.getFullYear();
-                        const hh = String(d.getHours()).padStart(2, '0');
-                        const mi = String(d.getMinutes()).padStart(2, '0');
-                        currentMatch.dateStr = `${dd}.${mm}.${yyyy} ${hh}:${mi}`;
+                        currentMatch.dateStr = formatMatchDate(d);
                     }
                     break;
                 }

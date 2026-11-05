@@ -50,6 +50,7 @@ Il proxy consente i CDN effettivi di Flashscore e TheSportsDB, applica CORS, tim
 
 | Problema osservato nel codice | Conseguenza | Correzione |
 |---|---|---|
+| Ora delle partite formattata nel fuso del server | In produzione l'orario differiva di un'ora dal locale, o due in estate | Formattazione esplicita `Europe/Rome`, con test inverno/estate |
 | Scelta dal menu dopo upload/ricerca | Lo stemma caricato continuava a prevalere | Azzeramento di `uploadedLogo` scegliendo il logo locale |
 | Import senza logo | Restava il logo della partita precedente | Reset esplicito e sorgente canvas opzionale |
 | Aggiornamenti asincroni completi | Marcatori o loghi potevano ripristinare punteggi già modificati | Aggiornamenti parziali in `useFullTimeState` |
@@ -137,7 +138,7 @@ Manca tuttora una policy di autenticazione e rate limit per le API onerose. I co
 
 ## 6. Verifiche eseguite
 
-- `npm test`: 27 test backend e 66 frontend, tutti passati nel ciclo registrato.
+- `npm test`: 29 test backend e 66 frontend, tutti passati nel ciclo registrato.
 - `CI=true npm run build`: compilazione riuscita, lint attivo, senza gli avvisi webpack precedenti.
 - Test backend con HTTP reale su porta effimera: validazione parametri, health e URL rifiutati prima di avviare scraping.
 - Test ricerca: chiave provider, filtro Soccer, catalogo esatto, fallimento e successivo retry.
@@ -203,5 +204,7 @@ Gli impegni sono qualitativi: vanno trasformati in stime dopo aver definito uten
 ## 10. Deploy e verifica operativa
 
 Il frontend viene pubblicato dal workflow GitHub Actions dopo test e build; Render distribuisce il backend dal `Dockerfile`. Il nuovo `/api/health-check` espone `revision` da `RENDER_GIT_COMMIT`: è il riferimento per verificare che il backend serva esattamente il commit richiesto.
+
+La prima installazione pulita Linux ha individuato un peer opzionale `yaml@2.9.1` assente dal lockfile generato con npm 11. Il lockfile è stato completato e verificato anche con `npm ci --dry-run` di npm 10, usato dal runtime Node 22 della pipeline.
 
 Prima di dichiarare concluso il rilascio vanno verificati: workflow Firebase riuscito, HTML pubblico della nuova build, revisione backend corretta, ricerca web reale e download dei loghi Flashscore. Il resoconto finale della sessione riporta l'esito effettivamente osservato, separando push e pubblicazione.
