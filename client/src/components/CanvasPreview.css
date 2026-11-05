@@ -1,0 +1,59 @@
+.editor-canvas-preview {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  width: 100%;
+  min-width: 0;
+  padding: 6px;
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
+.editor-canvas-frame {
+  position: relative;
+  flex: none;
+  box-sizing: content-box;
+  border: 2px solid white;
+  overflow: hidden;
+  line-height: 0;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.editor-canvas-frame .konvajs-content {
+  display: block;
+  margin: 0;
+  padding: 0;
+  touch-action: none;
+}
+
+.editor-canvas-frame canvas {
+  display: block;
+  margin: 0;
+  padding: 0;
+  max-width: none;
+}
+
+.editor-canvas-frame .canvas-download-btn {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(30, 30, 30, 0.6);
+  color: white;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 10;
+  padding: 0;
+  line-height: normal;
+  pointer-events: auto;
+}
+
+.editor-canvas-frame .canvas-download-btn:hover { background: rgba(30, 30, 30, 0.9); }
+.editor-canvas-frame .canvas-download-btn svg { width: 24px; height: 24px; }

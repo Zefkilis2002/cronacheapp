@@ -4,8 +4,8 @@ import StartingXIPoster, { FORMATS, MODES, getLayout, parseFormationLines, norma
 import { KIT_PATTERNS, DEFAULT_KIT, DEFAULT_GK_KIT, resolveKit, pickGkKit, accentFromKit } from './kitPresets';
 import { saveImage } from '../utils/saveImage';
 import { usePosterScale } from '../utils/usePosterScale';
-import { findTeamLogo } from '../utils/LogoConstants';
-import { requestJson, toCanvasUrl } from '../utils/apiClient';
+import { requestJson } from '../utils/apiClient';
+import { resolveTeamLogo } from '../utils/logoSearch';
 import './StartingXI.css';
 
 // Competizioni da cui la modalità automatica può pescare una partita.
@@ -38,20 +38,6 @@ const makeTeam = (name) => ({
 
 /** Toglie il suffisso nazione delle coppe europee: "Olympiakos (GRE)" → "OLYMPIAKOS". */
 const cleanTeamName = (name) => (name || '').replace(/\s*\([A-Za-z]{2,3}\)\s*$/, '').trim().toUpperCase();
-
-/**
- * Logo utilizzabile nel canvas: prima quello locale (istantaneo e senza CORS),
- * altrimenti quello Flashscore servito dal proxy, che aggiunge gli header CORS
- * necessari sia all'export sia all'estrazione dei colori dal logo.
- */
-const resolveLogo = (teamName, flashscoreLogo) => {
-    const local = findTeamLogo(cleanTeamName(teamName).toLowerCase());
-    if (local) return local;
-    if (flashscoreLogo) {
-        return toCanvasUrl(flashscoreLogo);
-    }
-    return null;
-};
 
 const StartingXI = () => {
     // --- Impostazioni grafica ---
@@ -148,7 +134,8 @@ const StartingXI = () => {
         const ordered = [imported[0], ...normalizeOutfieldOrder(formation, imported.slice(1))];
         ordered.forEach((p, i) => { if (p) players[i] = p; });
 
-        const logo = resolveLogo(src.name, src.logo);
+        const logo = await resolveTeamLogo(src.name, { sourceLogo: src.logo });
+        if (!isCurrent()) return;
         const kit = await resolveKit(src.name, logo);
         if (!isCurrent()) return;
         const gkKit = pickGkKit(kit);
@@ -203,10 +190,12 @@ const StartingXI = () => {
                 // nella card in alto: l'altra squadra serve solo per nome e logo.
                 const other = sideToImport === 'home' ? 'away' : 'home';
                 const otherSrc = data[other];
+                const otherLogo = await resolveTeamLogo(otherSrc.name, { sourceLogo: otherSrc.logo });
+                if (!isCurrent()) return;
                 setTeam(other)(prev => ({
                     ...prev,
                     name: cleanTeamName(otherSrc.name),
-                    logo: resolveLogo(otherSrc.name, otherSrc.logo),
+                    logo: otherLogo,
                 }));
                 setFocus(sideToImport);
             } else {

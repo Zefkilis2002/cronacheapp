@@ -42,7 +42,7 @@ Riferimento primario: [TheSportsDB, Free API quickstart](https://www.thesportsdb
 
 Il feed risultati contiene `OA` e `OB`, rispettivamente gli asset delle squadre di casa e ospite. Il parser precedente li scartava. Il client doveva quindi indovinare il logo dal nome o dipendere dalla ricerca web non funzionante. Se non trovava nulla, conservava gli stemmi della partita precedente.
 
-Ora il parser restituisce `homeLogo` e `awayLogo`, normalizza gli asset verso il CDN Flashscore e li conserva anche nell'elenco delle partite per le formazioni. Il client applica subito il logo locale esatto o quello del feed; la ricerca è un fallback per dati che non contengono lo stemma. In mancanza di un logo vengono rimossi quelli precedenti, evitando un'identità visiva errata.
+Il parser restituisce `homeLogo` e `awayLogo`, ma la verifica successiva della qualità ha rilevato che gli asset del feed sono miniature da 30 × 30 pixel e quelli della pagina partita spesso da 100 × 100. Il client usa quindi il catalogo locale ad alta risoluzione oppure cerca l'artwork originale; le miniature Flashscore non vengono accettate come logo definitivo. In mancanza di una sorgente adatta viene segnalato il logo mancante, senza conservare quello della partita precedente.
 
 Il proxy consente i CDN effettivi di Flashscore e TheSportsDB, applica CORS, timeout, verifica del tipo immagine e controllo dei redirect. Gli stemmi restano esportabili nel canvas.
 
@@ -90,7 +90,7 @@ Le ottimizzazioni riducono lavoro e round trip, senza basarsi sull'aumento indis
 3. Cache client limitata a 250 voci e con scadenza, condivisa fra ricerca, import e classifiche.
 4. Richieste concorrenti alla stessa risorsa condivise; un consumatore annullato non interrompe gli altri.
 5. Cache server con risposta immediata dei dati ancora utilizzabili e aggiornamento in background.
-6. Stemmi Flashscore ottenuti insieme al risultato, senza due ricerche aggiuntive.
+6. Stemmi locali in alta risoluzione senza rete; per squadre esterne, ricerca condivisa dell'artwork originale, evitando le miniature del feed.
 7. Competizioni principali restituite dal catalogo senza attendere la lista remota delle divisioni minori.
 8. Caricamento degli editor su richiesta: OCR, filtri e pagine non usate non devono essere scaricati all'avvio.
 9. Runtime MediaPipe e WASM serviti da Firebase insieme alla build, evitando divergenze con una versione CDN diversa.
@@ -138,7 +138,7 @@ Manca tuttora una policy di autenticazione e rate limit per le API onerose. I co
 
 ## 6. Verifiche eseguite
 
-- `npm test`: 29 test backend e 66 frontend, tutti passati nel ciclo registrato.
+- `npm test`: 32 test backend e 80 frontend dopo le correzioni successive di cornici e qualità, tutti passati.
 - `CI=true npm run build`: compilazione riuscita, lint attivo, senza gli avvisi webpack precedenti.
 - Test backend con HTTP reale su porta effimera: validazione parametri, health e URL rifiutati prima di avviare scraping.
 - Test ricerca: chiave provider, filtro Soccer, catalogo esatto, fallimento e successivo retry.
@@ -208,3 +208,30 @@ Il frontend viene pubblicato dal workflow GitHub Actions dopo test e build; Rend
 La prima installazione pulita Linux ha individuato un peer opzionale `yaml@2.9.1` assente dal lockfile generato con npm 11. Il lockfile è stato completato e verificato anche con `npm ci --dry-run` di npm 10, usato dal runtime Node 22 della pipeline.
 
 Prima di dichiarare concluso il rilascio vanno verificati: workflow Firebase riuscito, HTML pubblico della nuova build, revisione backend corretta, ricerca web reale e download dei loghi Flashscore. Il resoconto finale della sessione riporta l'esito effettivamente osservato, separando push e pubblicazione.
+
+## 11. Verifica successiva: cornici e qualità dei loghi
+
+La prima correzione dell'importazione era incompleta: conservava i loghi presenti nel feed, ma non ne verificava la risoluzione. Le immagini Flashscore provate misuravano 30 × 30 pixel; ingrandirle nell'export non può recuperarne i dettagli.
+
+Sono stati rimossi i tre fogli CSS dei canvas che modificavano globalmente `.konvajs-content`, `.canvas-wrapper` e, su mobile, imponevano `width: 100% !important`. FullTime impostava inoltre uno stage da 1440 × 1800 dentro una cornice molto più piccola: il contenuto era scalato, ma il viewport conservava dimensioni diverse. Il nuovo `useCanvasPreview` misura il contenitore, sottrae bordo e padding e assegna gli stessi valori al viewport Konva e alla cornice. Il disegno mantiene le coordinate originali e l'export le dimensioni originali.
+
+La stessa regola CSS, circoscritta a `.editor-canvas-frame`, è condivisa dai tre editor. Non forza dimensioni sui canvas di altre pagine. Il ridimensionamento usa `ResizeObserver`, compresi i cambi di contenitore che non generano un resize della finestra.
+
+Misurazioni DOM della build nel browser:
+
+| Caso | Canvas, pixel CSS | Cornice, pixel CSS | Distanza contenuto/bordo |
+|---|---|---|---|
+| FullTime desktop | 486,39 × 608 | 490,39 × 612 | 2 px per lato |
+| News desktop | 486,39 × 608 | 490,39 × 612 | 2 px per lato |
+| Classifica desktop | 486,39 × 608 | 490,39 × 612 | 2 px per lato |
+| FullTime mobile, viewport 390 | 327 × 408,75 | 331 × 412,75 | 2 px per lato |
+| News mobile, viewport 390 | 343 × 428,75 | 347 × 432,75 | 2 px per lato |
+| Classifica mobile, viewport 390 | 279 × 348,75 | 283 × 352,75 | 2 px per lato |
+
+Il rapporto resta 4:5 in tutti i casi. Il test di navigazione FullTime → News → Classifica → FullTime conserva le misure. Un download reale da mobile lascia identiche le dimensioni di canvas e cornice dopo il ripristino dell'anteprima.
+
+Per gli stemmi, la selezione e l'importazione usano gli asset originali senza suffissi `/tiny`, `/small` o `/medium`; anche gli URL già passati dal proxy vengono normalizzati. Le squadre greche conservano i file locali da 500–3000 pixel. Verificati con richieste reali e immagini caricate nel browser: Milan 512 × 512, Inter 512 × 512 e PSG 512 × 512. La sorgente corrente della Roma è 256 × 256: viene mantenuta la risoluzione originale disponibile, senza simulare dettagli tramite un ingrandimento artificiale.
+
+La ricerca riconosce nomi abbreviati e italiani presenti su Flashscore, come Milan, Inter, Dortmund, Betis e Manchester Utd. Il nome richiesto viene aggiunto agli alias solo se il risultato coincide con il nome canonico verificato. PSG usa il suo ID TheSportsDB verificato perché la ricerca gratuita per nome può ometterlo. Un risultato unico ma estraneo, come Intercity per Inter, non viene più accettato automaticamente.
+
+I nuovi test coprono il bordo nel calcolo delle dimensioni, i contenitori piccoli, il resize, la normalizzazione delle immagini originali, gli alias e il rifiuto delle miniature. Se un provider non offre un logo corrispondente in qualità adatta, l'interfaccia lo segnala invece di esportare uno stemma sbagliato o una miniatura da 30 pixel.

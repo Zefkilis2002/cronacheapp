@@ -1,11 +1,12 @@
 import { exportStage } from '../../../utils/exportStage';
-import React, { useEffect, memo } from 'react';
+import React, { memo } from 'react';
 import config from '../../../config';
 import { Stage, Layer, Image as KonvaImage, Text } from 'react-konva';
 import useImage from 'use-image';
 import { FULLTIME_LAYOUT } from '../../../config/layoutConstants';
 import { saveImage } from '../../../utils/saveImage';
-import './Canva.css';
+import '../../CanvasPreview.css';
+import { useCanvasPreview } from '../../../hooks/useCanvasPreview';
 
 const Canva = ({
   stageRef,
@@ -50,7 +51,7 @@ const Canva = ({
   const showCompetitionLogo = selectedTabellino === 'general.png' && compLogo;
 
   // 🔧 PINCH ZOOM LOGIC (IMAGE ONLY)
-  const wrapperRef = React.useRef(null);
+  const [previewRef, dimensions] = useCanvasPreview(FULLTIME_LAYOUT.STAGE.WIDTH, FULLTIME_LAYOUT.STAGE.HEIGHT);
   const lastDistRef = React.useRef(0);
   const lastCenterRef = React.useRef(null);
   const animationFrameRef = React.useRef(null);
@@ -202,72 +203,6 @@ const Canva = ({
     : null;
   const [instaImg, status] = useImage(proxyUrl, 'anonymous');
 
-  useEffect(() => {
-    const scaleCanvas = () => {
-      const stage = stageRef.current;
-      if (!stage) return;
-
-      const originalWidth = FULLTIME_LAYOUT.STAGE.WIDTH;
-      const originalHeight = FULLTIME_LAYOUT.STAGE.HEIGHT;
-
-      const containerWidth = window.innerWidth * 0.9;
-      const containerHeight = window.innerHeight * 0.9;
-
-      const scale = Math.min(
-        containerWidth / originalWidth,
-        containerHeight / originalHeight
-      );
-
-      stage.width(originalWidth);
-      stage.height(originalHeight);
-      stage.scale({ x: scale, y: scale });
-
-      const container = stage.container();
-      const scaledWidth = originalWidth * scale;
-      const scaledHeight = originalHeight * scale;
-
-      if (wrapperRef.current) {
-        wrapperRef.current.style.width = `${scaledWidth}px`;
-        wrapperRef.current.style.height = `${scaledHeight}px`;
-        wrapperRef.current.style.margin = '0 auto';
-        wrapperRef.current.style.position = 'relative';
-        wrapperRef.current.style.boxSizing = 'content-box';
-        wrapperRef.current.style.border = '2px solid white';
-      }
-
-      if (container) {
-        container.style.width = `${scaledWidth}px`;
-        container.style.height = `${scaledHeight}px`;
-        container.style.margin = '0 auto';
-        container.style.position = 'absolute';
-        container.style.top = '0';
-        container.style.left = '0';
-        container.style.touchAction = 'none'; // Importante per disabilitare zoom browser
-        container.style.userSelect = 'none';
-        container.style.webkitUserSelect = 'none';
-      }
-
-      stage.batchDraw();
-    };
-
-    scaleCanvas();
-
-    let resizeTimeout;
-    const handleResize = () => {
-      clearTimeout(resizeTimeout);
-      resizeTimeout = setTimeout(scaleCanvas, 100);
-    };
-
-    window.addEventListener('resize', handleResize);
-    window.addEventListener('orientationchange', handleResize);
-
-    return () => {
-      window.removeEventListener('resize', handleResize);
-      window.removeEventListener('orientationchange', handleResize);
-      clearTimeout(resizeTimeout);
-    };
-  }, [stageRef]);
-
   const getScaledDimensions = (image, maxWidth, maxHeight) => {
     if (!image) return { width: 0, height: 0 };
     const { width, height } = image;
@@ -306,8 +241,8 @@ const Canva = ({
   };
 
   return (
-    <div className="canvas-container">
-      <div ref={wrapperRef} className="canvas-wrapper">
+    <div className="editor-canvas-preview" ref={previewRef}>
+      <div className="editor-canvas-frame" style={{ width: dimensions.width, height: dimensions.height }}>
         <button 
           className="canvas-download-btn"
           onClick={handleDownload}
@@ -321,8 +256,10 @@ const Canva = ({
         </button>
         <Stage
           ref={stageRef}
-          width={FULLTIME_LAYOUT.STAGE.WIDTH}
-          height={FULLTIME_LAYOUT.STAGE.HEIGHT}
+          width={dimensions.width}
+          height={dimensions.height}
+          scaleX={dimensions.scale}
+          scaleY={dimensions.scale}
         >
         <Layer clipX={0} clipY={0} clipWidth={FULLTIME_LAYOUT.STAGE.WIDTH} clipHeight={FULLTIME_LAYOUT.STAGE.HEIGHT}>
           {uploadedImg && (

@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import './FlashscoreImport.css';
 import { findTeamLogo } from '../../../utils/LogoConstants';
 import { resolveTeamLogo } from '../../../utils/logoSearch';
-import { requestJson, toCanvasUrl } from '../../../utils/apiClient';
+import { requestJson } from '../../../utils/apiClient';
 
 const COMPETITIONS = [
     { label: 'Grecia - Super League', country: 'grecia', league: 'super-league', tabellino: 'superleague.png' },
@@ -66,9 +66,10 @@ const FlashscoreImport = ({ onMatchSelect, flashscoreData, setFlashscoreData }) 
         setLoadingDetails(true);
         setError('');
 
-        // The feed already carries both badges. No extra logo search is needed.
-        const homeLogo = findTeamLogo(match.homeTeam) || toCanvasUrl(match.homeLogo);
-        const awayLogo = findTeamLogo(match.awayTeam) || toCanvasUrl(match.awayLogo);
+        // Catalog badges are print-sized; feed thumbnails must be replaced
+        // with original artwork before entering the canvas.
+        const homeLogo = findTeamLogo(match.homeTeam);
+        const awayLogo = findTeamLogo(match.awayTeam);
         onMatchSelect({
             homeScore: Number(match.homeScore) || 0,
             awayScore: Number(match.awayScore) || 0,
@@ -80,14 +81,15 @@ const FlashscoreImport = ({ onMatchSelect, flashscoreData, setFlashscoreData }) 
         });
 
         const logoTask = Promise.all([
-            homeLogo || resolveTeamLogo(match.homeTeam, { signal: controller.signal }),
-            awayLogo || resolveTeamLogo(match.awayTeam, { signal: controller.signal }),
+            homeLogo || resolveTeamLogo(match.homeTeam, { sourceLogo: match.homeLogo, signal: controller.signal }),
+            awayLogo || resolveTeamLogo(match.awayTeam, { sourceLogo: match.awayLogo, signal: controller.signal }),
         ]).then(([home, away]) => {
             if (!isCurrent()) return;
             const patch = {};
             if (!homeLogo && home) patch.homeLogo = home;
             if (!awayLogo && away) patch.awayLogo = away;
             if (Object.keys(patch).length) onMatchSelect(patch);
+            if (!home || !away) setError('Un logo non è disponibile in alta risoluzione. Sceglilo con Cerca Web o caricalo dalla scheda della squadra.');
         });
 
         const detailsTask = (async () => {
@@ -150,7 +152,7 @@ const FlashscoreImport = ({ onMatchSelect, flashscoreData, setFlashscoreData }) 
             {loadingDetails && (
                 <div className="flashscore-loading">
                     <div className="flashscore-loading-bar"></div>
-                    <p>⚽ Caricamento marcatori in corso...</p>
+                    <p>Caricamento marcatori e loghi in alta risoluzione...</p>
                 </div>
             )}
 

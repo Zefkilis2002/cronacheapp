@@ -44,3 +44,12 @@ test('canvas URLs preserve local images and avoid double proxying', () => {
   expect(toCanvasUrl(proxy)).toBe(proxy);
   expect(toCanvasUrl('javascript:alert(1)')).toBeNull();
 });
+test('selecting a web logo removes provider thumbnail sizing', () => {
+  expect(decodeURIComponent(toCanvasUrl('https://r2.thesportsdb.com/images/media/team/badge/roma.png/tiny'))).not.toContain('/tiny');
+});
+test('an existing proxy URL is upgraded to original artwork without nesting', () => {
+  const proxy = `${config.API_BASE_URL}/proxy-image?url=${encodeURIComponent('https://r2.thesportsdb.com/roma.png/small')}`;
+  const selected = toCanvasUrl(proxy);
+  expect(decodeURIComponent(selected)).not.toContain('/small');
+  expect(selected.match(/proxy-image/g)).toHaveLength(1);
+});

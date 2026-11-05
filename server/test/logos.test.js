@@ -30,6 +30,39 @@ test('provider failure is not cached as no results', async t => {
   await assert.rejects(service.search('Roma'));
   assert.equal((await service.search('Roma')).data.results[0].name, 'Roma');
 });
+test('common short names resolve the actual club rather than youth or unrelated teams', async t => {
+  const queries = [];
+  const service = createLogoSearch({ localTeams: [], request: async (url, options) => {
+    queries.push(options.params.t);
+    return { data: { teams: [{ strTeam: 'Inter Milan', strTeamAlternate: 'Inter, Internazionale', strSport: 'Soccer', strBadge: badge }] } };
+  } });
+  t.after(service.close);
+  const result = await service.search('Inter');
+  await service.search('Milan');
+  assert.deepEqual(queries, ['Inter Milan', 'AC Milan']);
+  assert.deepEqual(result.data.results[0].aliases, ['Inter', 'Internazionale']);
+});
+test('Italian Flashscore names retain a verified alias for the original artwork', async t => {
+  let query;
+  const service = createLogoSearch({ localTeams: [], request: async (url, options) => {
+    query = options.params.t;
+    return { data: { teams: [{ strTeam: 'Borussia Dortmund', strSport: 'Soccer', strBadge: badge }] } };
+  } });
+  t.after(service.close);
+  assert.deepEqual((await service.search('Dortmund')).data.results[0].aliases, ['Dortmund']);
+  assert.equal(query, 'Borussia Dortmund');
+});
+test('PSG uses its verified team ID when free name search omits it', async t => {
+  let requestOptions;
+  const service = createLogoSearch({ localTeams: [], request: async (url, options) => {
+    requestOptions = { url, ...options };
+    return { data: { teams: [{ strTeam: 'Paris Saint-Germain', strTeamAlternate: 'PSG, Paris SG', strSport: 'Soccer', strBadge: badge }] } };
+  } });
+  t.after(service.close);
+  assert.equal((await service.search('PSG')).data.results[0].name, 'Paris Saint-Germain');
+  assert.match(requestOptions.url, /\/lookupteam\.php$/);
+  assert.deepEqual(requestOptions.params, { id: '133714' });
+});
 for (const url of [badge, 'https://static.flashscore.com/res/image/data/team.png', 'https://livesport-ott-images.ssl.cdn.cra.cz/team.png']) {
   test(`proxy permits known badge CDN: ${new URL(url).hostname}`, () => assert.equal(validateRemoteUrl(url).valid, true));
 }

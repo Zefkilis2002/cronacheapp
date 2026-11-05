@@ -1,5 +1,6 @@
 import { findTeamLogo, normalizeTeamName } from './LogoConstants';
 import { getCachedJson, requestJson, toCanvasUrl } from './apiClient';
+import { originalLogoUrl, isFlashscoreThumbnail } from './logoImage';
 
 export const cleanTeamName = name => String(name || '').replace(/\s*\([A-Za-z]{2,3}\)\s*$/, '').trim();
 const pathFor = (query, mode = 'team') => `/api/${mode === 'competition' ? 'search-competitions' : 'search-logos'}?q=${encodeURIComponent(cleanTeamName(query).toLowerCase())}`;
@@ -11,15 +12,19 @@ export const searchLogos = (query, { mode = 'team', signal } = {}) =>
 export async function resolveTeamLogo(name, { sourceLogo, signal } = {}) {
   const local = findTeamLogo(name);
   if (local) return local;
-  if (sourceLogo) return toCanvasUrl(sourceLogo);
+  // Flashscore result badges are 30px thumbnails, participant badges only
+  // 100px. Resolve original artwork before accepting either in an export.
+  const source = originalLogoUrl(sourceLogo);
+  if (source && !isFlashscoreThumbnail(source)) return toCanvasUrl(source);
   const query = cleanTeamName(name);
   if (query.length < 2) return null;
   try {
     const data = await searchLogos(query, { signal });
     const wanted = normalizeTeamName(query);
-    const exact = (data.results || []).find(team => normalizeTeamName(team.name) === wanted);
-    const best = exact || (data.results?.length === 1 ? data.results[0] : null);
-    return toCanvasUrl(best?.logoUrl || best?.logo_url);
+    const best = (data.results || []).find(team =>
+      [team.name, ...(team.aliases || [])].some(alias => normalizeTeamName(alias) === wanted)
+    );
+    return toCanvasUrl(originalLogoUrl(best?.logoUrl || best?.logo_url));
   } catch {
     return null;
   }

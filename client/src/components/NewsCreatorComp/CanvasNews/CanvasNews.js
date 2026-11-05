@@ -3,7 +3,8 @@ import { Stage, Layer, Image as KonvaImage, Text, Group, Rect } from 'react-konv
 import Konva from 'konva';
 import useImage from 'use-image';
 import { NEWS_LAYOUT } from '../../../config/layoutConstants';
-import './CanvasNews.css';
+import '../../CanvasPreview.css';
+import { useCanvasPreview } from '../../../hooks/useCanvasPreview';
 
 const cacheNodeSafely = (node, image) => {
   if (!node || !image || !image.width || !image.height) return;
@@ -331,8 +332,7 @@ function CanvasNews({
   setSourcePosition = () => {},
   isInterviewStyle = false
 }) {
-  const containerRef = useRef(null);
-  const [dimensions, setDimensions] = useState({ width: 0, height: 0, scale: 1 });
+  const [containerRef, dimensions] = useCanvasPreview(ORIGINAL_WIDTH, ORIGINAL_HEIGHT);
 
   // cosa stai controllando con la tastiera: 'title' | 'text' | 'source' | null
   const [selectedText, setSelectedText] = useState(null);
@@ -374,60 +374,6 @@ function CanvasNews({
     const m = ctx.measureText(t || '');
     return m.width || 0;
   };
-
-  const calculateDimensions = useCallback(() => {
-    if (!containerRef.current) return;
-
-    const containerWidth = containerRef.current.clientWidth;
-    const maxHeight = window.innerHeight * 0.8;
-    let scale = Math.min(containerWidth / ORIGINAL_WIDTH, maxHeight / ORIGINAL_HEIGHT);
-    scale = Math.max(0.2, Math.min(scale, 1));
-    const scaledWidth = ORIGINAL_WIDTH * scale;
-    const scaledHeight = ORIGINAL_HEIGHT * scale;
-    
-    setDimensions({
-      width: scaledWidth,
-      height: scaledHeight,
-      scale: scale
-    });
-  }, []);
-
-  // useEffect per il calcolo iniziale e il resize - versione sicura per mobile
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      calculateDimensions();
-    }, 100);
-    
-    let resizeTimeout;
-    const handleResize = () => {
-      clearTimeout(resizeTimeout);
-      resizeTimeout = setTimeout(() => {
-        calculateDimensions();
-      }, 150);
-    };
-    window.addEventListener('resize', handleResize);
-    window.addEventListener('orientationchange', handleResize);
-    return () => {
-      clearTimeout(timer);
-      clearTimeout(resizeTimeout);
-      window.removeEventListener('resize', handleResize);
-      window.removeEventListener('orientationchange', handleResize);
-    };
-  }, [containerRef, calculateDimensions]);
-
-  useEffect(() => {
-    if (stageRef.current && dimensions.scale > 0) {
-      requestAnimationFrame(() => {
-        if (stageRef.current) {
-          // Usa le dimensioni calcolate (scalate) per il canvas viewport
-          stageRef.current.width(dimensions.width);
-          stageRef.current.height(dimensions.height);
-          stageRef.current.scale({ x: dimensions.scale, y: dimensions.scale });
-          stageRef.current.batchDraw();
-        }
-      });
-    }
-  }, [dimensions, stageRef]);
 
   // Gestione tastiera
   const handleKeyDown = (e) => {
@@ -589,35 +535,12 @@ function CanvasNews({
   };
 
   return (
-    <div className="canvas-container" ref={containerRef}>
+    <div className="editor-canvas-preview" ref={containerRef}>
       <div 
-        className="canvas-wrapper"
+        className="editor-canvas-frame"
         tabIndex={0}
         onKeyDown={handleKeyDown}
-        style={{
-          width: `${dimensions.width}px`,
-          height: `${dimensions.height}px`,
-          outline: 'none',
-          maxWidth: '100%',
-          overflow: 'hidden',
-          position: 'relative',
-          margin: '0 auto',
-          // 🔧 OTTIMIZZAZIONI MOBILE SPECIFICHE
-          touchAction: 'none', // IMPORTANTE: Disabilita pan/zoom browser
-          WebkitTapHighlightColor: 'transparent',
-          transform: 'translateZ(0)',
-          backfaceVisibility: 'hidden',
-          willChange: 'transform',
-          userSelect: 'none',
-          WebkitUserSelect: 'none',
-          WebkitTouchCallout: 'none',
-          WebkitTextSizeAdjust: '100%',
-          // 🔧 STABILIZZAZIONE LAYOUT
-          minWidth: '200px',
-          minHeight: '250px',
-          boxSizing: 'content-box',
-          border: '2px solid white',
-        }}
+        style={{ width: dimensions.width, height: dimensions.height, outline: 'none' }}
       >
         {downloadImage && (
           <button 
@@ -638,28 +561,13 @@ function CanvasNews({
         )}
         <Stage 
           ref={stageRef} 
-          width={ORIGINAL_WIDTH}
-          height={ORIGINAL_HEIGHT}
+          width={dimensions.width}
+          height={dimensions.height}
+          scaleX={dimensions.scale}
+          scaleY={dimensions.scale}
           className="canvas-stage"
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
-          style={{
-            maxWidth: '100%',
-            height: 'auto',
-            display: 'block',
-            position: 'absolute',
-            left: '0',
-            top: '0',
-            transformOrigin: 'top left',
-            // 🔧 OTTIMIZZAZIONI RENDERING
-            transform: 'translate3d(0,0,0)',
-            WebkitTransform: 'translate3d(0,0,0)',
-            WebkitTextSizeAdjust: '100%',
-            touchAction: 'none',
-            // 🔧 STABILIZZAZIONE DIMENSIONI
-            width: '100%',
-            objectFit: 'contain',
-          }}
         >
           <Layer>
             {/* Renderizza le immagini caricate dall'utente */}

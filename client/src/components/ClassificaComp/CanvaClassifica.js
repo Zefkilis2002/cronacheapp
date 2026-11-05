@@ -5,7 +5,8 @@ import DatiClassifica from './DatiClassifica';
 import DatiClassificaCoppa from './DatiClassificaCoppa';
 import { COPPA_GEO } from './classificaVariants';
 import { CLASSIFICA_LAYOUT } from '../../config/layoutConstants';
-import './CanvaClassifica.css';
+import '../CanvasPreview.css';
+import { useCanvasPreview } from '../../hooks/useCanvasPreview';
 
 const STAGE_W = CLASSIFICA_LAYOUT.STAGE.WIDTH;
 const STAGE_H = CLASSIFICA_LAYOUT.STAGE.HEIGHT;
@@ -73,7 +74,6 @@ const HeaderLogos = ({ stageRef, variant }) => {
   );
 };
 
-const BORDER = 3; // bordo bianco esterno attorno al canva
 
 const CanvaClassifica = ({
   stageRef,
@@ -190,77 +190,11 @@ const CanvaClassifica = ({
     lastCenterRef.current = null;
   };
 
-  useEffect(() => {
-    const scaleCanvas = () => {
-      const stage = stageRef.current;
-      if (!stage) return;
-
-      // Misura il contenitore ESTERNO (non il wrapper col bordo, che si
-      // adatta al canva stesso), sottraendo padding e spessore del bordo.
-      const outer = stage.container()?.closest('.canvas-classifica-container');
-      let containerWidth = 0;
-      if (outer) {
-        const outerStyle = window.getComputedStyle(outer);
-        containerWidth = outer.clientWidth
-          - parseFloat(outerStyle.paddingLeft)
-          - parseFloat(outerStyle.paddingRight);
-      }
-      if (!containerWidth || containerWidth <= 0) {
-        containerWidth = window.innerWidth * 0.95;
-      }
-      containerWidth -= 2 * BORDER;
-      const containerHeight = window.innerHeight * 0.95 - 2 * BORDER;
-
-      const scale = Math.min(containerWidth / STAGE_W, containerHeight / STAGE_H);
-      const scaledWidth = STAGE_W * scale;
-      const scaledHeight = STAGE_H * scale;
-
-      stage.width(scaledWidth);
-      stage.height(scaledHeight);
-      stage.scale({ x: scale, y: scale });
-
-      const container = stage.container();
-      if (container) {
-        container.style.width = `${scaledWidth}px`;
-        container.style.height = `${scaledHeight}px`;
-        container.style.margin = '0 auto';
-        container.style.position = 'relative';
-        container.style.touchAction = 'none';
-        container.style.userSelect = 'none';
-        container.style.webkitUserSelect = 'none';
-      }
-      stage.batchDraw();
-    };
-
-    scaleCanvas();
-
-    let resizeTimeout;
-    const handleResize = () => {
-      clearTimeout(resizeTimeout);
-      resizeTimeout = setTimeout(scaleCanvas, 100);
-    };
-
-    window.addEventListener('resize', handleResize);
-    window.addEventListener('orientationchange', handleResize);
-
-    let resizeObserver;
-    const outer = stageRef.current?.container()?.closest('.canvas-classifica-container');
-    if (outer && typeof ResizeObserver !== 'undefined') {
-      resizeObserver = new ResizeObserver(handleResize);
-      resizeObserver.observe(outer);
-    }
-
-    return () => {
-      window.removeEventListener('resize', handleResize);
-      window.removeEventListener('orientationchange', handleResize);
-      clearTimeout(resizeTimeout);
-      if (resizeObserver) resizeObserver.disconnect();
-    };
-  }, [stageRef]);
+  const [previewRef, dimensions] = useCanvasPreview(STAGE_W, STAGE_H);
 
   return (
-    <div className="canvas-classifica-container">
-      <div className="canvas-classifica-wrapper">
+    <div className="editor-canvas-preview" ref={previewRef}>
+      <div className="editor-canvas-frame" style={{ width: dimensions.width, height: dimensions.height }}>
         <button
           className="canvas-download-btn"
           onClick={onDownload}
@@ -273,7 +207,7 @@ const CanvaClassifica = ({
             <line x1="12" y1="15" x2="12" y2="3"></line>
           </svg>
         </button>
-        <Stage ref={stageRef} width={STAGE_W} height={STAGE_H}>
+        <Stage ref={stageRef} width={dimensions.width} height={dimensions.height} scaleX={dimensions.scale} scaleY={dimensions.scale}>
         <Layer clipX={0} clipY={0} clipWidth={STAGE_W} clipHeight={STAGE_H}>
           {/* Sfondo scuro base */}
           <Rect x={0} y={0} width={STAGE_W} height={STAGE_H} fill={CLASSIFICA_LAYOUT.BG_FILL} />

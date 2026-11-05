@@ -1,4 +1,5 @@
 import config from '../config';
+import { originalLogoUrl } from './logoImage';
 
 const entries = new Map();
 const pending = new Map();
@@ -61,8 +62,13 @@ export function toCanvasUrl(value) {
     const url = new URL(value, window.location.origin);
     if (!['https:', 'http:'].includes(url.protocol)) return null;
     const api = new URL(config.API_BASE_URL);
-    if (url.origin === api.origin && url.pathname === '/proxy-image') return url.href;
-    return `${config.API_BASE_URL}/proxy-image?url=${encodeURIComponent(url.href)}`;
+    if (url.origin === api.origin && url.pathname === '/proxy-image') {
+      const source = url.searchParams.get('url');
+      const original = originalLogoUrl(source);
+      if (source && original !== source) url.searchParams.set('url', original);
+      return url.href;
+    }
+    return `${config.API_BASE_URL}/proxy-image?url=${encodeURIComponent(originalLogoUrl(url.href))}`;
   } catch {
     return null;
   }
