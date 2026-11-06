@@ -3,6 +3,7 @@ import * as htmlToImage from 'html-to-image';
 import SquadPoster from './SquadPoster';
 import { saveImage } from '../utils/saveImage';
 import { usePosterScale } from '../utils/usePosterScale';
+import { toCanvasUrl } from '../utils/apiClient';
 import './SquadList.css';
 
 // Dimensioni fisse di design del poster: il rendering è sempre a questa
@@ -21,6 +22,13 @@ const SECTION_DEFS = [
 ];
 
 const MAX_PLAYERS_PER_SECTION = 12;
+
+// Fornitori di stemmi accettati dal proxy (server/lib/remoteUrl.js).
+// Gli altri host restano URL diretti, ad esempio un'immagine Wikimedia.
+const PROXIED_LOGO_DOMAINS = [
+    'thesportsdb.com', 'flashscore.com', 'flashscore.it', 'flashscore.ninja',
+    'diretta.it', 'livesport.com', 'livesport-ott-images.ssl.cdn.cra.cz'
+];
 
 // Rosa di esempio (la grafica di riferimento) così l'anteprima è subito piena
 const DEFAULT_SQUAD = {
@@ -93,6 +101,29 @@ const resolveSectionValue = (obj, canonicalKey) => {
     return foundKey !== undefined ? obj[foundKey] : undefined;
 };
 
+// Un logo per calciatore: accetta il campo storico e i nomi più comuni
+// nei JSON esterni. Gli URL dei fornitori supportati usano il proxy dell'app,
+// così lo stemma è disponibile anche nell'immagine scaricata.
+const parsePlayerLogo = (player) => {
+    const logo = [
+        player.logo, player.teamLogo, player.logoUrl, player.teamLogoUrl,
+        player.logo_url, player.team_logo, player.team_logo_url
+    ].find(value => typeof value === 'string' && value.trim());
+    if (!logo) return null;
+    const src = logo.trim();
+    if (/^(https?:)?\/\//i.test(src)) {
+        try {
+            const { hostname } = new URL(src, window.location.origin);
+            if (PROXIED_LOGO_DOMAINS.some(domain => hostname === domain || hostname.endsWith(`.${domain}`))) {
+                return toCanvasUrl(src);
+            }
+        } catch {
+            return null;
+        }
+    }
+    return src;
+};
+
 // Un reparto può essere una lista di stringhe ("NOME") o di oggetti
 // ({ name, stars, logo }); qui lo normalizziamo in giocatori validi
 const parseSectionPlayers = (arr) => {
@@ -104,7 +135,7 @@ const parseSectionPlayers = (arr) => {
         return makePlayer({
             name: name.toUpperCase(),
             stars: clampStars(item.stars),
-            logo: typeof item.logo === 'string' ? item.logo : null
+            logo: parsePlayerLogo(item)
         });
     });
 };
@@ -169,22 +200,15 @@ const SquadList = () => {
             });
         }
 
-        let totalPlayers = 0;
         if (data.sections && typeof data.sections === 'object') {
-            setSections(prev => {
-                const next = { ...prev };
-                SECTION_DEFS.forEach(def => {
-                    const raw = resolveSectionValue(data.sections, def.key);
-                    if (raw !== undefined) {
-                        const players = parseSectionPlayers(raw);
-                        totalPlayers += players.length;
-                        next[def.key] = players;
-                    } else {
-                        totalPlayers += next[def.key].length;
-                    }
-                });
-                return next;
+            const importedSections = {};
+            SECTION_DEFS.forEach(def => {
+                const raw = resolveSectionValue(data.sections, def.key);
+                if (raw !== undefined) importedSections[def.key] = parseSectionPlayers(raw);
             });
+            const totalPlayers = SECTION_DEFS.reduce((total, def) =>
+                total + (importedSections[def.key] || sections[def.key]).length, 0);
+            setSections(prev => ({ ...prev, ...importedSections }));
             setJsonMessage({ type: 'ok', text: `Grafica compilata dal JSON (${totalPlayers} giocatori).` });
         } else {
             setJsonMessage({ type: 'ok', text: 'Impostazioni compilate dal JSON (nessun reparto "sections" trovato).' });
@@ -220,7 +244,7 @@ const SquadList = () => {
                 acc[def.key] = sections[def.key].map(p => ({
                     name: p.name,
                     stars: p.stars,
-                    ...(p.logo ? { logo: p.logo } : {})
+                    logo: p.logo || ''
                 }));
                 return acc;
             }, {})
@@ -284,6 +308,8 @@ const SquadList = () => {
                 // darkColor, altrimenti il bordo esce sempre nero nell'export
                 backgroundColor: darkColor,
                 cacheBust: true,
+                // I loghi remoti condividono il proxy, ma hanno query diverse.
+                includeQueryParams: true,
                 style: {
                     margin: '0',
                     borderRadius: '0'
@@ -384,8 +410,12 @@ const SquadList = () => {
                     <div className="mb-6 bg-gray-800 p-4 rounded-xl shadow-inner border border-gray-700">
                         <h2 className="text-xs uppercase tracking-widest text-gray-400 font-bold mb-3 border-b border-gray-700 pb-2">Importa da JSON</h2>
                         <p className="text-[11px] text-gray-400 mb-3 leading-relaxed">
-                            Carica un file <code className="text-emerald-400">.json</code> per compilare in automatico titolo, colori, nomi reparti e giocatori (con stelle e logo). Scarica il modello per vedere il formato corretto.
+                            Carica un file <code className="text-emerald-400">.json</code> per compilare in automatico titolo, colori, nomi reparti e giocatori (con stelle e logo squadra). Scarica il modello per vedere il formato corretto.
                         </p>
+                        <p className="text-[11px] text-gray-400 mb-2 leading-relaxed">
+                            Per ogni calciatore, inserisci in <code className="text-emerald-400">logo</code> l'URL dell'immagine, un percorso dell'app o un'immagine Base64. Sono accettati anche <code>teamLogo</code>, <code>logoUrl</code> e <code>teamLogoUrl</code>. Lascia vuoto per non mostrare il logo.
+                        </p>
+                        <pre className="text-[10px] text-emerald-400 bg-gray-900 p-2 rounded mb-3 overflow-x-auto">{'{ "name": "NOME COGNOME", "stars": 3,\n  "logo": "/loghi/SuperLeague/paok.png" }'}</pre>
                         <div className="flex items-center gap-2 flex-wrap">
                             <label htmlFor="squadJsonUpload" className="file-upload-label">
                                 <i className="fa-solid fa-file-import mr-1.5" />

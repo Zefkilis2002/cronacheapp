@@ -36,6 +36,25 @@ npm run build
 
 `prebuild` e `prestart` copiano il runtime MediaPipe installato in `client/public/vendor/mediapipe/`. Non modificare o committare questa cartella generata.
 
+## Loghi dei calciatori in Grafiche → Squad
+
+Nel JSON importato, ogni calciatore può avere un proprio logo squadra nel campo `logo`:
+
+```json
+{
+  "sections": {
+    "gk": [{ "name": "NOME PORTIERE", "stars": 3, "logo": "/loghi/SuperLeague/paok.png" }],
+    "def": [{ "name": "NOME DIFENSORE", "stars": 4, "logo": "https://example.com/logo-club.png" }],
+    "mid": [],
+    "att": []
+  }
+}
+```
+
+Sono supportati URL HTTP/HTTPS, percorsi delle immagini dell'app e immagini incorporate come `data:image/...;base64,...`. Un percorso sul computer non carica il file: usare il pulsante **Logo Club** per incorporarlo, poi **Scarica template** per salvarlo nel JSON. Il campo vuoto o assente lascia il calciatore senza logo. Sono accettati anche `teamLogo`, `logoUrl`, `teamLogoUrl` e le varianti `team_logo`, `logo_url`, `team_logo_url`; `logo` ha precedenza se non vuoto. Il template scaricato include sempre il campo `logo` per ogni calciatore.
+
+I loghi dei fornitori supportati, come TheSportsDB e Flashscore, passano dal proxy immagini dell'app. Per gli altri URL il server dell'immagine deve consentire l'accesso CORS per l'esportazione della grafica; in alternativa incorporare il logo come Base64 tramite **Logo Club**.
+
 ## Pubblicazione
 
 Il push su `main` avvia test, build con lint e deploy Firebase tramite GitHub Actions. Render deve avere l'auto-deploy attivo sullo stesso branch; l'immagine viene costruita dal `Dockerfile` nella radice. Per identificare il codice del backend leggere `revision` in `/api/health-check` e confrontarlo con il commit GitHub.
