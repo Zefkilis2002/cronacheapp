@@ -63,10 +63,10 @@ test('PSG uses its verified team ID when free name search omits it', async t => 
   assert.match(requestOptions.url, /\/lookupteam\.php$/);
   assert.deepEqual(requestOptions.params, { id: '133714' });
 });
-for (const url of [badge, 'https://static.flashscore.com/res/image/data/team.png', 'https://livesport-ott-images.ssl.cdn.cra.cz/team.png']) {
+for (const url of [badge, 'https://static.flashscore.com/res/image/data/team.png', 'https://livesport-ott-images.ssl.cdn.cra.cz/team.png', 'https://images.fotmob.com/image_resources/logo/teamlogo/8563.png']) {
   test(`proxy permits known badge CDN: ${new URL(url).hostname}`, () => assert.equal(validateRemoteUrl(url).valid, true));
 }
-for (const url of ['http://127.0.0.1/', 'file://thesportsdb.com/etc/passwd', 'https://thesportsdb.com.evil.test/a', 'https://user:pass@thesportsdb.com/a', 'https://thesportsdb.com:8080/a']) {
+for (const url of ['http://127.0.0.1/', 'file://thesportsdb.com/etc/passwd', 'https://thesportsdb.com.evil.test/a', 'https://user:pass@thesportsdb.com/a', 'https://thesportsdb.com:8080/a', 'https://images.fotmob.com.evil.test/a', 'https://images.fotmob.com@127.0.0.1/a', 'https://fotmob.com/a']) {
   test(`proxy rejects unsafe URL: ${url}`, () => assert.equal(validateRemoteUrl(url).valid, false));
 }
 test('redirects to a private destination are rejected', () => {

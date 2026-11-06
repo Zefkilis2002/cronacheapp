@@ -2,7 +2,7 @@ const IMAGE_DOMAINS = [
   'instagram.com', 'cdninstagram.com', 'fbcdn.net',
   'flashscore.com', 'flashscore.it', 'flashscore.ninja',
   'diretta.it', 'livesport.com', 'livesport-ott-images.ssl.cdn.cra.cz',
-  'thesportsdb.com',
+  'thesportsdb.com', 'images.fotmob.com',
 ];
 
 function validateRemoteUrl(value, domains = IMAGE_DOMAINS) {

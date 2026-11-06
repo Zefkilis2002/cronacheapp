@@ -36,7 +36,8 @@ const waitForExport = (task) => new Promise((resolve, reject) => {
 // Gli altri host restano URL diretti, ad esempio un'immagine Wikimedia.
 const PROXIED_LOGO_DOMAINS = [
     'thesportsdb.com', 'flashscore.com', 'flashscore.it', 'flashscore.ninja',
-    'diretta.it', 'livesport.com', 'livesport-ott-images.ssl.cdn.cra.cz'
+    'diretta.it', 'livesport.com', 'livesport-ott-images.ssl.cdn.cra.cz',
+    'images.fotmob.com'
 ];
 
 // Rosa di esempio (la grafica di riferimento) così l'anteprima è subito piena

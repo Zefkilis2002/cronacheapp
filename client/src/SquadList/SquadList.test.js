@@ -115,6 +115,24 @@ test('image export keeps distinct proxy URLs for each player logo', async () => 
     expect(htmlToImage.getFontEmbedCSS).toHaveBeenCalledTimes(1);
 });
 
+test('FotMob logos in an uploaded JSON use the image proxy for export', async () => {
+    const { container } = render(<SquadList />);
+    const rotaLogo = 'https://images.fotmob.com/image_resources/logo/teamlogo/8563.png';
+    const mandasLogo = 'https://images.fotmob.com/image_resources/logo/teamlogo/8543.png';
+    await uploadSquad({
+        gk: [{ name: 'MANDAS', stars: 3, logo: mandasLogo }],
+        def: [{ name: 'ROTA', stars: 2, logo: rotaLogo }],
+        mid: [], att: []
+    });
+    expect(posterLogos(container)).toEqual([
+        `https://api.example.test/proxy-image?url=${encodeURIComponent(mandasLogo)}`,
+        `https://api.example.test/proxy-image?url=${encodeURIComponent(rotaLogo)}`
+    ]);
+    fireEvent.click(screen.getAllByRole('button', { name: 'Download' })[0]);
+    await waitFor(() => expect(saveImage).toHaveBeenCalledTimes(1));
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+});
+
 test('shows preparation until the file is saved and prevents duplicate exports', async () => {
     render(<SquadList />);
     let finishSave;
