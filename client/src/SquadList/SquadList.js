@@ -577,7 +577,7 @@ const SquadList = () => {
                                                         />
                                                         {player.logo && (
                                                             <>
-                                                                <img src={player.logo} alt="" style={{ height: 24, width: 24, borderRadius: 4, objectFit: 'cover' }} />
+                                                                <img src={player.logo} alt="" style={{ height: 24, width: 24, objectFit: 'contain' }} />
                                                                 <button
                                                                     onClick={() => updatePlayer(def.key, index, { logo: null })}
                                                                     className="text-red-400 hover:text-red-300 text-xs border border-red-900/50 bg-red-900/20 px-2 py-1 rounded"
