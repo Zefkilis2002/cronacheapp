@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import * as htmlToImage from 'html-to-image';
 import SquadPoster from './SquadPoster';
 import { saveImage } from '../utils/saveImage';
@@ -22,6 +22,15 @@ const SECTION_DEFS = [
 ];
 
 const MAX_PLAYERS_PER_SECTION = 12;
+
+// Una risorsa irraggiungibile non deve lasciare il pulsante bloccato.
+const waitForExport = (task) => new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('La preparazione sta impiegando troppo tempo. Controlla la connessione e riprova.')), 30000);
+    Promise.resolve(task).then(
+        value => { clearTimeout(timer); resolve(value); },
+        error => { clearTimeout(timer); reject(error); }
+    );
+});
 
 // Fornitori di stemmi accettati dal proxy (server/lib/remoteUrl.js).
 // Gli altri host restano URL diretti, ad esempio un'immagine Wikimedia.
@@ -165,6 +174,9 @@ const SquadList = () => {
 
     // Esito dell'ultimo import JSON (messaggio verde/rosso sotto il pulsante)
     const [jsonMessage, setJsonMessage] = useState(null);
+    const [exporting, setExporting] = useState(false);
+    const [exportMessage, setExportMessage] = useState(null);
+    const exportLock = useRef(false);
 
     // Scala del poster: riempie la larghezza disponibile senza mai superare
     // la dimensione di design (1 = desktop)
@@ -291,10 +303,14 @@ const SquadList = () => {
 
     const exportImage = async () => {
         const container = document.getElementById('squadExportContainer');
-        if (!container) return;
+        if (!container || exportLock.current) return;
 
+        exportLock.current = true;
+        setExporting(true);
+        setExportMessage(null);
+        const controller = new AbortController();
         try {
-            await document.fonts.ready;
+            await waitForExport(document.fonts?.ready);
 
             // offsetWidth/Height ignorano il transform scale dell'anteprima:
             // l'export è sempre alla risoluzione di design piena
@@ -310,22 +326,40 @@ const SquadList = () => {
                 cacheBust: true,
                 // I loghi remoti condividono il proxy, ma hanno query diverse.
                 includeQueryParams: true,
+                fetchRequestInit: { signal: controller.signal },
+                onImageErrorHandler: (event) => {
+                    const label = event.target?.alt || 'un logo';
+                    throw new Error(`Impossibile includere ${label}. Carica l'immagine dal computer e riprova.`);
+                },
                 style: {
                     margin: '0',
                     borderRadius: '0'
                 }
             };
 
+            // I font si incorporano una sola volta: le tre passate riusano lo
+            // stesso CSS, senza riscaricare e riprocessare i fogli esterni.
+            options.fontEmbedCSS = await waitForExport(htmlToImage.getFontEmbedCSS(container, options));
+
             // html-to-image spesso "salta" immagini/font alla prima passata:
             // passate di riscaldamento, teniamo l'ultima
-            await htmlToImage.toJpeg(container, options);
-            await htmlToImage.toJpeg(container, options);
-            const dataUrl = await htmlToImage.toJpeg(container, options);
+            await waitForExport(htmlToImage.toJpeg(container, options));
+            await waitForExport(htmlToImage.toJpeg(container, options));
+            const dataUrl = await waitForExport(htmlToImage.toJpeg(container, options));
 
             const safeName = title.replace(/[^a-z0-9]/gi, '_').toLowerCase() || 'squad';
             await saveImage(dataUrl, `squad_${safeName}.jpg`);
+            setExportMessage({ type: 'ok', text: 'Immagine pronta: download avviato.' });
         } catch (err) {
             console.error('Errore esportazione con html-to-image', err);
+            setExportMessage({
+                type: 'error',
+                text: err?.message || "Impossibile preparare la grafica. Controlla i loghi caricati e riprova."
+            });
+        } finally {
+            controller.abort();
+            exportLock.current = false;
+            setExporting(false);
         }
     };
 
@@ -372,10 +406,22 @@ const SquadList = () => {
             <h1 className={`${compact ? 'text-lg' : 'text-xl'} font-bold text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-green-500 font-[Bebas Neue] tracking-wider`}>
                 SQUAD CREATOR
             </h1>
-            <button onClick={exportImage} className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded font-bold shadow transition-all text-sm flex items-center">
-                <i className="fa-solid fa-download mr-2" />
-                Download
-            </button>
+            <div className="flex flex-col items-end gap-1">
+                <button
+                    onClick={exportImage}
+                    disabled={exporting}
+                    aria-busy={exporting}
+                    className="bg-emerald-600 hover:bg-emerald-500 disabled:opacity-70 disabled:cursor-wait text-white px-4 py-2 rounded font-bold shadow transition-all text-sm flex items-center"
+                >
+                    <i aria-hidden="true" className={`fa-solid ${exporting ? 'fa-spinner fa-spin' : 'fa-download'} mr-2`} />
+                    {exporting ? 'Preparazione…' : 'Download'}
+                </button>
+                {exportMessage && (
+                    <p role={exportMessage.type === 'error' ? 'alert' : 'status'} className={`text-[10px] text-right max-w-[230px] ${exportMessage.type === 'error' ? 'text-red-300' : 'text-emerald-300'}`}>
+                        {exportMessage.text}
+                    </p>
+                )}
+            </div>
         </>
     );
 

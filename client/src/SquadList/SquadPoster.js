@@ -158,7 +158,7 @@ const SquadPoster = ({
                             <Stars count={player.stars} size={starSize} />
                             {player.logo && (
                                 <div className="sqp-row-logo">
-                                    <img src={player.logo} alt="" draggable={false} />
+                                    <img src={player.logo} alt={`logo squadra di ${player.name || 'calciatore'}`} draggable={false} />
                                 </div>
                             )}
                         </div>

@@ -1,12 +1,12 @@
 import React, { StrictMode } from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import * as htmlToImage from 'html-to-image';
 import SquadList from './SquadList';
 import { saveImage } from '../utils/saveImage';
 
 jest.mock('../config', () => ({ API_BASE_URL: 'https://api.example.test' }));
 jest.mock('../utils/usePosterScale', () => ({ usePosterScale: () => [null, 0.6] }));
-jest.mock('html-to-image', () => ({ toJpeg: jest.fn() }));
+jest.mock('html-to-image', () => ({ toJpeg: jest.fn(), getFontEmbedCSS: jest.fn() }));
 jest.mock('../utils/saveImage', () => ({ saveImage: jest.fn() }));
 
 const uploadSquad = async (sections) => {
@@ -25,7 +25,14 @@ const readJsonBlob = (blob) => new Promise((resolve, reject) => {
     reader.readAsText(blob);
 });
 
+beforeEach(() => {
+    htmlToImage.toJpeg.mockReset().mockResolvedValue('data:image/jpeg;base64,export');
+    htmlToImage.getFontEmbedCSS.mockReset().mockResolvedValue('/* embedded fonts */');
+    Object.defineProperty(document, 'fonts', { configurable: true, value: { ready: Promise.resolve() } });
+});
+
 afterEach(() => {
+    jest.useRealTimers();
     jest.restoreAllMocks();
     jest.clearAllMocks();
 });
@@ -103,6 +110,59 @@ test('image export keeps distinct proxy URLs for each player logo', async () => 
     await waitFor(() => expect(saveImage).toHaveBeenCalled());
     expect(htmlToImage.toJpeg).toHaveBeenCalledWith(
         document.getElementById('squadExportContainer'),
-        expect.objectContaining({ includeQueryParams: true })
+        expect.objectContaining({ includeQueryParams: true, fontEmbedCSS: '/* embedded fonts */' })
     );
+    expect(htmlToImage.getFontEmbedCSS).toHaveBeenCalledTimes(1);
+});
+
+test('shows preparation until the file is saved and prevents duplicate exports', async () => {
+    render(<SquadList />);
+    let finishSave;
+    saveImage.mockImplementationOnce(() => new Promise(resolve => { finishSave = resolve; }));
+    const buttons = screen.getAllByRole('button', { name: 'Download' });
+    fireEvent.click(buttons[0]);
+    fireEvent.click(buttons[1]);
+    expect(screen.getAllByRole('button', { name: 'Preparazione…' })).toHaveLength(2);
+    buttons.forEach(button => expect(button).toBeDisabled());
+    await waitFor(() => expect(saveImage).toHaveBeenCalledTimes(1));
+    expect(htmlToImage.getFontEmbedCSS).toHaveBeenCalledTimes(1);
+    expect(htmlToImage.toJpeg).toHaveBeenCalledTimes(3);
+    await act(async () => finishSave());
+    expect(screen.getAllByRole('button', { name: 'Download' })[0]).toBeEnabled();
+    expect(screen.getAllByRole('status')[0]).toHaveTextContent('download avviato');
+});
+
+test('reports an export failure and allows retrying the download', async () => {
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+    htmlToImage.toJpeg.mockRejectedValueOnce(new Error('Logo non disponibile'));
+    render(<SquadList />);
+    fireEvent.click(screen.getAllByRole('button', { name: 'Download' })[0]);
+    expect((await screen.findAllByRole('alert'))[0]).toHaveTextContent('Logo non disponibile');
+    expect(saveImage).not.toHaveBeenCalled();
+    fireEvent.click(screen.getAllByRole('button', { name: 'Download' })[0]);
+    await waitFor(() => expect(saveImage).toHaveBeenCalledTimes(1));
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+});
+
+test('an image that cannot be exported identifies the player instead of failing silently', async () => {
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+    htmlToImage.toJpeg.mockImplementationOnce(async (node, options) => {
+        options.onImageErrorHandler({ target: { alt: 'logo squadra di PRIMO CALCIATORE' } });
+    });
+    render(<SquadList />);
+    fireEvent.click(screen.getAllByRole('button', { name: 'Download' })[0]);
+    expect((await screen.findAllByRole('alert'))[0]).toHaveTextContent("Impossibile includere logo squadra di PRIMO CALCIATORE. Carica l'immagine dal computer");
+    expect(saveImage).not.toHaveBeenCalled();
+});
+
+test('a stalled font load times out and unlocks the download button', async () => {
+    jest.useFakeTimers();
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+    Object.defineProperty(document, 'fonts', { configurable: true, value: { ready: new Promise(() => {}) } });
+    render(<SquadList />);
+    fireEvent.click(screen.getAllByRole('button', { name: 'Download' })[0]);
+    await act(async () => { jest.advanceTimersByTime(30000); });
+    expect(screen.getAllByRole('alert')[0]).toHaveTextContent('troppo tempo');
+    expect(screen.getAllByRole('button', { name: 'Download' })[0]).toBeEnabled();
+    expect(saveImage).not.toHaveBeenCalled();
 });
